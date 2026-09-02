@@ -5,5 +5,6 @@ object SaxTrainerDestination {
     const val HOME = "home"
     const val METRONOME = "metronome"
     const val LONG_TONES = "longtones"
+    const val FINGERING = "fingering"
     const val SETTINGS = "settings"
 }

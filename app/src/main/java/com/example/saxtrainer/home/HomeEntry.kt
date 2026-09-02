@@ -35,6 +35,14 @@ val practiceEntries: List<HomeEntry> = listOf(
         route = SaxTrainerDestination.LONG_TONES,
         status = "Uses microphone",
     ),
+    HomeEntry(
+        id = "fingering",
+        title = "Fingering Trainer",
+        description = "Learn which keys to press for each written note.",
+        icon = IconSource.Drawable(R.drawable.ic_fingering),
+        route = SaxTrainerDestination.FINGERING,
+        status = "No microphone needed",
+    ),
 )
 
 val appEntries: List<HomeEntry> = listOf(

@@ -20,6 +20,7 @@ import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.settings.Instrument
+import com.example.saxtrainer.core.settings.NoteDisplay
 
 /**
  * Global settings. Sections are independent, so a future setting (tuning reference, appearance,
@@ -29,6 +30,7 @@ import com.example.saxtrainer.core.settings.Instrument
 fun SettingsScreen(
     state: SettingsUiState,
     onInstrumentSelected: (Instrument) -> Unit,
+    onNoteDisplaySelected: (NoteDisplay) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -60,6 +62,33 @@ fun SettingsScreen(
                 }
             }
             Spacer(Modifier.height(Dimens.spaceLg))
+
+            SectionHeader("Note display")
+            Text(
+                text = "How notes are shown by default. Each tool can be set differently while " +
+                    "you practise.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(Dimens.spaceSm))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ),
+            ) {
+                Column(modifier = Modifier.padding(Dimens.cardPadding)) {
+                    state.noteDisplays.forEach { display ->
+                        SelectableRow(
+                            title = display.displayName,
+                            supportingText = display.description,
+                            selected = display == state.settings.noteDisplay,
+                            onClick = { onNoteDisplaySelected(display) },
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(Dimens.spaceLg))
         }
     }
 }
@@ -71,6 +100,7 @@ private fun SettingsScreenPreview() {
         SettingsScreen(
             state = SettingsUiState(),
             onInstrumentSelected = {},
+            onNoteDisplaySelected = {},
             onBack = {},
         )
     }

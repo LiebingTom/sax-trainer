@@ -41,6 +41,7 @@ dependencies {
     implementation(project(":core:settings"))
     implementation(project(":core:music"))
     implementation(project(":feature:metronome"))
+    implementation(project(":feature:fingering"))
     implementation(project(":feature:longtones"))
     implementation(project(":feature:settings"))
     implementation(platform(libs.androidx.compose.bom))

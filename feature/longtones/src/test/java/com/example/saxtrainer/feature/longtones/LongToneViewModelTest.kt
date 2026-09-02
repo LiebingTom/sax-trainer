@@ -5,9 +5,15 @@ import com.example.saxtrainer.core.audio.capture.AudioCaptureConfig
 import com.example.saxtrainer.core.audio.capture.AudioCaptureError
 import com.example.saxtrainer.core.audio.capture.AudioCaptureEvent
 import com.example.saxtrainer.core.audio.capture.AudioFrame
+import com.example.saxtrainer.core.exercise.SequenceCatalog
+import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.Instrument
+import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
+import com.example.saxtrainer.core.settings.TrainingTool
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -34,6 +40,7 @@ class LongToneViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val config = LongToneConfig()
     private val frameDurationMs = 1_000L * config.capture.hopSize / config.capture.sampleRate
+    private val countInMs = 4_000L // one bar of 4/4 at the default 60 BPM
 
     @Before
     fun setUp() {
@@ -50,6 +57,16 @@ class LongToneViewModelTest {
         override val settings: StateFlow<AppSettings> = state
         override fun setInstrument(instrument: Instrument) {
             state.value = state.value.copy(instrument = instrument)
+        }
+
+        override fun setNoteDisplay(noteDisplay: NoteDisplay) {
+            state.value = state.value.copy(noteDisplay = noteDisplay)
+        }
+
+        override fun setNoteDisplayFor(tool: TrainingTool, noteDisplay: NoteDisplay) {
+            state.value = state.value.copy(
+                noteDisplayOverrides = state.value.noteDisplayOverrides + (tool to noteDisplay),
+            )
         }
     }
 
@@ -91,69 +108,150 @@ class LongToneViewModelTest {
         }
     }
 
-    private fun viewModel(capture: AudioCapture) = LongToneViewModel(
+    private fun viewModel(
+        capture: AudioCapture,
+        settings: SettingsRepository = FakeSettingsRepository(),
+    ) = LongToneViewModel(
         audioCapture = capture,
-        settingsRepository = FakeSettingsRepository(),
+        settingsRepository = settings,
         config = config,
         processingDispatcher = dispatcher,
     )
 
+    private fun finishedResult(viewModel: LongToneViewModel): LongToneResult {
+        val phase = viewModel.uiState.value.phase
+        assertTrue("phase was $phase", phase is LongTonePhase.Finished)
+        return (phase as LongTonePhase.Finished).result
+    }
+
     @Test
-    fun `exercise completes after the target duration of audio and releases the microphone`() =
+    fun `the default exercise is a single held note`() = runTest(dispatcher) {
+        val state = viewModel(FakeAudioCapture(frameDurationMs)).uiState.value
+
+        assertEquals(SequenceCatalog.singleNote, state.selection.pattern)
+        assertEquals(Note(NoteName.A, 4), state.selection.rootNote)
+        assertEquals(Beats.of(5), state.selection.beatsPerNote)
+        assertEquals(5f, state.selection.secondsPerNote, 1e-3f)
+    }
+
+    @Test
+    fun `a single note exercise completes after its musical length in audio time`() =
         runTest(dispatcher) {
             val capture = FakeAudioCapture(frameDurationMs)
             val viewModel = viewModel(capture)
-            viewModel.selectDuration(8)
 
             viewModel.start()
             advanceUntilIdle()
 
-            val phase = viewModel.uiState.value.phase
-            assertTrue("phase was $phase", phase is LongTonePhase.Finished)
-            val result = (phase as LongTonePhase.Finished).result
+            val result = finishedResult(viewModel)
             assertTrue(result.completed)
-            assertEquals(8, result.targetSeconds)
-            assertTrue("held ${result.heldSeconds} s", result.heldSeconds >= 8f)
-            // Audio time must not overshoot the target by more than one frame.
+            assertEquals(1, result.steps.size)
+            assertEquals(Note(NoteName.A, 4), result.steps.single().note)
+            assertTrue("held ${result.heldSeconds} s", result.heldSeconds >= 5f)
+            // One frame of overshoot at most.
             val frameSeconds = config.capture.frameSize.toFloat() / config.capture.sampleRate
-            assertTrue("held ${result.heldSeconds} s", result.heldSeconds < 8f + frameSeconds)
+            assertTrue("held ${result.heldSeconds} s", result.heldSeconds < 5f + frameSeconds)
             assertTrue("capture was not released", capture.released)
         }
 
     @Test
-    fun `silence still counts towards the attempt but not towards sounding time`() =
-        runTest(dispatcher) {
-            val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
-            viewModel.selectDuration(8)
+    fun `a multi note exercise walks every note of the pattern in order`() = runTest(dispatcher) {
+        val capture = FakeAudioCapture(frameDurationMs)
+        val viewModel = viewModel(capture)
+        viewModel.selectPattern(SequenceCatalog.ascendingThirds)
 
-            viewModel.start()
-            advanceUntilIdle()
+        viewModel.start()
+        advanceUntilIdle()
 
-            val result = (viewModel.uiState.value.phase as LongTonePhase.Finished).result
-            assertTrue(result.completed)
-            assertEquals(0f, result.soundingSeconds, 0f)
-            assertEquals(0f, result.steadyFraction, 0f)
-        }
+        val result = finishedResult(viewModel)
+        assertTrue(result.completed)
+        assertEquals(
+            SequenceCatalog.ascendingThirds.notesFrom(Note(NoteName.A, 4)),
+            result.steps.map { it.note },
+        )
+        assertTrue(result.steps.all { it.completed })
+        // Six notes of four beats at 60 BPM.
+        assertEquals(24f, result.targetSeconds, 1e-3f)
+        assertTrue("played ${result.heldSeconds} s", result.heldSeconds >= 24f)
+        assertTrue("capture was not released", capture.released)
+    }
 
     @Test
-    fun `stopping early keeps the partial attempt and releases the microphone`() =
+    fun `each note lasts its own musical length`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
+        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+
+        viewModel.start()
+        advanceUntilIdle()
+
+        val frameSeconds = config.capture.frameSize.toFloat() / config.capture.sampleRate
+        finishedResult(viewModel).steps.forEach { step ->
+            assertEquals(Beats.of(4), step.targetBeats)
+            assertTrue("note held ${step.heldSeconds} s", step.heldSeconds >= 4f)
+            assertTrue("note held ${step.heldSeconds} s", step.heldSeconds < 4f + frameSeconds)
+        }
+    }
+
+    @Test
+    fun `tempo decides how long a note lasts`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
+        viewModel.selectPattern(SequenceCatalog.singleNote)
+        viewModel.setTempo(120)
+
+        viewModel.start()
+        advanceUntilIdle()
+
+        // Five beats at 120 BPM is 2.5 seconds.
+        val result = finishedResult(viewModel)
+        assertTrue("held ${result.heldSeconds} s", result.heldSeconds >= 2.5f)
+        assertTrue("held ${result.heldSeconds} s", result.heldSeconds < 3f)
+    }
+
+    @Test
+    fun `progress reports the position and what comes next`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
+        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+
+        viewModel.start()
+        advanceTimeBy(countInMs + 1_000L)
+
+        val progress = viewModel.uiState.value.progress!!
+        assertEquals(0, progress.noteIndex)
+        assertEquals(1, progress.displayPosition)
+        assertEquals(4, progress.noteCount)
+        assertEquals(Note(NoteName.A, 4), progress.currentNote)
+        assertEquals(listOf(Note(NoteName.B, 4)), progress.upcomingNotes)
+        assertEquals(4f, progress.noteTargetSeconds, 1e-3f)
+
+        // Into the second note: the cursor has moved on.
+        advanceTimeBy(4_500L)
+        val later = viewModel.uiState.value.progress!!
+        assertEquals(1, later.noteIndex)
+        assertEquals(Note(NoteName.B, 4), later.currentNote)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `stopping early keeps the notes played so far including the unfinished one`() =
         runTest(dispatcher) {
             val capture = FakeAudioCapture(frameDurationMs)
             val viewModel = viewModel(capture)
-            viewModel.selectDuration(30)
+            viewModel.selectPattern(SequenceCatalog.ascendingThirds)
 
             viewModel.start()
-            advanceTimeBy(config.countdownSeconds * 1_000L + 3_000L)
+            advanceTimeBy(countInMs + 10_000L) // two notes of four beats done, into the third
             assertTrue(viewModel.uiState.value.phase is LongTonePhase.Running)
 
             viewModel.stop()
             advanceUntilIdle()
 
-            val phase = viewModel.uiState.value.phase
-            assertTrue("phase was $phase", phase is LongTonePhase.Finished)
-            val result = (phase as LongTonePhase.Finished).result
-            assertFalse("stopped attempt must not be marked complete", result.completed)
-            assertTrue("held ${result.heldSeconds} s", result.heldSeconds > 2.5f)
+            val result = finishedResult(viewModel)
+            assertFalse("a stopped exercise is not complete", result.completed)
+            assertEquals(2, result.steps.count { it.completed })
+            assertEquals(3, result.steps.size)
+            assertFalse(result.steps.last().completed)
             assertTrue("capture was not released", capture.released)
         }
 
@@ -179,7 +277,7 @@ class LongToneViewModelTest {
         }
 
     @Test
-    fun `cancelling during the countdown returns to idle`() = runTest(dispatcher) {
+    fun `cancelling during the count-in returns to idle`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
 
         viewModel.start()
@@ -189,6 +287,19 @@ class LongToneViewModelTest {
         advanceUntilIdle()
 
         assertEquals(LongTonePhase.Idle, viewModel.uiState.value.phase)
+    }
+
+    @Test
+    fun `the count-in lasts one bar at the chosen tempo`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
+        viewModel.setTempo(120)
+
+        viewModel.start()
+        // Four beats at 120 BPM is two seconds.
+        assertEquals(LongTonePhase.Countdown(2), viewModel.uiState.value.phase)
+
+        viewModel.stop()
+        advanceUntilIdle()
     }
 
     @Test
@@ -203,34 +314,106 @@ class LongToneViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(LongTonePhase.Idle, state.phase)
-        assertEquals(0f, state.elapsedSeconds, 0f)
         assertEquals(LongToneMeasurements(), state.measurements)
+        assertEquals(null, state.progress)
     }
 
     @Test
     fun `the exercise ends when the capture flow ends on its own`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs, maxFrames = 3))
-        viewModel.selectDuration(30)
 
         viewModel.start()
         advanceUntilIdle()
 
-        val phase = viewModel.uiState.value.phase
-        assertTrue("phase was $phase", phase is LongTonePhase.Finished)
-        assertFalse((phase as LongTonePhase.Finished).result.completed)
+        assertFalse(finishedResult(viewModel).completed)
     }
 
     @Test
-    fun `note and duration cannot be changed while an attempt is running`() = runTest(dispatcher) {
+    fun `the exercise cannot be changed while it is running`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
-        viewModel.selectDuration(8)
+        viewModel.selectPattern(SequenceCatalog.fifth)
 
         viewModel.start()
-        advanceTimeBy(config.countdownSeconds * 1_000L + 1_000L)
-        viewModel.selectDuration(30)
+        advanceTimeBy(countInMs + 1_000L)
 
-        assertEquals(8, viewModel.uiState.value.targetDurationSeconds)
+        viewModel.selectPattern(SequenceCatalog.repeat)
+        viewModel.selectRootNote(Note(NoteName.C, 4))
+        viewModel.selectBeatsPerNote(Beats.of(8))
+        viewModel.setTempo(200)
+
+        val selection = viewModel.uiState.value.selection
+        assertEquals(SequenceCatalog.fifth, selection.pattern)
+        assertEquals(Note(NoteName.A, 4), selection.rootNote)
+        assertEquals(Beats.of(4), selection.beatsPerNote)
+        assertEquals(60, selection.tempo.bpm)
+
         viewModel.stop()
         advanceUntilIdle()
+    }
+
+    @Test
+    fun `choosing an exercise adopts its natural note length`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
+
+        viewModel.selectPattern(SequenceCatalog.repeat)
+        assertEquals(Beats.of(4), viewModel.uiState.value.selection.beatsPerNote)
+
+        viewModel.selectPattern(SequenceCatalog.singleNote)
+        assertEquals(Beats.of(5), viewModel.uiState.value.selection.beatsPerNote)
+
+        // An explicit choice still wins.
+        viewModel.selectBeatsPerNote(Beats.of(8))
+        assertEquals(Beats.of(8), viewModel.uiState.value.selection.beatsPerNote)
+    }
+
+    @Test
+    fun `tempo stays inside the supported range`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
+
+        viewModel.setTempo(1_000)
+        assertEquals(config.tempoRange.last, viewModel.uiState.value.selection.tempo.bpm)
+
+        viewModel.setTempo(1)
+        assertEquals(config.tempoRange.first, viewModel.uiState.value.selection.tempo.bpm)
+    }
+
+    @Test
+    fun `silence still counts towards the exercise but not towards sounding time`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
+
+            viewModel.start()
+            advanceUntilIdle()
+
+            val result = finishedResult(viewModel)
+            assertTrue(result.completed)
+            assertEquals(0f, result.soundingSeconds, 0f)
+            assertEquals(0f, result.steadyFraction, 0f)
+            assertEquals(null, result.averagePitchCents)
+        }
+
+    @Test
+    fun `the shared default decides how notes are shown`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        settings.setNoteDisplay(NoteDisplay.STAFF)
+
+        val state = viewModel(FakeAudioCapture(frameDurationMs), settings).uiState.value
+        assertEquals(NoteDisplay.STAFF, state.noteDisplay)
+    }
+
+    @Test
+    fun `this tool can be set differently without touching the default`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs), settings)
+
+        viewModel.selectNoteDisplay(NoteDisplay.NAME)
+        advanceUntilIdle()
+
+        assertEquals(NoteDisplay.NAME, viewModel.uiState.value.noteDisplay)
+        assertEquals(NoteDisplay.BOTH, settings.settings.value.noteDisplay)
+        assertEquals(
+            NoteDisplay.BOTH,
+            settings.settings.value.noteDisplayFor(TrainingTool.FINGERING),
+        )
     }
 }

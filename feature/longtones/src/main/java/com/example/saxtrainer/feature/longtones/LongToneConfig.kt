@@ -1,9 +1,14 @@
 package com.example.saxtrainer.feature.longtones
 
 import com.example.saxtrainer.core.audio.capture.AudioCaptureConfig
+import com.example.saxtrainer.core.dsp.pitch.YinConfig
 import com.example.saxtrainer.core.dsp.spectrum.SpectrumConfig
+import com.example.saxtrainer.core.exercise.ExercisePattern
+import com.example.saxtrainer.core.exercise.SequenceCatalog
+import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.Tempo
 
 /**
  * Tuning knobs of the exercise. Signal thresholds and update rates live here rather than in the UI
@@ -12,9 +17,12 @@ import com.example.saxtrainer.core.music.NoteName
 data class LongToneConfig(
     val capture: AudioCaptureConfig = AudioCaptureConfig(),
     val spectrum: SpectrumConfig = SpectrumConfig(),
-    val durationsSeconds: List<Int> = listOf(8, 15, 30),
-    val defaultDurationSeconds: Int = 15,
-    val countdownSeconds: Int = 3,
+    /** Note lengths offered in the UI, in beats. */
+    val beatOptions: List<Int> = listOf(2, 4, 5, 8),
+    val defaultTempo: Tempo = Tempo(60),
+    val tempoRange: IntRange = Tempo.SUPPORTED_RANGE,
+    /** Bars of count-in before the first note. */
+    val countInBars: Int = 1,
     /** Level above which the app considers a note to be sounding. */
     val gateOpenDbfs: Float = -42f,
     val gateCloseDbfs: Float = -48f,
@@ -26,7 +34,19 @@ data class LongToneConfig(
     val displayBands: Int = 96,
     /** UI refresh interval, about 25 updates per second. */
     val uiUpdateIntervalMs: Long = 40,
+    /** Pitch estimation settings; the range covers the sounding range of the common saxophones. */
+    val yin: YinConfig = YinConfig(minFrequencyHz = 60f, maxFrequencyHz = 1_500f),
+    /** Estimates below this confidence are discarded rather than shown or averaged. */
+    val minPitchConfidence: Float = 0.75f,
+    /** Beyond this deviation the player is treated as playing a different note, not as out of tune. */
+    val offTargetCents: Float = 100f,
+    /** Half width of the cents meter. */
+    val centsDisplayRange: Float = 50f,
+    /** Range offered as a starting note; the exercise itself may reach above it. */
     val lowestNote: Note = Note(NoteName.C, 3),
     val highestNote: Note = Note(NoteName.C, 5),
-    val defaultNote: Note = Note(NoteName.G, 3),
-)
+    val defaultRoot: Note = SequenceCatalog.defaultRoot,
+    val defaultPattern: ExercisePattern = SequenceCatalog.singleNote,
+) {
+    val beatChoices: List<Beats> get() = beatOptions.map(Beats::of)
+}

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.Instrument
+import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.stateIn
 data class SettingsUiState(
     val settings: AppSettings = AppSettings(),
     val instruments: List<Instrument> = Instrument.entries,
+    val noteDisplays: List<NoteDisplay> = NoteDisplay.entries,
 )
 
 class SettingsViewModel(
@@ -29,6 +31,10 @@ class SettingsViewModel(
 
     fun selectInstrument(instrument: Instrument) {
         settingsRepository.setInstrument(instrument)
+    }
+
+    fun selectNoteDisplay(noteDisplay: NoteDisplay) {
+        settingsRepository.setNoteDisplay(noteDisplay)
     }
 
     private companion object {

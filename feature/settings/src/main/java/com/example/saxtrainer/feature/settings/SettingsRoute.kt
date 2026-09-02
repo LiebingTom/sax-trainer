@@ -20,6 +20,7 @@ fun SettingsRoute(
     SettingsScreen(
         state = state,
         onInstrumentSelected = viewModel::selectInstrument,
+        onNoteDisplaySelected = viewModel::selectNoteDisplay,
         onBack = onBack,
         modifier = modifier,
     )

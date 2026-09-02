@@ -5,8 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.capture.AudioCaptureError
 import com.example.saxtrainer.core.audio.capture.AudioCaptureEvent
+import com.example.saxtrainer.core.exercise.ExercisePattern
+import com.example.saxtrainer.core.exercise.SequenceCatalog
+import com.example.saxtrainer.core.exercise.SequenceRunner
+import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.Tempo
+import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
+import com.example.saxtrainer.core.settings.TrainingTool
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -18,19 +25,22 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
- * Drives the long tone exercise: countdown, recording, live feedback and result.
+ * Drives a long tone exercise: count-in, recording, live feedback and result.
  *
  * Audio is captured and analysed on a background dispatcher; only a small immutable snapshot reaches
  * Compose, at most every [LongToneConfig.uiUpdateIntervalMs], never per audio frame. All signal
  * processing lives in [LongToneProcessor] and `core:dsp` - this class only coordinates.
  *
  * Timing is audio time (samples / sample rate) taken from the captured frames, so neither the
- * displayed duration nor the completion point depends on scheduling or processing latency.
+ * displayed duration nor the point at which a note ends depends on scheduling or processing latency.
+ * Musical time only enters as a conversion: a note lasts its beats at the chosen tempo.
  *
- * Pitch is not validated yet: the target note is training metadata. Adding detection later means
- * extending [LongToneProcessor] and the completion check in [collectFrames], not this class's shape.
+ * The [SequenceRunner] is a passive cursor - this class decides when a note is over. Pitch is
+ * measured and reported but decides nothing: making a note advance only once it is played correctly
+ * is a change to [noteFinished] alone.
  */
 class LongToneViewModel(
     private val audioCapture: AudioCapture,
@@ -60,40 +70,49 @@ class LongToneViewModel(
                 _uiState.value = _uiState.value.copy(
                     transposition = settings.instrument.transposition,
                     instrumentName = settings.instrument.displayName,
+                    noteDisplay = settings.noteDisplayFor(TrainingTool.LONG_TONES),
                 )
             }
         }
     }
 
-    fun selectNote(note: Note) {
-        if (_uiState.value.isBusy) return
-        _uiState.value = _uiState.value.copy(targetNote = note)
+    fun selectPattern(pattern: ExercisePattern) = updateSelection {
+        // Each exercise brings its own natural note length; the player can still override it.
+        it.copy(pattern = pattern, beatsPerNote = pattern.defaultBeatsPerNote)
     }
 
-    fun selectDuration(seconds: Int) {
-        if (_uiState.value.isBusy) return
-        _uiState.value = _uiState.value.copy(targetDurationSeconds = seconds)
+    fun selectRootNote(note: Note) = updateSelection { it.copy(rootNote = note) }
+
+    /** Changes how this tool shows notes; the shared default is left alone. */
+    fun selectNoteDisplay(noteDisplay: NoteDisplay) {
+        settingsRepository.setNoteDisplayFor(TrainingTool.LONG_TONES, noteDisplay)
     }
 
-    /** Starts countdown and recording. The caller must have obtained microphone permission. */
+    fun selectBeatsPerNote(beats: Beats) = updateSelection { it.copy(beatsPerNote = beats) }
+
+    fun setTempo(bpm: Int) = updateSelection {
+        it.copy(tempo = Tempo(bpm.coerceIn(config.tempoRange.first, config.tempoRange.last)))
+    }
+
+    /** Starts the count-in and recording. The caller must have obtained microphone permission. */
     fun start() {
         if (exerciseJob?.isActive == true) return
         _uiState.value = _uiState.value.copy(
-            phase = LongTonePhase.Countdown(config.countdownSeconds),
-            elapsedSeconds = 0f,
+            phase = LongTonePhase.Countdown(countInSeconds()),
+            progress = null,
             measurements = LongToneMeasurements(),
         )
         exerciseJob = viewModelScope.launch(processingDispatcher) { runExercise() }
     }
 
     /**
-     * Ends the attempt early and keeps what was achieved. Cancelling the job also cancels the
+     * Ends the exercise early and keeps what was achieved. Cancelling the job also cancels the
      * capture flow, which releases the recorder in its own `finally` block.
      */
     fun stop() {
         val job = exerciseJob
         exerciseJob = null
-        // A countdown carries no audio, so it is resolved here: cancelling it may happen before the
+        // A count-in carries no audio, so it is resolved here: cancelling it may happen before the
         // exercise coroutine has even started, in which case nothing else would update the state.
         if (_uiState.value.phase is LongTonePhase.Countdown) {
             _uiState.value = _uiState.value.copy(phase = LongTonePhase.Idle)
@@ -106,7 +125,7 @@ class LongToneViewModel(
         stop()
         _uiState.value = _uiState.value.copy(
             phase = LongTonePhase.Idle,
-            elapsedSeconds = 0f,
+            progress = null,
             measurements = LongToneMeasurements(),
         )
     }
@@ -117,20 +136,32 @@ class LongToneViewModel(
     }
 
     private suspend fun runExercise() {
+        val selection = _uiState.value.selection
+        val sequence = selection.pattern.build(selection.rootNote, selection.beatsPerNote)
+        val runner = SequenceRunner(sequence)
         val processor = LongToneProcessor(config, config.capture.sampleRate)
-        val targetSeconds = _uiState.value.targetDurationSeconds
+        val results = mutableListOf<LongToneStepResult>()
 
         try {
-            countdown()
-            _uiState.value = _uiState.value.copy(phase = LongTonePhase.Running, elapsedSeconds = 0f)
-            val outcome = collectFrames(processor, targetSeconds)
-            publish(outcome, processor, targetSeconds)
+            countIn()
+            processor.startStep(runner.currentStep.note.frequencyHz())
+            _uiState.value = _uiState.value.copy(
+                phase = LongTonePhase.Running,
+                progress = progressOf(runner, selection, stepElapsed = 0f, exerciseElapsed = 0f),
+            )
+
+            val outcome = collectFrames(runner, processor, selection, results)
+            publish(outcome, processor, selection, results)
         } catch (cancellation: CancellationException) {
             // The user pressed Stop, the screen went away, or the ViewModel was cleared. What was
             // already played still counts, so report the attempt instead of dropping it silently.
             // reset() has already moved the state on, hence the check on the current phase.
             when (_uiState.value.phase) {
-                is LongTonePhase.Running -> publish(Outcome.StoppedEarly, processor, targetSeconds)
+                is LongTonePhase.Running -> {
+                    results += processor.stepResult(runner.currentStep, completed = false)
+                    publish(Outcome.StoppedEarly, processor, selection, results)
+                }
+
                 is LongTonePhase.Countdown ->
                     _uiState.value = _uiState.value.copy(phase = LongTonePhase.Idle)
 
@@ -140,20 +171,22 @@ class LongToneViewModel(
         }
     }
 
-    private suspend fun countdown() {
-        for (second in config.countdownSeconds downTo 1) {
+    private suspend fun countIn() {
+        for (second in countInSeconds() downTo 1) {
             _uiState.value = _uiState.value.copy(phase = LongTonePhase.Countdown(second))
-            delay(COUNTDOWN_STEP_MS)
+            delay(COUNT_IN_STEP_MS)
         }
     }
 
     /**
-     * Collects capture frames until the attempt ends, then stops collecting - which ends the capture
-     * flow and releases the microphone. The coroutine never cancels itself.
+     * Collects capture frames until the exercise ends, then stops collecting - which ends the
+     * capture flow and releases the microphone. The coroutine never cancels itself.
      */
     private suspend fun collectFrames(
+        runner: SequenceRunner,
         processor: LongToneProcessor,
-        targetSeconds: Int,
+        selection: ExerciseSelection,
+        results: MutableList<LongToneStepResult>,
     ): Outcome {
         var lastUiUpdateSeconds = -config.uiUpdateIntervalMs / MILLIS_PER_SECOND
 
@@ -165,56 +198,136 @@ class LongToneViewModel(
                     is AudioCaptureEvent.Frame -> {
                         val frame = event.frame
                         processor.processFrame(frame.samples, frame.newSamples)
-                        val elapsed = processor.analyzedSeconds
 
-                        if (elapsed - lastUiUpdateSeconds >= config.uiUpdateIntervalMs / MILLIS_PER_SECOND) {
-                            lastUiUpdateSeconds = elapsed
-                            _uiState.value = _uiState.value.copy(
-                                elapsedSeconds = elapsed,
-                                measurements = processor.measurements(),
-                            )
+                        if (noteFinished(processor, runner, selection)) {
+                            results += processor.stepResult(runner.currentStep, completed = true)
+                            if (runner.advance()) {
+                                processor.startStep(runner.currentStep.note.frequencyHz())
+                                lastUiUpdateSeconds = -config.uiUpdateIntervalMs / MILLIS_PER_SECOND
+                                publishProgress(runner, processor, selection)
+                                null
+                            } else {
+                                Outcome.Completed
+                            }
+                        } else {
+                            val elapsed = processor.analyzedSeconds
+                            val interval = config.uiUpdateIntervalMs / MILLIS_PER_SECOND
+                            if (elapsed - lastUiUpdateSeconds >= interval) {
+                                lastUiUpdateSeconds = elapsed
+                                publishProgress(runner, processor, selection)
+                            }
+                            null
                         }
-
-                        // For this version the target duration is the length of the attempt. When
-                        // pitch detection arrives this becomes processor.validHeldSeconds.
-                        if (elapsed >= targetSeconds) Outcome.Completed else null
                     }
                 }
             }
             .firstOrNull() ?: Outcome.StoppedEarly
     }
 
-    private fun publish(outcome: Outcome, processor: LongToneProcessor, targetSeconds: Int) {
+    /**
+     * A note is over once its musical length has passed in audio time. The check happens per frame,
+     * so a note may run up to one frame (about 43 ms) long; that overshoot is measured and reported,
+     * never silently dropped from the statistics.
+     */
+    private fun noteFinished(
+        processor: LongToneProcessor,
+        runner: SequenceRunner,
+        selection: ExerciseSelection,
+    ): Boolean = processor.analyzedSeconds >= selection.tempo.secondsFor(runner.currentStep.duration)
+
+    private fun publishProgress(
+        runner: SequenceRunner,
+        processor: LongToneProcessor,
+        selection: ExerciseSelection,
+    ) {
+        _uiState.value = _uiState.value.copy(
+            progress = progressOf(
+                runner = runner,
+                selection = selection,
+                stepElapsed = processor.analyzedSeconds,
+                exerciseElapsed = processor.exerciseSeconds,
+            ),
+            measurements = processor.measurements(),
+        )
+    }
+
+    private fun progressOf(
+        runner: SequenceRunner,
+        selection: ExerciseSelection,
+        stepElapsed: Float,
+        exerciseElapsed: Float,
+    ): ExerciseProgress {
+        val sequenceProgress = runner.progress
+        return ExerciseProgress(
+            noteIndex = sequenceProgress.stepIndex,
+            noteCount = sequenceProgress.stepCount,
+            currentNote = runner.currentStep.note,
+            upcomingNotes = runner.upcoming(UPCOMING_NOTES).map { it.note },
+            noteElapsedSeconds = stepElapsed,
+            noteTargetSeconds = selection.tempo.secondsFor(runner.currentStep.duration).toFloat(),
+            exerciseElapsedSeconds = exerciseElapsed,
+            exerciseTotalSeconds = selection.totalSeconds,
+        )
+    }
+
+    private fun publish(
+        outcome: Outcome,
+        processor: LongToneProcessor,
+        selection: ExerciseSelection,
+        results: List<LongToneStepResult>,
+    ) {
         val state = _uiState.value
         _uiState.value = when (outcome) {
             is Outcome.Failed -> state.copy(phase = LongTonePhase.Failed(outcome.error))
 
             Outcome.Completed, Outcome.StoppedEarly -> state.copy(
                 phase = LongTonePhase.Finished(
-                    processor.result(
-                        targetSeconds = targetSeconds,
+                    processor.exerciseResult(
+                        steps = results.toList(),
+                        targetSeconds = selection.totalSeconds,
                         completed = outcome == Outcome.Completed,
                     )
                 ),
-                elapsedSeconds = processor.analyzedSeconds,
             )
         }
+    }
+
+    private fun updateSelection(change: (ExerciseSelection) -> ExerciseSelection) {
+        if (_uiState.value.isBusy) return
+        _uiState.value = _uiState.value.copy(selection = change(_uiState.value.selection))
+    }
+
+    /** One bar of count-in at the chosen tempo, rounded to whole seconds for the display. */
+    private fun countInSeconds(): Int {
+        val selection = _uiState.value.selection
+        val beats = Beats.of(config.countInBars * COUNT_IN_BEATS_PER_BAR)
+        return selection.tempo.secondsFor(beats).roundToInt().coerceAtLeast(1)
     }
 
     private fun initialState(): LongToneUiState {
         val instrument = settingsRepository.settings.value.instrument
         return LongToneUiState(
-            targetNote = config.defaultNote,
+            selection = ExerciseSelection(
+                pattern = config.defaultPattern,
+                rootNote = config.defaultRoot,
+                beatsPerNote = config.defaultPattern.defaultBeatsPerNote,
+                tempo = config.defaultTempo,
+            ),
+            patterns = SequenceCatalog.patterns,
             selectableNotes = Note.range(config.lowestNote, config.highestNote),
+            beatOptions = config.beatChoices,
+            tempoRange = config.tempoRange,
             transposition = instrument.transposition,
             instrumentName = instrument.displayName,
-            targetDurationSeconds = config.defaultDurationSeconds,
-            durationOptions = config.durationsSeconds,
+            noteDisplay = settingsRepository.settings.value.noteDisplayFor(TrainingTool.LONG_TONES),
+            centsDisplayRange = config.centsDisplayRange,
         )
     }
 
     private companion object {
-        const val COUNTDOWN_STEP_MS = 1_000L
+        const val COUNT_IN_STEP_MS = 1_000L
+        const val COUNT_IN_BEATS_PER_BAR = 4
         const val MILLIS_PER_SECOND = 1_000f
+        const val UPCOMING_NOTES = 1
     }
 }

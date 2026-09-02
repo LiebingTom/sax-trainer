@@ -1,17 +1,21 @@
 package com.example.saxtrainer.feature.longtones
 
 import com.example.saxtrainer.core.audio.capture.AudioCaptureError
+import com.example.saxtrainer.core.exercise.ExercisePattern
+import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.Transposition
+import com.example.saxtrainer.core.settings.NoteDisplay
 
 /**
  * Where the exercise currently is.
  *
  * [Running] ends when the attempt has lasted the target duration in audio time, whether or not a
- * tone was actually heard: for this version the target duration is the length of the *attempt*, not
- * an amount of validated playing. `LongToneProcessor.soundingSeconds` already accumulates the
- * gated-on portion, so a later version can complete on validated held time instead by changing the
- * completion condition in [LongToneViewModel] - no change to this state model is needed.
+ * tone was actually heard: the target duration is the length of the *attempt*, not an amount of
+ * validated playing. `LongToneProcessor` already accumulates the gated-on portion as
+ * `soundingSeconds` and now also measures pitch, so completing on validated held time instead is a
+ * change to the completion condition in [LongToneViewModel] alone.
  */
 sealed interface LongTonePhase {
     data object Idle : LongTonePhase
@@ -26,19 +30,52 @@ sealed interface LongTonePhase {
 }
 
 /**
- * Summary shown after an exercise. Deliberately about steadiness, not about pitch accuracy yet.
+ * Summary shown after an exercise.
  *
  * [heldSeconds] is the length of the attempt in audio time; [soundingSeconds] is how much of it was
- * above the signal gate. Once pitch detection exists, the completion rule moves from the former to a
- * validated version of the latter - see [LongTonePhase].
+ * above the signal gate. The pitch figures describe how the note was tuned and how steadily it was
+ * held, but they do not decide completion - see [LongTonePhase].
  */
 data class LongToneResult(
+    /** One entry per note that was played, in the order they were practised. */
+    val steps: List<LongToneStepResult>,
     val heldSeconds: Float,
-    val targetSeconds: Int,
+    val targetSeconds: Float,
     val soundingSeconds: Float,
     val averageLevelDbfs: Float,
     val steadyFraction: Float,
     val completed: Boolean,
+    /** Mean deviation from the target notes over all accepted estimates; null if there were none. */
+    val averagePitchCents: Float? = null,
+    /** Spread of those deviations around their mean - how steady the pitch was, not how correct. */
+    val pitchStabilityCents: Float? = null,
+)
+
+/** How one note of the exercise went. */
+data class LongToneStepResult(
+    val note: Note,
+    val targetBeats: Beats,
+    val heldSeconds: Float,
+    val soundingSeconds: Float,
+    val averageLevelDbfs: Float,
+    val steadyFraction: Float,
+    val averagePitchCents: Float?,
+    val pitchStabilityCents: Float?,
+    val completed: Boolean,
+)
+
+/**
+ * Pitch of the current frame, present only while a note is actually being heard with enough
+ * confidence. A null pitch means "nothing reliable to show", never a stale or guessed value.
+ */
+data class PitchMeasurement(
+    val frequencyHz: Float,
+    /** Deviation from the target note, positive when sharp. */
+    val cents: Float,
+    val confidence: Float,
+    val detectedNote: Note,
+    /** True when the deviation is so large that another note is being played, not a mistuned one. */
+    val offTarget: Boolean,
 )
 
 /** Live measurements, refreshed at the UI update rate rather than per audio frame. */
@@ -50,6 +87,8 @@ data class LongToneMeasurements(
     /** Magnitudes folded into display bands, already limited to the displayed frequency range. */
     val spectrumBands: FloatArray = FloatArray(0),
     val displayMaxFrequencyHz: Float = 0f,
+    /** Null while no reliable pitch is available, which the UI shows as a neutral state. */
+    val pitch: PitchMeasurement? = null,
 ) {
     // Array field: identity comparison would be wrong for a state class, so compare contents.
     override fun equals(other: Any?): Boolean {
@@ -60,6 +99,7 @@ data class LongToneMeasurements(
             levelFraction == other.levelFraction &&
             signalPresent == other.signalPresent &&
             displayMaxFrequencyHz == other.displayMaxFrequencyHz &&
+            pitch == other.pitch &&
             spectrumBands.contentEquals(other.spectrumBands)
     }
 
@@ -69,6 +109,7 @@ data class LongToneMeasurements(
         result = 31 * result + levelFraction.hashCode()
         result = 31 * result + signalPresent.hashCode()
         result = 31 * result + displayMaxFrequencyHz.hashCode()
+        result = 31 * result + (pitch?.hashCode() ?: 0)
         result = 31 * result + spectrumBands.contentHashCode()
         return result
     }
@@ -78,26 +119,69 @@ data class LongToneMeasurements(
  * Everything the long tone screen renders. Notes are stored as concert pitch and only labelled
  * through [transposition], so a change of instrument never changes what is measured.
  */
+data class ExerciseSelection(
+    val pattern: ExercisePattern,
+    val rootNote: Note,
+    val beatsPerNote: Beats,
+    val tempo: Tempo,
+) {
+    /** The notes this exercise will ask for, in concert pitch. */
+    val notes: List<Note> get() = pattern.notesFrom(rootNote)
+
+    val secondsPerNote: Float get() = tempo.secondsFor(beatsPerNote).toFloat()
+
+    val totalSeconds: Float get() = secondsPerNote * pattern.noteCount
+}
+
+/** Where the player is in the exercise while it runs. */
+data class ExerciseProgress(
+    val noteIndex: Int,
+    val noteCount: Int,
+    val currentNote: Note,
+    val upcomingNotes: List<Note>,
+    val noteElapsedSeconds: Float,
+    val noteTargetSeconds: Float,
+    val exerciseElapsedSeconds: Float,
+    val exerciseTotalSeconds: Float,
+) {
+    val displayPosition: Int get() = noteIndex + 1
+
+    val noteFraction: Float
+        get() = if (noteTargetSeconds <= 0f) 0f else (noteElapsedSeconds / noteTargetSeconds).coerceIn(0f, 1f)
+
+    val exerciseFraction: Float
+        get() = if (exerciseTotalSeconds <= 0f) {
+            0f
+        } else {
+            (exerciseElapsedSeconds / exerciseTotalSeconds).coerceIn(0f, 1f)
+        }
+}
+
+/**
+ * Everything the long tone screen renders. Notes are stored as concert pitch and only labelled
+ * through [transposition], so a change of instrument never changes what is measured.
+ */
 data class LongToneUiState(
     val phase: LongTonePhase = LongTonePhase.Idle,
-    val targetNote: Note,
+    val selection: ExerciseSelection,
+    val patterns: List<ExercisePattern>,
     val selectableNotes: List<Note>,
+    val beatOptions: List<Beats>,
+    val tempoRange: IntRange,
     val transposition: Transposition,
     val instrumentName: String,
-    val targetDurationSeconds: Int,
-    val durationOptions: List<Int>,
-    val elapsedSeconds: Float = 0f,
+    val noteDisplay: NoteDisplay = NoteDisplay.BOTH,
+    val noteDisplayOptions: List<NoteDisplay> = NoteDisplay.entries,
+    val progress: ExerciseProgress? = null,
     val measurements: LongToneMeasurements = LongToneMeasurements(),
+    /** Half width of the cents meter, so the UI does not decide the scale itself. */
+    val centsDisplayRange: Float = 50f,
 ) {
     val isBusy: Boolean get() = phase is LongTonePhase.Running || phase is LongTonePhase.Countdown
 
     /** Note name as the player reads it on their instrument. */
     fun writtenLabel(note: Note): String = transposition.writtenFor(note).label
 
-    val progress: Float
-        get() = if (targetDurationSeconds <= 0) {
-            0f
-        } else {
-            (elapsedSeconds / targetDurationSeconds).coerceIn(0f, 1f)
-        }
+    /** The note the player should be sounding right now, or the first one before the start. */
+    val currentNote: Note get() = progress?.currentNote ?: selection.notes.first()
 }

@@ -8,12 +8,16 @@ long tone exercise with live level and spectrum feedback - on an architecture bu
 ```
 app                    MainActivity, AppContainer, navigation graph, landing page
 core/designsystem      theme, typography, shapes, Dimens, reusable components (FeatureCard, FeatureIcon, ...)
-core/music             pure Kotlin: Note, NoteName, Transposition, frequency maths
-core/dsp               pure Kotlin: WindowFunction, Fft, Spectrum, SpectrumAnalyzer, RmsCalculator, SignalGate
+core/music             pure Kotlin: Note, NoteName, Transposition, Cents, TrebleStaff placement,
+                       Beats/Tempo/TimeSignature, ToneStep/ToneSequence
+core/exercise          pure Kotlin: SequenceRunner (passive cursor), ExercisePattern, SequenceCatalog
+core/fingering         pure Kotlin: SaxKey, Fingering, FingeringChart, SaxophoneFingerings
+core/dsp               pure Kotlin: WindowFunction, Fft, Spectrum, SpectrumAnalyzer, RmsCalculator, SignalGate, YinPitchDetector
 core/audio             AudioRecord capture, AudioTrack playback, permission helper, error types
 core/settings          AppSettings + SettingsRepository (SharedPreferences backed)
 feature/metronome      timing engine, click synthesis, screen, ViewModel
 feature/longtones      exercise state machine, DSP processing, screen, ViewModel
+feature/fingering      written note to fingering trainer, no audio
 feature/settings       instrument selection screen
 ```
 
@@ -42,10 +46,21 @@ touching a card implementation.
 - **Capture and analysis** run off the UI thread. The window buffer is reused, and Compose state is
   refreshed about 25 times per second rather than per audio frame.
 - **Long tone timing is audio time**: `AudioFrame` carries sample counters, and durations are derived
-  as samples / sample rate, so neither the displayed duration nor the completion point depends on
-  scheduling or processing latency. The target duration is the length of the *attempt*; the gated-on
-  portion is tracked separately as `soundingSeconds`, ready to become validated held time once pitch
-  detection exists.
+  as samples / sample rate, so neither the displayed duration nor the point at which a note ends
+  depends on scheduling or processing latency. A note ends when its beats have passed in audio time;
+  the gated-on portion is tracked separately as `soundingSeconds`, ready to become validated held
+  time if a note should later have to be played correctly to count.
+- **Pitch detection is time-domain YIN**, not the strongest FFT bin, so the fundamental is found even
+  when a harmonic is louder. `core:dsp` reports frequency and confidence only; cent arithmetic lives
+  in `core:music` and the two are combined in the feature. Estimates below the signal gate or below
+  the confidence threshold are dropped rather than displayed or averaged.
+- **Exercises are relative patterns**: a `SequenceCatalog` entry is a list of semitone offsets from a
+  root note, so transposing is a different root rather than a second definition, and "repeat" is
+  simply ten identical steps rather than a special kind of sequence. `ToneSequence` carries no tempo;
+  `Tempo` converts beats to seconds only where the exercise meets the clock.
+- **Fingerings are keyed by written note**, which is why one chart serves the whole saxophone family.
+  `core:fingering` says which keys are pressed, `SaxophoneKeyLayout` says where they are drawn, and
+  `SaxophoneFingeringView` draws them - no image per note, and no visual data in the model.
 - **Sample rate and FFT size are configuration**, never constants inside the DSP code.
 - **Microphone permission** is requested inside Long Tones on first start, never on the landing page.
 - **Transposition is presentation only** - pitches are stored as concert pitch and labelled according
@@ -55,7 +70,7 @@ touching a card implementation.
 
 ```
 gradlew.bat assembleDebug                     # build the app
-gradlew.bat :core:dsp:test :core:music:test   # DSP and music theory unit tests
+gradlew.bat :core:dsp:test :core:music:test :core:exercise:test   # pure Kotlin unit tests
 gradlew.bat testDebugUnitTest                 # all unit tests
 gradlew.bat lintDebug                         # lint
 ```

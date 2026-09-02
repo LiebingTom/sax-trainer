@@ -28,6 +28,8 @@ dependencies {
     api(libs.androidx.compose.ui)
     api(libs.androidx.compose.ui.graphics)
     api(libs.androidx.compose.material3)
+    api(project(":core:music"))
+    api(project(":core:fingering"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)

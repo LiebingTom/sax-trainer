@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.saxtrainer.AppContainer
+import com.example.saxtrainer.feature.fingering.FingeringRoute
 import com.example.saxtrainer.feature.longtones.LongToneRoute
 import com.example.saxtrainer.feature.metronome.MetronomeRoute
 import com.example.saxtrainer.feature.settings.SettingsRoute
@@ -38,6 +39,13 @@ fun SaxTrainerNavHost(
             LongToneRoute(
                 audioCapture = container.audioCapture,
                 settingsRepository = container.settingsRepository,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(SaxTrainerDestination.FINGERING) {
+            FingeringRoute(
+                settingsRepository = container.settingsRepository,
+                audioCapture = container.audioCapture,
                 onBack = { navController.popBackStack() },
             )
         }

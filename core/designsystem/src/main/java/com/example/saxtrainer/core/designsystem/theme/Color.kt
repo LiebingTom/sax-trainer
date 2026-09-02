@@ -26,3 +26,7 @@ internal val OnSurfaceDark = Color(0xFFEBE2D6)
 
 internal val OnBrass = Color(0xFF1F1600)
 internal val White = Color(0xFFFFFFFF)
+
+/** Feedback colours that Material's scheme has no slot for. */
+internal val CorrectGreenLight = Color(0xFF2E7D32)
+internal val CorrectGreenDark = Color(0xFF7BD88F)

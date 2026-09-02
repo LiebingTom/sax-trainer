@@ -54,8 +54,11 @@ fun LongToneRoute(
 
     LongToneScreen(
         state = state,
-        onSelectNote = viewModel::selectNote,
-        onSelectDuration = viewModel::selectDuration,
+        onSelectPattern = viewModel::selectPattern,
+        onSelectRootNote = viewModel::selectRootNote,
+        onSelectBeats = viewModel::selectBeatsPerNote,
+        onSetTempo = viewModel::setTempo,
+        onSelectNoteDisplay = viewModel::selectNoteDisplay,
         onStart = {
             if (AudioPermission.isGranted(context)) {
                 permissionDenied = false

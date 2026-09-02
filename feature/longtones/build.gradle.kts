@@ -27,6 +27,7 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:audio"))
     implementation(project(":core:dsp"))
+    implementation(project(":core:exercise"))
     implementation(project(":core:music"))
     implementation(project(":core:settings"))
     implementation(platform(libs.androidx.compose.bom))

@@ -1,12 +1,6 @@
 pluginManagement {
     repositories {
-        google {
-            content {
-                includeGroupByRegex("com\\.android.*")
-                includeGroupByRegex("com\\.google.*")
-                includeGroupByRegex("androidx.*")
-            }
-        }
+        google()
         mavenCentral()
         gradlePluginPortal()
     }
@@ -24,3 +18,11 @@ dependencyResolutionManagement {
 
 rootProject.name = "Sax Trainer"
 include(":app")
+include(":core:designsystem")
+include(":core:music")
+include(":core:dsp")
+include(":core:audio")
+include(":core:settings")
+include(":feature:metronome")
+include(":feature:longtones")
+include(":feature:settings")

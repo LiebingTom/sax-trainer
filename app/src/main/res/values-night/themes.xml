@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Dark window background so the app does not flash white before Compose draws. -->
+    <style name="Theme.SaxTrainer" parent="android:Theme.Material.NoActionBar" />
+
+</resources>

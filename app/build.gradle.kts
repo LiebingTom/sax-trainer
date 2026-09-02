@@ -36,7 +36,17 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:designsystem"))
+    implementation(project(":core:audio"))
+    implementation(project(":core:settings"))
+    implementation(project(":core:music"))
+    implementation(project(":feature:metronome"))
+    implementation(project(":feature:longtones"))
+    implementation(project(":feature:settings"))
     implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)

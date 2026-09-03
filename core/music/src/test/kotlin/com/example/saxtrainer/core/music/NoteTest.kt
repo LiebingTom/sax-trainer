@@ -44,17 +44,67 @@ class NoteTest {
     }
 
     @Test
-    fun `written pitch for a b flat instrument is a tone above concert`() {
-        val concertBFlat = Note(NoteName.A_SHARP, 3)
-        assertEquals(Note(NoteName.C, 4), Transposition.B_FLAT.writtenFor(concertBFlat))
-        assertEquals(concertBFlat, Transposition.B_FLAT.concertFor(Note(NoteName.C, 4)))
+    fun `a soprano saxophone sounds a tone below the written note`() {
+        val written = Note(NoteName.C, 4)
+        val sounding = Note(NoteName.A_SHARP, 3)
+
+        assertEquals(sounding, Transposition.SOPRANO_B_FLAT.concertFor(written))
+        assertEquals(written, Transposition.SOPRANO_B_FLAT.writtenFor(sounding))
     }
 
     @Test
-    fun `written pitch for an e flat instrument is a major sixth above concert`() {
-        val concertEFlat = Note(NoteName.D_SHARP, 4)
-        assertEquals(Note(NoteName.C, 5), Transposition.E_FLAT.writtenFor(concertEFlat))
-        assertEquals(concertEFlat, Transposition.E_FLAT.concertFor(Note(NoteName.C, 5)))
+    fun `an alto saxophone sounds a major sixth below the written note`() {
+        val written = Note(NoteName.C, 5)
+        val sounding = Note(NoteName.D_SHARP, 4)
+
+        assertEquals(sounding, Transposition.ALTO_E_FLAT.concertFor(written))
+        assertEquals(written, Transposition.ALTO_E_FLAT.writtenFor(sounding))
+    }
+
+    @Test
+    fun `a tenor saxophone sounds an octave and a tone below the written note`() {
+        val written = Note(NoteName.C, 4)
+        val sounding = Note(NoteName.A_SHARP, 2)
+
+        assertEquals(sounding, Transposition.TENOR_B_FLAT.concertFor(written))
+        assertEquals(written, Transposition.TENOR_B_FLAT.writtenFor(sounding))
+    }
+
+    @Test
+    fun `a baritone saxophone sounds an octave and a major sixth below the written note`() {
+        val written = Note(NoteName.C, 5)
+        val sounding = Note(NoteName.D_SHARP, 3)
+
+        assertEquals(sounding, Transposition.BARITONE_E_FLAT.concertFor(written))
+        assertEquals(written, Transposition.BARITONE_E_FLAT.writtenFor(sounding))
+    }
+
+    @Test
+    fun `the same key in different sizes transposes an octave apart`() {
+        // The key alone does not fix the distance: a tenor is an octave below a soprano, and a
+        // baritone an octave below an alto. Getting this wrong makes pitch checking fail.
+        assertEquals(
+            12,
+            Transposition.TENOR_B_FLAT.semitonesAboveConcert -
+                Transposition.SOPRANO_B_FLAT.semitonesAboveConcert,
+        )
+        assertEquals(
+            12,
+            Transposition.BARITONE_E_FLAT.semitonesAboveConcert -
+                Transposition.ALTO_E_FLAT.semitonesAboveConcert,
+        )
+    }
+
+    @Test
+    fun `every transposition round trips`() {
+        val written = Note(NoteName.G, 4)
+        Transposition.entries.forEach { transposition ->
+            assertEquals(
+                transposition.displayName,
+                written,
+                transposition.writtenFor(transposition.concertFor(written)),
+            )
+        }
     }
 
     @Test

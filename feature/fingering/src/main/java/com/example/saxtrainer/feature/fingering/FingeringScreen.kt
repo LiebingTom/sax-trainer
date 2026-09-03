@@ -10,12 +10,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,8 +28,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.saxtrainer.core.designsystem.component.CheckableRow
+import com.example.saxtrainer.core.designsystem.component.CurrentAndNextNote
+import com.example.saxtrainer.core.designsystem.component.IconSource
+import com.example.saxtrainer.core.designsystem.component.InlineIcon
 import com.example.saxtrainer.core.designsystem.component.NoteDisplayPicker
 import com.example.saxtrainer.core.designsystem.component.NotePresentation
+import com.example.saxtrainer.core.designsystem.component.rememberNoteSlot
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.SaxophoneFingeringView
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
@@ -45,9 +53,13 @@ import kotlin.math.ceil
 @Composable
 fun FingeringScreen(
     state: FingeringUiState,
-    onToggleNote: (Note) -> Unit,
-    onSelectAll: () -> Unit,
-    onClearNotes: () -> Unit,
+    onSelectNoteSet: (NoteSet) -> Unit,
+    onEditCustomNotes: () -> Unit,
+    onToggleCustomNote: (Note) -> Unit,
+    onSelectAllCustomNotes: () -> Unit,
+    onClearCustomNotes: () -> Unit,
+    onApplyCustomNotes: () -> Unit,
+    onCancelCustomNotes: () -> Unit,
     onRandomChange: (Boolean) -> Unit,
     onSecondsChange: (Int) -> Unit,
     onCheckPlayingChange: (Boolean) -> Unit,
@@ -64,11 +76,10 @@ fun FingeringScreen(
             Spacer(Modifier.height(Dimens.spaceSm))
 
             when (val phase = state.phase) {
-                is FingeringPhase.Idle -> Setup(
+                is FingeringPhase.Idle -> if (state.isPreconfigured) ReadyPanel(state) else Setup(
                     state = state,
-                    onToggleNote = onToggleNote,
-                    onSelectAll = onSelectAll,
-                    onClearNotes = onClearNotes,
+                    onSelectNoteSet = onSelectNoteSet,
+                    onEditCustomNotes = onEditCustomNotes,
                     onRandomChange = onRandomChange,
                     onSecondsChange = onSecondsChange,
                     onCheckPlayingChange = onCheckPlayingChange,
@@ -86,8 +97,20 @@ fun FingeringScreen(
                 onStart = onStart,
                 onStop = onStop,
                 onReset = onReset,
+                onBack = onBack,
             )
             Spacer(Modifier.height(Dimens.spaceLg))
+        }
+
+        if (state.isEditingCustomNotes) {
+            CustomNotesDialog(
+                state = state,
+                onToggleNote = onToggleCustomNote,
+                onSelectAll = onSelectAllCustomNotes,
+                onClearAll = onClearCustomNotes,
+                onApply = onApplyCustomNotes,
+                onCancel = onCancelCustomNotes,
+            )
         }
     }
 }
@@ -95,9 +118,8 @@ fun FingeringScreen(
 @Composable
 private fun Setup(
     state: FingeringUiState,
-    onToggleNote: (Note) -> Unit,
-    onSelectAll: () -> Unit,
-    onClearNotes: () -> Unit,
+    onSelectNoteSet: (NoteSet) -> Unit,
+    onEditCustomNotes: () -> Unit,
     onRandomChange: (Boolean) -> Unit,
     onSecondsChange: (Int) -> Unit,
     onCheckPlayingChange: (Boolean) -> Unit,
@@ -119,16 +141,25 @@ private fun Setup(
         ),
     ) {
         Column(modifier = Modifier.padding(Dimens.cardPadding)) {
-            state.availableNotes.forEach { note ->
-                CheckableRow(
-                    title = note.label,
-                    checked = state.isSelected(note),
-                    onCheckedChange = { onToggleNote(note) },
+            state.noteSets.forEach { noteSet ->
+                SelectableRow(
+                    title = noteSet.displayName,
+                    supportingText = state.summaryOf(noteSet, SaxophoneFingerings),
+                    selected = noteSet == state.noteSet,
+                    onClick = { onSelectNoteSet(noteSet) },
+                    trailing = if (noteSet == NoteSet.CUSTOM) {
+                        {
+                            IconButton(onClick = onEditCustomNotes) {
+                                InlineIcon(
+                                    icon = IconSource.Drawable(R.drawable.ic_choose_notes),
+                                    contentDescription = "Choose the notes yourself",
+                                )
+                            }
+                        }
+                    } else {
+                        null
+                    },
                 )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-                SecondaryButton(text = "All", onClick = onSelectAll)
-                SecondaryButton(text = "None", onClick = onClearNotes)
             }
         }
     }
@@ -219,11 +250,52 @@ private fun Setup(
     if (!state.canStart) {
         Spacer(Modifier.height(Dimens.spaceSm))
         Text(
-            text = "Choose at least one note to practise.",
+            text = "Choose at least one note in the custom list to practise.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
         )
     }
+}
+
+/** Picks the notes behind [NoteSet.CUSTOM]; nothing changes until Apply is pressed. */
+@Composable
+private fun CustomNotesDialog(
+    state: FingeringUiState,
+    onToggleNote: (Note) -> Unit,
+    onSelectAll: () -> Unit,
+    onClearAll: () -> Unit,
+    onApply: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val chosen = state.customNotesDraft.orEmpty()
+
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Choose notes") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                state.availableNotes.forEach { note ->
+                    CheckableRow(
+                        title = note.label,
+                        checked = state.isInDraft(note),
+                        onCheckedChange = { onToggleNote(note) },
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+                    SecondaryButton(text = "All", onClick = onSelectAll)
+                    SecondaryButton(text = "None", onClick = onClearAll)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onApply, enabled = chosen.isNotEmpty()) {
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel) { Text("Cancel") }
+        },
+    )
 }
 
 /** The fingering is the point of the screen, so it gets the most room. */
@@ -232,8 +304,12 @@ private fun RunningPanel(state: FingeringUiState) {
     val progress = state.progress ?: return
 
     val correctColor = FeedbackColors.correct
+    // The note itself takes the accent colour the buttons use, whether it is drawn as a letter or
+    // on the staff, and turns green while it is being played correctly.
     val noteColor = if (progress.isCorrect) correctColor else MaterialTheme.colorScheme.primary
-    val staffColor = if (progress.isCorrect) correctColor else MaterialTheme.colorScheme.onSurface
+    val staffLineColor = MaterialTheme.colorScheme.onSurfaceVariant
+    // The key diagram stays neutral: it is a chart to read, not the note being asked for.
+    val fingeringColor = if (progress.isCorrect) correctColor else MaterialTheme.colorScheme.onSurface
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -246,40 +322,64 @@ private fun RunningPanel(state: FingeringUiState) {
             color = MaterialTheme.colorScheme.primary,
         )
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
+        // One box per note, big enough for any note of this exercise shown either way, so the row
+        // keeps its shape as the presentation changes from note to note.
+        val nextNameStyle = numericLarge.copy(
+            fontSize = numericLarge.fontSize * NEXT_NOTE_SCALE,
+            lineHeight = numericLarge.lineHeight * NEXT_NOTE_SCALE,
+        )
+        val currentSlot = rememberNoteSlot(
+            notes = state.activeNotes,
+            nameStyle = numericLarge,
+            staffLineSpacing = CurrentNoteStaffSpacing,
+            mayShowName = state.noteDisplay.showsName,
+            mayShowStaff = state.noteDisplay.showsStaff,
+            mayShowBothAtOnce = state.noteDisplay == NoteDisplay.BOTH,
+        )
+        val nextSlot = rememberNoteSlot(
+            notes = state.activeNotes,
+            nameStyle = nextNameStyle,
+            staffLineSpacing = NextNoteStaffSpacing,
+            mayShowName = state.noteDisplay.showsName,
+            mayShowStaff = state.noteDisplay.showsStaff,
+            mayShowBothAtOnce = state.noteDisplay == NoteDisplay.BOTH,
+        )
+
+        CurrentAndNextNote(
+            next = progress.nextNote?.let { next ->
+                {
+                    NotePresentation(
+                        note = next,
+                        label = next.label,
+                        showName = progress.nextNoteDisplay.showsName,
+                        showStaff = progress.nextNoteDisplay.showsStaff,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        nameStyle = nextNameStyle,
+                        staffLineSpacing = NextNoteStaffSpacing,
+                        slot = nextSlot,
+                    )
+                }
+            },
         ) {
             NotePresentation(
                 note = progress.currentNote,
                 label = progress.currentNote.label,
-                showName = state.noteDisplay.showsName,
-                showStaff = state.noteDisplay.showsStaff,
+                showName = progress.noteDisplay.showsName,
+                showStaff = progress.noteDisplay.showsStaff,
                 color = noteColor,
-                staffColor = staffColor,
+                staffColor = noteColor,
+                staffLineColor = staffLineColor,
                 nameStyle = numericLarge,
+                staffLineSpacing = CurrentNoteStaffSpacing,
+                slot = currentSlot,
             )
-            if (progress.nextNote != null) {
-                NotePresentation(
-                    note = progress.nextNote,
-                    label = progress.nextNote.label,
-                    showName = state.noteDisplay.showsName,
-                    showStaff = state.noteDisplay.showsStaff,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    nameStyle = numericLarge.copy(
-                        fontSize = numericLarge.fontSize * NEXT_NOTE_SCALE,
-                        lineHeight = numericLarge.lineHeight * NEXT_NOTE_SCALE,
-                    ),
-                    staffLineSpacing = NextNoteStaffSpacing,
-                )
-            }
         }
 
         if (progress.currentFingering != null) {
             SaxophoneFingeringView(
                 fingering = progress.currentFingering,
                 width = FingeringWidth,
-                pressedColor = staffColor,
+                pressedColor = fingeringColor,
                 contentDescription = "Fingering for ${progress.currentNote.label}",
             )
         } else {
@@ -312,6 +412,37 @@ private fun RunningPanel(state: FingeringUiState) {
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
+            )
+        }
+    }
+}
+
+/**
+ * What a ready-made exercise is about to ask for. Shown only when a preset chose not to start by
+ * itself; there is nothing here to change, because the exercise was decided elsewhere.
+ */
+@Composable
+private fun ReadyPanel(state: FingeringUiState) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(Dimens.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+        ) {
+            Text(text = "Ready", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = state.activeNotes.joinToString(" ") { it.label },
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Text(
+                text = "${state.secondsPerNote} seconds per note, " +
+                    if (state.isRandom) "mixed up" else "in order",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -372,6 +503,7 @@ private fun Actions(
     onStart: () -> Unit,
     onStop: () -> Unit,
     onReset: () -> Unit,
+    onBack: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -390,11 +522,19 @@ private fun Actions(
                     onClick = onStart,
                     modifier = Modifier.weight(1f),
                 )
-                SecondaryButton(
-                    text = "Change notes",
-                    onClick = onReset,
-                    modifier = Modifier.weight(1f),
-                )
+                if (state.isPreconfigured) {
+                    SecondaryButton(
+                        text = "Done",
+                        onClick = onBack,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    SecondaryButton(
+                        text = "Change notes",
+                        onClick = onReset,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
 
             is FingeringPhase.Idle -> PrimaryButton(
@@ -408,7 +548,8 @@ private fun Actions(
 }
 
 private const val NEXT_NOTE_SCALE = 0.5f
-private val NextNoteStaffSpacing = 5.dp
+private val CurrentNoteStaffSpacing = 12.dp
+private val NextNoteStaffSpacing = 6.dp
 private val FingeringWidth = 120.dp
 
 @Preview(showBackground = true)
@@ -419,12 +560,17 @@ private fun FingeringSetupPreview() {
         FingeringScreen(
             state = FingeringUiState(
                 availableNotes = notes,
-                selectedNotes = notes.toSet(),
+                customNotes = notes.toSet(),
+                activeNotes = notes,
                 secondsOptions = listOf(3, 5, 8),
             ),
-            onToggleNote = {},
-            onSelectAll = {},
-            onClearNotes = {},
+            onSelectNoteSet = {},
+            onEditCustomNotes = {},
+            onToggleCustomNote = {},
+            onSelectAllCustomNotes = {},
+            onClearCustomNotes = {},
+            onApplyCustomNotes = {},
+            onCancelCustomNotes = {},
             onRandomChange = {},
             onSecondsChange = {},
             onCheckPlayingChange = {},
@@ -447,7 +593,8 @@ private fun FingeringRunningPreview() {
             state = FingeringUiState(
                 phase = FingeringPhase.Running,
                 availableNotes = notes,
-                selectedNotes = notes.toSet(),
+                customNotes = notes.toSet(),
+                activeNotes = notes,
                 secondsOptions = listOf(3, 5, 8),
                 progress = FingeringProgress(
                     noteIndex = 2,
@@ -459,9 +606,13 @@ private fun FingeringRunningPreview() {
                     noteSeconds = 5f,
                 ),
             ),
-            onToggleNote = {},
-            onSelectAll = {},
-            onClearNotes = {},
+            onSelectNoteSet = {},
+            onEditCustomNotes = {},
+            onToggleCustomNote = {},
+            onSelectAllCustomNotes = {},
+            onClearCustomNotes = {},
+            onApplyCustomNotes = {},
+            onCancelCustomNotes = {},
             onRandomChange = {},
             onSecondsChange = {},
             onCheckPlayingChange = {},

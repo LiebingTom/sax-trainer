@@ -33,6 +33,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlin.random.Random
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LongToneViewModelTest {
@@ -111,11 +112,13 @@ class LongToneViewModelTest {
     private fun viewModel(
         capture: AudioCapture,
         settings: SettingsRepository = FakeSettingsRepository(),
+        seed: Int = 1,
     ) = LongToneViewModel(
         audioCapture = capture,
         settingsRepository = settings,
         config = config,
         processingDispatcher = dispatcher,
+        random = Random(seed),
     )
 
     private fun finishedResult(viewModel: LongToneViewModel): LongToneResult {
@@ -415,5 +418,85 @@ class LongToneViewModelTest {
             NoteDisplay.BOTH,
             settings.settings.value.noteDisplayFor(TrainingTool.FINGERING),
         )
+    }
+
+    @Test
+    fun `a random presentation is resolved before it reaches the screen`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        settings.setNoteDisplayFor(TrainingTool.LONG_TONES, NoteDisplay.RANDOM)
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs), settings)
+        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+
+        viewModel.start()
+        advanceTimeBy(countInMs + 1_000L)
+
+        val progress = viewModel.uiState.value.progress!!
+        assertEquals("the setting itself is untouched", NoteDisplay.RANDOM, viewModel.uiState.value.noteDisplay)
+        assertTrue(
+            "the screen was handed ${progress.noteDisplay}",
+            progress.noteDisplay in listOf(NoteDisplay.NAME, NoteDisplay.STAFF),
+        )
+        assertTrue(progress.nextNoteDisplay in listOf(NoteDisplay.NAME, NoteDisplay.STAFF))
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `a note keeps its presentation while it is held`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        settings.setNoteDisplayFor(TrainingTool.LONG_TONES, NoteDisplay.RANDOM)
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs), settings)
+        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+
+        viewModel.start()
+        advanceTimeBy(countInMs + 500L)
+        val first = viewModel.uiState.value.progress!!
+
+        // A four second note is republished many times over; it must not flicker.
+        advanceTimeBy(2_000L)
+        val stillFirst = viewModel.uiState.value.progress!!
+
+        assertEquals(first.currentNote, stillFirst.currentNote)
+        assertEquals(first.noteDisplay, stillFirst.noteDisplay)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `the preview shows what the next note will actually look like`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        settings.setNoteDisplayFor(TrainingTool.LONG_TONES, NoteDisplay.RANDOM)
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs), settings)
+        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+
+        viewModel.start()
+        advanceTimeBy(countInMs + 1_000L)
+        val promised = viewModel.uiState.value.progress!!.nextNoteDisplay
+
+        advanceTimeBy(4_500L)
+        val arrived = viewModel.uiState.value.progress!!
+
+        assertEquals(1, arrived.noteIndex)
+        assertEquals(promised, arrived.noteDisplay)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `a fixed presentation is passed straight through`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        settings.setNoteDisplayFor(TrainingTool.LONG_TONES, NoteDisplay.STAFF)
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs), settings)
+
+        viewModel.start()
+        advanceTimeBy(countInMs + 500L)
+
+        assertEquals(NoteDisplay.STAFF, viewModel.uiState.value.progress!!.noteDisplay)
+
+        viewModel.stop()
+        advanceUntilIdle()
     }
 }

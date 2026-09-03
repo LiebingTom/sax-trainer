@@ -105,18 +105,23 @@ class FingeringViewModelTest {
         seed: Int = 1,
         microphone: AudioCapture? = null,
         settings: SettingsRepository = FakeSettingsRepository(),
+        preset: FingeringPreset? = null,
     ) = FingeringViewModel(
         settingsRepository = settings,
         audioCapture = microphone,
+        preset = preset,
         config = config,
         random = Random(seed),
         processingDispatcher = dispatcher,
         clock = virtualClock(),
     )
 
+    /** Puts exactly these notes into the custom set and switches to it, as the dialog would. */
     private fun FingeringViewModel.selectOnly(vararg notes: Note) {
-        clearNotes()
-        notes.forEach(::toggleNote)
+        editCustomNotes()
+        clearCustomNotes()
+        notes.forEach(::toggleCustomNote)
+        applyCustomNotes()
     }
 
     private val c4 = Note(NoteName.C, 4)
@@ -128,11 +133,16 @@ class FingeringViewModelTest {
         Instrument.TENOR_SAX.transposition.concertFor(written).frequencyHz()
 
     @Test
-    fun `everything the chart knows is offered and selected to begin with`() = runTest(dispatcher) {
+    fun `the beginner set is ready to go on the first run`() = runTest(dispatcher) {
         val state = viewModel().uiState.value
 
         assertEquals(SaxophoneFingerings.supportedNotes, state.availableNotes)
-        assertEquals(SaxophoneFingerings.supportedNotes.toSet(), state.selectedNotes)
+        assertEquals(NoteSet.BEGINNER, state.noteSet)
+        assertEquals(
+            "the beginner set leaves out the sharps and flats",
+            listOf("C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"),
+            state.activeNotes.map { it.label },
+        )
         assertTrue("mixed order is the default", state.isRandom)
         assertFalse("listening is off until asked for", state.checkPlaying)
         assertEquals(CheckMode.SHOW, state.checkMode)
@@ -141,32 +151,103 @@ class FingeringViewModelTest {
     }
 
     @Test
-    fun `notes can be picked and cleared`() = runTest(dispatcher) {
+    fun `choosing a ready made set uses it straight away`() = runTest(dispatcher) {
         val viewModel = viewModel()
 
-        viewModel.clearNotes()
-        assertFalse(viewModel.uiState.value.canStart)
+        viewModel.selectNoteSet(NoteSet.BEGINNER_PLUS)
 
-        viewModel.toggleNote(d4)
-        assertEquals(setOf(d4), viewModel.uiState.value.selectedNotes)
-
-        viewModel.toggleNote(d4)
-        assertTrue(viewModel.uiState.value.selectedNotes.isEmpty())
-
-        viewModel.selectAllNotes()
-        assertEquals(SaxophoneFingerings.supportedNotes.toSet(), viewModel.uiState.value.selectedNotes)
+        val state = viewModel.uiState.value
+        assertEquals(NoteSet.BEGINNER_PLUS, state.noteSet)
+        assertEquals(
+            "the beginner sets stay small even though the chart covers the whole instrument",
+            listOf("C4", "D4", "E4", "F4", "F#4", "G4", "A4", "A#4", "B4", "C5"),
+            state.activeNotes.map { it.label },
+        )
+        assertTrue(state.canStart)
     }
 
     @Test
-    fun `starting without notes does nothing`() = runTest(dispatcher) {
+    fun `the custom set holds its own notes`() = runTest(dispatcher) {
         val viewModel = viewModel()
-        viewModel.clearNotes()
+
+        viewModel.selectOnly(c4, e4)
+        assertEquals(NoteSet.CUSTOM, viewModel.uiState.value.noteSet)
+        assertEquals(listOf(c4, e4), viewModel.uiState.value.activeNotes)
+
+        // Switching away and back keeps what was chosen.
+        viewModel.selectNoteSet(NoteSet.BEGINNER)
+        assertEquals(setOf(c4, e4), viewModel.uiState.value.customNotes)
+
+        viewModel.selectNoteSet(NoteSet.CUSTOM)
+        assertEquals(listOf(c4, e4), viewModel.uiState.value.activeNotes)
+    }
+
+    @Test
+    fun `the dialog only changes anything when it is applied`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.selectOnly(c4, d4)
+
+        viewModel.editCustomNotes()
+        assertTrue(viewModel.uiState.value.isEditingCustomNotes)
+        viewModel.toggleCustomNote(e4)
+        viewModel.toggleCustomNote(c4)
+
+        assertEquals(
+            "the stored selection is untouched while editing",
+            setOf(c4, d4),
+            viewModel.uiState.value.customNotes,
+        )
+
+        viewModel.applyCustomNotes()
+        assertEquals(setOf(d4, e4), viewModel.uiState.value.customNotes)
+        assertEquals(listOf(d4, e4), viewModel.uiState.value.activeNotes)
+        assertFalse(viewModel.uiState.value.isEditingCustomNotes)
+    }
+
+    @Test
+    fun `cancelling the dialog restores the previous selection`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.selectOnly(c4, d4)
+
+        viewModel.editCustomNotes()
+        viewModel.clearCustomNotes()
+        viewModel.toggleCustomNote(e4)
+        viewModel.cancelCustomNotes()
+
+        assertFalse(viewModel.uiState.value.isEditingCustomNotes)
+        assertEquals(setOf(c4, d4), viewModel.uiState.value.customNotes)
+        assertEquals(listOf(c4, d4), viewModel.uiState.value.activeNotes)
+    }
+
+    @Test
+    fun `an empty custom set cannot be started`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.editCustomNotes()
+        viewModel.clearCustomNotes()
+        viewModel.applyCustomNotes()
+
+        assertTrue(viewModel.uiState.value.activeNotes.isEmpty())
+        assertFalse(viewModel.uiState.value.canStart)
 
         viewModel.start()
         advanceUntilIdle()
 
         assertEquals(FingeringPhase.Idle, viewModel.uiState.value.phase)
     }
+
+    @Test
+    fun `a ready made set gets the player going again after an empty custom set`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel()
+            viewModel.editCustomNotes()
+            viewModel.clearCustomNotes()
+            viewModel.applyCustomNotes()
+
+            viewModel.selectNoteSet(NoteSet.BEGINNER)
+
+            assertTrue(viewModel.uiState.value.canStart)
+        }
 
     @Test
     fun `the first note and its fingering are shown at once`() = runTest(dispatcher) {
@@ -296,14 +377,16 @@ class FingeringViewModelTest {
         viewModel.start()
         advanceTimeBy(100)
 
-        viewModel.toggleNote(e4)
-        viewModel.selectAllNotes()
+        viewModel.selectNoteSet(NoteSet.BEGINNER_PLUS)
+        viewModel.editCustomNotes()
         viewModel.setSecondsPerNote(8)
         viewModel.setRandomOrder(true)
         viewModel.setCheckPlaying(true)
 
         val state = viewModel.uiState.value
-        assertEquals(setOf(c4, d4), state.selectedNotes)
+        assertEquals(NoteSet.CUSTOM, state.noteSet)
+        assertEquals(listOf(c4, d4), state.activeNotes)
+        assertFalse("the dialog cannot be opened mid exercise", state.isEditingCustomNotes)
         assertEquals(5, state.secondsPerNote)
         assertFalse(state.isRandom)
         assertFalse(state.checkPlaying)
@@ -343,7 +426,10 @@ class FingeringViewModelTest {
         val first = run(seed = 1)
         val second = run(seed = 2)
 
-        assertEquals(SaxophoneFingerings.supportedNotes.toSet(), first.toSet())
+        assertEquals(
+            NoteSets.notesOf(NoteSet.BEGINNER, SaxophoneFingerings, emptySet()).toSet(),
+            first.toSet(),
+        )
         assertTrue("two seeds should not give the same order", first != second)
     }
 
@@ -537,5 +623,290 @@ class FingeringViewModelTest {
             NoteDisplay.BOTH,
             settings.settings.value.noteDisplayFor(TrainingTool.LONG_TONES),
         )
+    }
+
+    // --- ready-made exercises ------------------------------------------------------------------
+
+    @Test
+    fun `a preset decides the whole exercise`() = runTest(dispatcher) {
+        val state = viewModel(
+            preset = FingeringPreset(
+                notes = listOf(c4, d4, e4),
+                order = NoteOrder.ORDERED,
+                secondsPerNote = 8,
+                rounds = 2,
+                checkMode = CheckMode.ADVANCE,
+            ),
+        ).uiState.value
+
+        assertEquals(listOf(c4, d4, e4), state.activeNotes)
+        assertEquals(NoteOrder.ORDERED, state.order)
+        assertEquals(8, state.secondsPerNote)
+        assertEquals(2, state.rounds)
+        assertEquals(CheckMode.ADVANCE, state.checkMode)
+        assertTrue(state.isPreconfigured)
+        assertTrue(state.canStart)
+    }
+
+    @Test
+    fun `a preset cannot ask for a note the chart does not know`() = runTest(dispatcher) {
+        // Well below the lowest note a tenor saxophone has.
+        val unplayable = Note(NoteName.C, 2)
+
+        val state = viewModel(preset = FingeringPreset(notes = listOf(c4, unplayable))).uiState.value
+
+        assertEquals(listOf(c4), state.activeNotes)
+    }
+
+    @Test
+    fun `the rounds a preset asks for are all played`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            preset = FingeringPreset(
+                notes = listOf(c4, d4),
+                order = NoteOrder.ORDERED,
+                secondsPerNote = 3,
+                rounds = 2,
+            ),
+        )
+
+        viewModel.start()
+        advanceTimeBy(10)
+
+        assertEquals(4, viewModel.uiState.value.progress!!.noteCount)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `auto start is offered once and then never again`() = runTest(dispatcher) {
+        val viewModel = viewModel(preset = FingeringPreset(notes = listOf(c4)))
+
+        assertTrue(viewModel.consumeAutoStart())
+        assertFalse("a rotation must not restart the exercise", viewModel.consumeAutoStart())
+    }
+
+    @Test
+    fun `a preset that does not start by itself is never offered`() = runTest(dispatcher) {
+        val viewModel = viewModel(preset = FingeringPreset(notes = listOf(c4), autoStart = false))
+
+        assertFalse(viewModel.consumeAutoStart())
+        assertTrue("it waits on the Start button", viewModel.uiState.value.phase is FingeringPhase.Idle)
+    }
+
+    @Test
+    fun `a freely configured run is never offered an auto start`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+
+        assertFalse(viewModel.consumeAutoStart())
+        assertFalse(viewModel.uiState.value.isPreconfigured)
+    }
+
+    @Test
+    fun `a preset fixes the presentation without touching the saved preference`() =
+        runTest(dispatcher) {
+            val settings = FakeSettingsRepository()
+            settings.setNoteDisplayFor(TrainingTool.FINGERING, NoteDisplay.NAME)
+
+            val viewModel = viewModel(
+                settings = settings,
+                preset = FingeringPreset(notes = listOf(c4), noteDisplay = NoteDisplay.STAFF),
+            )
+            advanceUntilIdle()
+
+            assertEquals(NoteDisplay.STAFF, viewModel.uiState.value.noteDisplay)
+            assertEquals(
+                "the player's own choice is untouched",
+                NoteDisplay.NAME,
+                settings.settings.value.noteDisplayFor(TrainingTool.FINGERING),
+            )
+        }
+
+    @Test
+    fun `a settings change cannot overwrite what a preset fixed`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        val viewModel = viewModel(
+            settings = settings,
+            preset = FingeringPreset(notes = listOf(c4), noteDisplay = NoteDisplay.STAFF),
+        )
+        advanceUntilIdle()
+
+        settings.setNoteDisplayFor(TrainingTool.FINGERING, NoteDisplay.NAME)
+        advanceUntilIdle()
+
+        assertEquals(NoteDisplay.STAFF, viewModel.uiState.value.noteDisplay)
+    }
+
+    @Test
+    fun `a preset that says nothing about presentation follows the player`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        settings.setNoteDisplayFor(TrainingTool.FINGERING, NoteDisplay.NAME)
+
+        val viewModel = viewModel(settings = settings, preset = FingeringPreset(notes = listOf(c4)))
+        advanceUntilIdle()
+
+        assertEquals(NoteDisplay.NAME, viewModel.uiState.value.noteDisplay)
+    }
+
+    @Test
+    fun `a preset cannot switch on listening without a microphone`() = runTest(dispatcher) {
+        val state = viewModel(
+            microphone = null,
+            preset = FingeringPreset(notes = listOf(c4), checkPlaying = true),
+        ).uiState.value
+
+        assertFalse(state.checkPlaying)
+    }
+
+    // --- how each note is presented -------------------------------------------------------------
+
+    @Test
+    fun `a random presentation is resolved before it reaches the screen`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            preset = FingeringPreset(
+                notes = listOf(c4, d4, e4),
+                order = NoteOrder.ORDERED,
+                secondsPerNote = 3,
+                noteDisplay = NoteDisplay.RANDOM,
+            ),
+        )
+
+        viewModel.start()
+        advanceTimeBy(10)
+
+        val progress = viewModel.uiState.value.progress!!
+        assertEquals(
+            "the setting itself is untouched",
+            NoteDisplay.RANDOM,
+            viewModel.uiState.value.noteDisplay,
+        )
+        assertTrue(
+            "the screen was handed ${progress.noteDisplay}",
+            progress.noteDisplay in listOf(NoteDisplay.NAME, NoteDisplay.STAFF),
+        )
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `a note keeps its presentation while it is on screen`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            preset = FingeringPreset(
+                notes = listOf(c4, d4),
+                order = NoteOrder.ORDERED,
+                secondsPerNote = 8,
+                noteDisplay = NoteDisplay.RANDOM,
+            ),
+        )
+
+        viewModel.start()
+        advanceTimeBy(10)
+        val first = viewModel.uiState.value.progress!!
+
+        // The progress is republished every tick; the note must not flicker between the two.
+        advanceTimeBy(4_000)
+        val stillFirst = viewModel.uiState.value.progress!!
+
+        assertEquals(first.currentNote, stillFirst.currentNote)
+        assertEquals(first.noteDisplay, stillFirst.noteDisplay)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `the preview shows what the next note will actually look like`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            preset = FingeringPreset(
+                notes = listOf(c4, d4, e4),
+                order = NoteOrder.ORDERED,
+                secondsPerNote = 3,
+                noteDisplay = NoteDisplay.RANDOM,
+            ),
+        )
+
+        viewModel.start()
+        advanceTimeBy(10)
+        val promised = viewModel.uiState.value.progress!!.nextNoteDisplay
+
+        advanceTimeBy(3_000)
+        val arrived = viewModel.uiState.value.progress!!
+
+        assertEquals(d4, arrived.currentNote)
+        assertEquals(promised, arrived.noteDisplay)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `both presentations turn up over a long enough exercise`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            preset = FingeringPreset(
+                notes = listOf(c4, d4, e4),
+                order = NoteOrder.ORDERED,
+                secondsPerNote = 3,
+                rounds = 8,
+                noteDisplay = NoteDisplay.RANDOM,
+            ),
+        )
+
+        viewModel.start()
+        advanceTimeBy(10)
+
+        val seen = mutableSetOf<NoteDisplay>()
+        repeat(24) {
+            viewModel.uiState.value.progress?.let { seen += it.noteDisplay }
+            advanceTimeBy(3_000)
+        }
+
+        assertEquals(setOf(NoteDisplay.NAME, NoteDisplay.STAFF), seen)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `a fixed presentation is passed straight through`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            preset = FingeringPreset(notes = listOf(c4), noteDisplay = NoteDisplay.STAFF),
+        )
+
+        viewModel.start()
+        advanceTimeBy(10)
+
+        assertEquals(NoteDisplay.STAFF, viewModel.uiState.value.progress!!.noteDisplay)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `choosing a fixed presentation leaves the note order alone`() = runTest(dispatcher) {
+        // The display schedule shares the exercise's generator, so it must not draw from it unless
+        // the presentation is actually left to chance.
+        fun orderWith(display: NoteDisplay): List<Note> {
+            val viewModel = viewModel(
+                preset = FingeringPreset(
+                    notes = listOf(c4, d4, e4),
+                    secondsPerNote = 3,
+                    rounds = 2,
+                    noteDisplay = display,
+                ),
+            )
+            viewModel.start()
+            advanceTimeBy(10)
+            val notes = mutableListOf<Note>()
+            repeat(6) {
+                viewModel.uiState.value.progress?.let { notes += it.currentNote }
+                advanceTimeBy(3_000)
+            }
+            viewModel.stop()
+            return notes
+        }
+
+        assertEquals(orderWith(NoteDisplay.NAME), orderWith(NoteDisplay.BOTH))
+        advanceUntilIdle()
     }
 }

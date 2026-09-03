@@ -26,8 +26,8 @@ data class FingeringConfig(
     /** Display times offered on the setup screen. */
     val secondsOptions: List<Int> = listOf(3, 5, 8),
     val defaultSeconds: Int = 5,
-    /** How often the selected notes are worked through. */
-    val rounds: Int = 1,
+    /** How often the selected notes are worked through, unless a preset says otherwise. */
+    val defaultRounds: Int = 1,
     /** Reference tempo used to turn seconds into beats; not shown to the player. */
     val tempo: Tempo = Tempo(60),
     /** How often the remaining time is refreshed. */

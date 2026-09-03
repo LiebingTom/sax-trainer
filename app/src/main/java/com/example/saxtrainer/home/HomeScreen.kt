@@ -27,6 +27,7 @@ import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 fun HomeScreen(
     onEntryClick: (route: String) -> Unit,
     modifier: Modifier = Modifier,
+    learning: List<HomeEntry> = learningEntries,
     practice: List<HomeEntry> = practiceEntries,
     app: List<HomeEntry> = appEntries,
 ) {
@@ -41,13 +42,23 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
         ) {
             item { HomeHeader() }
+            if (learning.isNotEmpty()) {
+                item { SectionHeader("Learning") }
+                items(learning, key = { it.id }) { entry ->
+                    FeatureCard(
+                        title = entry.title,
+                        description = entry.description,
+                        icon = entry.icon,
+                        onClick = { onEntryClick(entry.route) },
+                    )
+                }
+            }
             item { SectionHeader("Practice") }
             items(practice, key = { it.id }) { entry ->
                 FeatureCard(
                     title = entry.title,
                     description = entry.description,
                     icon = entry.icon,
-                    status = entry.status,
                     onClick = { onEntryClick(entry.route) },
                 )
             }
@@ -57,7 +68,6 @@ fun HomeScreen(
                     title = entry.title,
                     description = entry.description,
                     icon = entry.icon,
-                    status = entry.status,
                     onClick = { onEntryClick(entry.route) },
                 )
             }

@@ -14,6 +14,8 @@ import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.settings.TrainingTool
+import com.example.saxtrainer.core.settings.displayAt
+import com.example.saxtrainer.core.settings.noteDisplaySchedule
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import kotlin.random.Random
 
 /**
  * Drives a long tone exercise: count-in, recording, live feedback and result.
@@ -47,6 +50,8 @@ class LongToneViewModel(
     private val settingsRepository: SettingsRepository,
     private val config: LongToneConfig = LongToneConfig(),
     private val processingDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    /** Only ever drawn from when the presentation of a note is left to chance. */
+    private val random: Random = Random.Default,
 ) : ViewModel() {
 
     /** How an attempt ended. Every exit path produces exactly one of these. */
@@ -139,6 +144,13 @@ class LongToneViewModel(
         val selection = _uiState.value.selection
         val sequence = selection.pattern.build(selection.rootNote, selection.beatsPerNote)
         val runner = SequenceRunner(sequence)
+        // Decided once for the whole exercise so a note cannot change its presentation while it is
+        // being held, and so the preview of the next note is honest.
+        val displays = noteDisplaySchedule(
+            display = _uiState.value.noteDisplay,
+            stepCount = sequence.steps.size,
+            random = random,
+        )
         val processor = LongToneProcessor(config, config.capture.sampleRate)
         val results = mutableListOf<LongToneStepResult>()
 
@@ -147,10 +159,10 @@ class LongToneViewModel(
             processor.startStep(runner.currentStep.note.frequencyHz())
             _uiState.value = _uiState.value.copy(
                 phase = LongTonePhase.Running,
-                progress = progressOf(runner, selection, stepElapsed = 0f, exerciseElapsed = 0f),
+                progress = progressOf(runner, displays, selection, stepElapsed = 0f, exerciseElapsed = 0f),
             )
 
-            val outcome = collectFrames(runner, processor, selection, results)
+            val outcome = collectFrames(runner, displays, processor, selection, results)
             publish(outcome, processor, selection, results)
         } catch (cancellation: CancellationException) {
             // The user pressed Stop, the screen went away, or the ViewModel was cleared. What was
@@ -184,6 +196,7 @@ class LongToneViewModel(
      */
     private suspend fun collectFrames(
         runner: SequenceRunner,
+        displays: List<NoteDisplay>,
         processor: LongToneProcessor,
         selection: ExerciseSelection,
         results: MutableList<LongToneStepResult>,
@@ -204,7 +217,7 @@ class LongToneViewModel(
                             if (runner.advance()) {
                                 processor.startStep(runner.currentStep.note.frequencyHz())
                                 lastUiUpdateSeconds = -config.uiUpdateIntervalMs / MILLIS_PER_SECOND
-                                publishProgress(runner, processor, selection)
+                                publishProgress(runner, displays, processor, selection)
                                 null
                             } else {
                                 Outcome.Completed
@@ -214,7 +227,7 @@ class LongToneViewModel(
                             val interval = config.uiUpdateIntervalMs / MILLIS_PER_SECOND
                             if (elapsed - lastUiUpdateSeconds >= interval) {
                                 lastUiUpdateSeconds = elapsed
-                                publishProgress(runner, processor, selection)
+                                publishProgress(runner, displays, processor, selection)
                             }
                             null
                         }
@@ -237,12 +250,14 @@ class LongToneViewModel(
 
     private fun publishProgress(
         runner: SequenceRunner,
+        displays: List<NoteDisplay>,
         processor: LongToneProcessor,
         selection: ExerciseSelection,
     ) {
         _uiState.value = _uiState.value.copy(
             progress = progressOf(
                 runner = runner,
+                displays = displays,
                 selection = selection,
                 stepElapsed = processor.analyzedSeconds,
                 exerciseElapsed = processor.exerciseSeconds,
@@ -253,6 +268,7 @@ class LongToneViewModel(
 
     private fun progressOf(
         runner: SequenceRunner,
+        displays: List<NoteDisplay>,
         selection: ExerciseSelection,
         stepElapsed: Float,
         exerciseElapsed: Float,
@@ -267,6 +283,8 @@ class LongToneViewModel(
             noteTargetSeconds = selection.tempo.secondsFor(runner.currentStep.duration).toFloat(),
             exerciseElapsedSeconds = exerciseElapsed,
             exerciseTotalSeconds = selection.totalSeconds,
+            noteDisplay = displays.displayAt(sequenceProgress.stepIndex),
+            nextNoteDisplay = displays.displayAt(sequenceProgress.stepIndex + 1),
         )
     }
 

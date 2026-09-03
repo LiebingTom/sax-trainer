@@ -14,9 +14,14 @@
             <option value="$PROJECT_DIR$/core/audio" />
             <option value="$PROJECT_DIR$/core/designsystem" />
             <option value="$PROJECT_DIR$/core/dsp" />
+            <option value="$PROJECT_DIR$/core/exercise" />
+            <option value="$PROJECT_DIR$/core/fingering" />
+            <option value="$PROJECT_DIR$/core/learning" />
             <option value="$PROJECT_DIR$/core/music" />
             <option value="$PROJECT_DIR$/core/settings" />
             <option value="$PROJECT_DIR$/feature" />
+            <option value="$PROJECT_DIR$/feature/fingering" />
+            <option value="$PROJECT_DIR$/feature/learning" />
             <option value="$PROJECT_DIR$/feature/longtones" />
             <option value="$PROJECT_DIR$/feature/metronome" />
             <option value="$PROJECT_DIR$/feature/settings" />

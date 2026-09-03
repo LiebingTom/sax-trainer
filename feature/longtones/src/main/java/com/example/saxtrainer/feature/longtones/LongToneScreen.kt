@@ -19,6 +19,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,8 +31,10 @@ import com.example.saxtrainer.core.designsystem.component.CentsMeter
 import com.example.saxtrainer.core.designsystem.component.CentsMeterLabels
 import com.example.saxtrainer.core.designsystem.component.LevelMeter
 import com.example.saxtrainer.core.designsystem.component.MetricDisplay
+import com.example.saxtrainer.core.designsystem.component.CurrentAndNextNote
 import com.example.saxtrainer.core.designsystem.component.NoteDisplayPicker
 import com.example.saxtrainer.core.designsystem.component.NotePresentation
+import com.example.saxtrainer.core.designsystem.component.rememberNoteSlot
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
@@ -131,40 +134,72 @@ private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
     val written = state.transposition.writtenFor(currentNote)
     val detected = state.measurements.pitch?.detectedNote?.let(state.transposition::writtenFor)
     val nextNote = state.progress?.upcomingNotes?.firstOrNull()
+    // Before the exercise runs there is no schedule yet, so the setting speaks for itself.
+    val currentDisplay = state.progress?.noteDisplay ?: state.noteDisplay
+    val nextDisplay = state.progress?.nextNoteDisplay ?: state.noteDisplay
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
+        // One box per note, big enough for any note of this exercise shown either way, so neither a
+        // change of presentation nor the detected note appearing beside the target moves the row.
+        val writtenNotes = remember(state.selection.notes, state.transposition) {
+            state.selection.notes.map(state.transposition::writtenFor)
+        }
+        val nextNameStyle = numericLarge.copy(
+            fontSize = numericLarge.fontSize * NEXT_NOTE_SCALE,
+            lineHeight = numericLarge.lineHeight * NEXT_NOTE_SCALE,
+        )
+        val currentSlot = rememberNoteSlot(
+            notes = writtenNotes,
+            nameStyle = numericLarge,
+            staffLineSpacing = CurrentNoteStaffSpacing,
+            mayShowName = state.noteDisplay.showsName,
+            mayShowStaff = state.noteDisplay.showsStaff,
+            mayShowBothAtOnce = state.noteDisplay == NoteDisplay.BOTH,
+        )
+        val nextSlot = rememberNoteSlot(
+            notes = writtenNotes,
+            nameStyle = nextNameStyle,
+            staffLineSpacing = NextNoteStaffSpacing,
+            mayShowName = state.noteDisplay.showsName,
+            mayShowStaff = state.noteDisplay.showsStaff,
+            mayShowBothAtOnce = state.noteDisplay == NoteDisplay.BOTH,
+        )
+
+        CurrentAndNextNote(
+            next = nextNote?.let { next ->
+                {
+                    NotePresentation(
+                        note = state.transposition.writtenFor(next),
+                        label = state.writtenLabel(next),
+                        showName = nextDisplay.showsName,
+                        showStaff = nextDisplay.showsStaff,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        nameStyle = nextNameStyle,
+                        staffLineSpacing = NextNoteStaffSpacing,
+                        slot = nextSlot,
+                    )
+                }
+            },
         ) {
             NotePresentation(
                 note = written,
                 label = state.writtenLabel(currentNote),
-                showName = state.noteDisplay.showsName,
-                showStaff = state.noteDisplay.showsStaff,
+                showName = currentDisplay.showsName,
+                showStaff = currentDisplay.showsStaff,
+                // The note itself takes the accent colour the buttons use, drawn either way; only
+                // the staff behind it stays neutral.
                 color = MaterialTheme.colorScheme.primary,
-                staffColor = MaterialTheme.colorScheme.onSurface,
+                staffColor = MaterialTheme.colorScheme.primary,
+                staffLineColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 nameStyle = numericLarge,
+                staffLineSpacing = CurrentNoteStaffSpacing,
                 secondaryNote = detected.takeIf { it != written },
                 secondaryColor = detectedHighlightColor,
+                slot = currentSlot,
             )
-            if (nextNote != null) {
-                NotePresentation(
-                    note = state.transposition.writtenFor(nextNote),
-                    label = state.writtenLabel(nextNote),
-                    showName = state.noteDisplay.showsName,
-                    showStaff = state.noteDisplay.showsStaff,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    nameStyle = numericLarge.copy(
-                        fontSize = numericLarge.fontSize * NEXT_NOTE_SCALE,
-                        lineHeight = numericLarge.lineHeight * NEXT_NOTE_SCALE,
-                    ),
-                    staffLineSpacing = NextNoteStaffSpacing,
-                )
-            }
         }
         Text(
             text = if (state.transposition == Transposition.CONCERT) {
@@ -405,6 +440,7 @@ private const val IN_TUNE_CENTS = 5f
 
 /** The upcoming note is drawn at half the size of the one being played. */
 private const val NEXT_NOTE_SCALE = 0.5f
+private val CurrentNoteStaffSpacing = 12.dp
 private val NextNoteStaffSpacing = 5.dp
 
 /** Signed cents, e.g. "+7 ct" or "-12 ct". */
@@ -588,7 +624,7 @@ private fun LongToneScreenPreview() {
                 ),
                 beatOptions = listOf(Beats.of(2), Beats.of(4), Beats.of(8)),
                 tempoRange = Tempo.SUPPORTED_RANGE,
-                transposition = Transposition.B_FLAT,
+                transposition = Transposition.TENOR_B_FLAT,
                 instrumentName = "Tenor saxophone",
             ),
             onSelectPattern = {},

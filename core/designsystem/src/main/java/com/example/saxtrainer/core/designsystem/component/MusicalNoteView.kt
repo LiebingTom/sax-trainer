@@ -36,6 +36,13 @@ import kotlin.math.min
  *
  * Deliberately minimal: one staff, no clef glyph (treble is assumed), no rhythm, no chords. Sizing
  * follows [lineSpacing], so the same component works as a small inline glyph or as a large display.
+ *
+ * By default the drawing is only as tall as the note needs, which means a high note and a low one
+ * come out different sizes. Give [stepRange] - from [staffStepRange] over every note a screen can
+ * show - and the staff keeps one size and one position throughout, so nothing moves as the notes
+ * change. A note outside that range is then clipped rather than resizing the box, which is the whole
+ * point of asking for a fixed one. [reserveSecondaryWidth] does the same for the width, so a second
+ * note appearing beside the first does not widen the drawing.
  */
 @Composable
 fun MusicalNoteView(
@@ -47,24 +54,22 @@ fun MusicalNoteView(
     staffColor: Color = primaryColor,
     lineSpacing: Dp = DefaultLineSpacing,
     accidentalStyle: AccidentalStyle = AccidentalStyle.SHARPS,
+    stepRange: IntRange? = null,
+    reserveSecondaryWidth: Boolean = false,
 ) {
     val primary = TrebleStaff.placementOf(primaryNote, accidentalStyle)
     val secondary = secondaryNote?.let { TrebleStaff.placementOf(it, accidentalStyle) }
 
-    // The drawing has to leave room for whatever sits furthest from the staff, and a stem only
-    // reaches away from the head on the side it points to.
-    val placements = listOfNotNull(primary, secondary)
-    val lowestStep = min(
-        0,
-        placements.minOf { it.stepsFromBottomLine - if (it.stemUp) 1 else STEM_STEPS + 1 },
-    )
-    val highestStep = max(
-        TOP_LINE_STEP,
-        placements.maxOf { it.stepsFromBottomLine + if (it.stemUp) STEM_STEPS + 1 else 1 },
-    )
+    val extent = stepRange ?: extentOf(listOfNotNull(primary, secondary))
+    val lowestStep = extent.first
+    val highestStep = extent.last
 
     val height = lineSpacing * ((highestStep - lowestStep) / 2f)
-    val width = lineSpacing * if (secondary == null) SINGLE_WIDTH_SPACES else DOUBLE_WIDTH_SPACES
+    val width = lineSpacing * if (secondary == null && !reserveSecondaryWidth) {
+        SINGLE_WIDTH_SPACES
+    } else {
+        DOUBLE_WIDTH_SPACES
+    }
 
     val description = buildString {
         append("Treble staff showing ${primaryNote.label}")
@@ -82,7 +87,7 @@ fun MusicalNoteView(
 
         drawStaff(staffColor, ::y, spacing)
 
-        val headX = if (secondary == null) {
+        val headX = if (secondary == null && !reserveSecondaryWidth) {
             size.width * SINGLE_NOTE_X
         } else {
             size.width * PRIMARY_NOTE_X
@@ -94,6 +99,47 @@ fun MusicalNoteView(
         }
     }
 }
+
+/**
+ * The vertical room a drawing needs, in staff steps.
+ *
+ * It has to hold the staff itself plus whatever reaches furthest away from it - a ledger line, an
+ * accidental, a stem - and a stem only reaches away from the head on the side it points to.
+ */
+private fun extentOf(placements: List<StaffPlacement>): IntRange {
+    val lowest = min(
+        0,
+        placements.minOf { it.stepsFromBottomLine - if (it.stemUp) 1 else STEM_STEPS + 1 },
+    )
+    val highest = max(
+        TOP_LINE_STEP,
+        placements.maxOf { it.stepsFromBottomLine + if (it.stemUp) STEM_STEPS + 1 else 1 },
+    )
+    return lowest..highest
+}
+
+/**
+ * The room every one of [notes] needs together.
+ *
+ * Hand the result to [MusicalNoteView] as its `stepRange` and each of those notes is drawn at the
+ * same size, on a staff in the same place, so a screen showing one note after another never shifts.
+ */
+fun staffStepRange(
+    notes: List<Note>,
+    accidentalStyle: AccidentalStyle = AccidentalStyle.SHARPS,
+): IntRange {
+    require(notes.isNotEmpty()) { "no notes to make room for" }
+    val extents = notes.map { extentOf(listOf(TrebleStaff.placementOf(it, accidentalStyle))) }
+    return extents.minOf { it.first }..extents.maxOf { it.last }
+}
+
+/** How tall [MusicalNoteView] draws a [stepRange] at [lineSpacing]. */
+fun staffHeightOf(stepRange: IntRange, lineSpacing: Dp): Dp =
+    lineSpacing * ((stepRange.last - stepRange.first) / 2f)
+
+/** How wide [MusicalNoteView] draws at [lineSpacing], with or without room for a second note. */
+fun staffWidthOf(lineSpacing: Dp, reserveSecondaryWidth: Boolean = false): Dp =
+    lineSpacing * if (reserveSecondaryWidth) DOUBLE_WIDTH_SPACES else SINGLE_WIDTH_SPACES
 
 private fun DrawScope.drawStaff(color: Color, y: (Int) -> Float, spacing: Float) {
     val strokeWidth = spacing * LINE_WIDTH_RATIO
@@ -238,10 +284,15 @@ private const val LEDGER_OVERHANG = 0.85f
 private const val ACCIDENTAL_GAP = 1.15f
 private const val ACCIDENTAL_STROKE_RATIO = 0.1f
 private const val SINGLE_WIDTH_SPACES = 4f
-private const val DOUBLE_WIDTH_SPACES = 7f
+
+/**
+ * Room for two notes, kept as close to the single width as their accidentals allow: a second note
+ * appearing beside the first should widen the drawing as little as possible.
+ */
+private const val DOUBLE_WIDTH_SPACES = 6f
 private const val SINGLE_NOTE_X = 0.55f
-private const val PRIMARY_NOTE_X = 0.32f
-private const val SECONDARY_NOTE_X = 0.76f
+private const val PRIMARY_NOTE_X = 0.33f
+private const val SECONDARY_NOTE_X = 0.75f
 
 @Preview(showBackground = true)
 @Composable

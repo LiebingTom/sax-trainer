@@ -143,6 +143,10 @@ data class ExerciseProgress(
     val noteTargetSeconds: Float,
     val exerciseElapsedSeconds: Float,
     val exerciseTotalSeconds: Float,
+    /** How this note is presented, already resolved: never [NoteDisplay.RANDOM]. */
+    val noteDisplay: NoteDisplay = NoteDisplay.BOTH,
+    /** How the note after it will be presented, so the preview matches what arrives. */
+    val nextNoteDisplay: NoteDisplay = NoteDisplay.BOTH,
 ) {
     val displayPosition: Int get() = noteIndex + 1
 

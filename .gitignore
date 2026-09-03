@@ -16,3 +16,5 @@ local.properties
 
 # Gradle build output of every module
 build/
+
+additional/

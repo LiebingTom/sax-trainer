@@ -1,0 +1,29 @@
+# Which icon source becomes which drawable.
+#
+#   python tools/svg_to_vector.py --map tools/icons.map
+#
+# Sources live in additional/icons/ and are named after what the icon is for, not after whatever
+# the download was called. Destinations keep the resource names the code already uses, so adding or
+# replacing an icon never touches Kotlin.
+#
+# Downloading from fonts.google.com/icons: format SVG, size 24px, weight 400, grade 0, optical
+# size 24, and one style throughout. Colour does not matter - icons are drawn through
+# Icon(painter, tint = ...), which replaces the fill with the theme colour.
+#
+# Drawing your own in Inkscape: document 24x24 px (or any square), then before saving
+#   1. Path > Object to Path            turns rectangles, circles and text into paths
+#   2. Path > Stroke to Path            turns outlines into filled shapes
+#   3. Path > Union                     flattens overlapping shapes, and drops group transforms
+#   4. Save As > Plain SVG              no Inkscape-specific attributes
+# The converter refuses anything it would get wrong - transforms, gradients, strokes, non-path
+# shapes - and says which one it found, so a bad export fails loudly instead of shipping crooked.
+
+additional/icons/settings.svg     -> app/src/main/res/drawable/ic_settings.xml
+additional/icons/learning.svg     -> app/src/main/res/drawable/ic_learning.xml
+additional/icons/long_tone.svg    -> app/src/main/res/drawable/ic_long_tone.xml
+additional/icons/arrow_back.svg   -> core/designsystem/src/main/res/drawable/ic_arrow_back.xml
+additional/icons/tune.svg         -> feature/fingering/src/main/res/drawable/ic_choose_notes.xml
+
+# Still hand-drawn, waiting to be replaced:
+#   app/src/main/res/drawable/ic_metronome.xml
+#   app/src/main/res/drawable/ic_fingering.xml

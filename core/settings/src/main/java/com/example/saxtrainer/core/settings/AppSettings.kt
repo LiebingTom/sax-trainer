@@ -7,16 +7,18 @@ enum class Instrument(
     val displayName: String,
     val transposition: Transposition,
 ) {
-    TENOR_SAX("Tenor saxophone", Transposition.B_FLAT),
-    ALTO_SAX("Alto saxophone", Transposition.E_FLAT),
+    SOPRANO_SAX("Soprano saxophone", Transposition.SOPRANO_B_FLAT),
+    ALTO_SAX("Alto saxophone", Transposition.ALTO_E_FLAT),
+    TENOR_SAX("Tenor saxophone", Transposition.TENOR_B_FLAT),
+    BARITONE_SAX("Baritone saxophone", Transposition.BARITONE_E_FLAT),
     CONCERT("Concert pitch", Transposition.CONCERT),
     ;
 
     val description: String
-        get() = when (transposition) {
-            Transposition.CONCERT -> "No transposition, notes sound as written"
-            Transposition.B_FLAT -> "Written C sounds a concert B flat"
-            Transposition.E_FLAT -> "Written C sounds a concert E flat"
+        get() = if (transposition == Transposition.CONCERT) {
+            "No transposition, notes sound as written"
+        } else {
+            "Written C sounds ${transposition.writtenCDescription}"
         }
 }
 
@@ -35,7 +37,17 @@ enum class NoteDisplay(
     NAME("Note name only", "Name", "Just the letter, e.g. G4"),
     STAFF("Notation only", "Notation", "The note drawn on the staff"),
     BOTH("Name and notation", "Both", "Both together"),
+    RANDOM("Random", "Random", "Name or notation, decided again for every note"),
     ;
+
+    /**
+     * True while [RANDOM] still has to be turned into something drawable.
+     *
+     * A tool that shows a sequence of notes resolves it once per note with [noteDisplaySchedule];
+     * anywhere that has no sequence to resolve against - a setup screen, a preview - [RANDOM] falls
+     * back to showing both, which is why the two properties below stay total.
+     */
+    val isRandom: Boolean get() = this == RANDOM
 
     val showsName: Boolean get() = this != STAFF
 

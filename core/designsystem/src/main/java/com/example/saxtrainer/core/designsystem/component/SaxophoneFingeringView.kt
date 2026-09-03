@@ -1,14 +1,23 @@
 package com.example.saxtrainer.core.designsystem.component
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -16,10 +25,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.fingering.Fingering
 import com.example.saxtrainer.core.fingering.SaxKey
-import com.example.saxtrainer.core.fingering.SaxophoneFingerings
+import com.example.saxtrainer.core.fingering.TenorSaxophoneFingerings
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 
@@ -43,7 +53,7 @@ fun SaxophoneFingeringView(
 ) {
     Canvas(
         modifier = modifier
-            .size(width = width, height = width * HEIGHT_RATIO)
+            .size(width = width, height = width * SaxophoneDiagramMetrics.HEIGHT_RATIO)
             .then(
                 if (contentDescription != null) {
                     Modifier.clearAndSetSemantics { this.contentDescription = contentDescription }
@@ -54,61 +64,64 @@ fun SaxophoneFingeringView(
     ) {
         drawBody(bodyColor)
 
-        val keyDiameter = size.width * KEY_DIAMETER_RATIO
-        val strokeWidth = keyDiameter * STROKE_RATIO
-
-        SaxophoneKeyLayout.keys.forEach { placement ->
+        val strokeWidth = SaxophoneDiagramMetrics.strokeWidth(size.width)
+        SaxophoneDiagramMetrics.resolve(size.width, size.height).forEach { resolved ->
             drawKey(
-                placement = placement,
-                pressed = fingering.isPressed(placement.key),
-                keyDiameter = keyDiameter,
+                geometry = resolved.geometry,
+                pressed = fingering.isPressed(resolved.key),
                 strokeWidth = strokeWidth,
-                pressedColor = pressedColor,
-                openColor = openColor,
+                color = if (fingering.isPressed(resolved.key)) pressedColor else openColor,
             )
         }
     }
 }
 
-/** The line the main keys sit on, hinting at the body of the instrument. */
+/**
+ * The line the main keys sit on, hinting at the body of the instrument, and a break between the two
+ * hands so the upper and lower halves read as left and right.
+ */
 private fun DrawScope.drawBody(color: Color) {
-    val x = size.width * SaxophoneKeyLayout.MAIN_COLUMN_X
-    drawLine(
-        color = color,
-        start = Offset(x, size.height * 0.04f),
-        end = Offset(x, size.height * 0.98f),
-        strokeWidth = size.width * BODY_STROKE_RATIO,
-    )
+    SaxophoneDiagramMetrics.bodyGuides(size.width, size.height).forEach { guide ->
+        drawLine(
+            color = color,
+            start = Offset(guide.startX, guide.startY),
+            end = Offset(guide.endX, guide.endY),
+            strokeWidth = SaxophoneDiagramMetrics.bodyStrokeWidth(size.width),
+            pathEffect = if (guide.dashed) {
+                PathEffect.dashPathEffect(floatArrayOf(size.width * 0.04f, size.width * 0.04f))
+            } else {
+                null
+            },
+        )
+    }
 }
 
 private fun DrawScope.drawKey(
-    placement: KeyPlacement,
+    geometry: KeyGeometry,
     pressed: Boolean,
-    keyDiameter: Float,
     strokeWidth: Float,
-    pressedColor: Color,
-    openColor: Color,
+    color: Color,
 ) {
-    val centre = Offset(size.width * placement.x, size.height * placement.y)
-    val diameter = keyDiameter * (placement.size / REFERENCE_KEY_SIZE)
-    val color = if (pressed) pressedColor else openColor
-
-    when (val shape = placement.shape) {
-        is KeyShape.Circle -> if (pressed) {
-            drawCircle(color = color, radius = diameter / 2f, center = centre)
+    when (geometry) {
+        is KeyGeometry.Ellipse -> if (pressed) {
+            drawCircle(
+                color = color,
+                radius = geometry.radius,
+                center = Offset(geometry.centreX, geometry.centreY),
+            )
         } else {
             drawCircle(
                 color = color,
-                radius = diameter / 2f,
-                center = centre,
+                radius = geometry.radius,
+                center = Offset(geometry.centreX, geometry.centreY),
                 style = Stroke(width = strokeWidth),
             )
         }
 
-        is KeyShape.RoundedRect -> {
-            val rectSize = Size(diameter * shape.widthRatio, diameter * shape.heightRatio)
-            val topLeft = Offset(centre.x - rectSize.width / 2f, centre.y - rectSize.height / 2f)
-            val corner = CornerRadius(rectSize.height / 2f)
+        is KeyGeometry.Bar -> {
+            val topLeft = Offset(geometry.left, geometry.top)
+            val rectSize = Size(geometry.width, geometry.height)
+            val corner = CornerRadius(geometry.cornerRadius)
             if (pressed) {
                 drawRoundRect(color = color, topLeft = topLeft, size = rectSize, cornerRadius = corner)
             } else {
@@ -126,30 +139,65 @@ private fun DrawScope.drawKey(
 
 private val DefaultWidth = 96.dp
 
-/** The diagram is a tall front view, so height follows width. */
-private const val HEIGHT_RATIO = 2.2f
-private const val KEY_DIAMETER_RATIO = 0.30f
-private const val REFERENCE_KEY_SIZE = 0.19f
-private const val STROKE_RATIO = 0.12f
-private const val BODY_STROKE_RATIO = 0.012f
-
 @Preview(showBackground = true)
 @Composable
 private fun SaxophoneFingeringViewPreview() {
     SaxTrainerTheme {
         SaxophoneFingeringView(
-            fingering = SaxophoneFingerings.fingeringFor(Note(NoteName.G, 4))!!,
+            fingering = TenorSaxophoneFingerings.fingeringFor(Note(NoteName.G, 4))!!,
             contentDescription = "Fingering for G",
         )
     }
 }
 
+/** Every key at once, to check that nothing in the layout overlaps or falls off the panel. */
 @Preview(showBackground = true)
 @Composable
-private fun SaxophoneFingeringViewSideKeyPreview() {
+private fun SaxophoneFingeringViewAllKeysPreview() {
     SaxTrainerTheme {
         SaxophoneFingeringView(
-            fingering = Fingering(setOf(SaxKey.LH1, SaxKey.SIDE_BB)),
+            fingering = Fingering(SaxKey.entries.toSet()),
+            width = 140.dp,
         )
+    }
+}
+
+/**
+ * The whole chart: every note the database knows, standard fingerings first and then the
+ * alternates, so the diagram can be read against a printed chart at a glance.
+ */
+@Preview(showBackground = true, heightDp = 2400, widthDp = 420)
+@Composable
+private fun SaxophoneFingeringChartPreview() {
+    SaxTrainerTheme {
+        LazyVerticalGrid(columns = GridCells.Fixed(4)) {
+            TenorSaxophoneFingerings.supportedNotes.forEach { note ->
+                val fingerings = TenorSaxophoneFingerings.fingeringsFor(note)!!
+                fingerings.all.forEachIndexed { index, fingering ->
+                    item {
+                        Column(
+                            modifier = Modifier.padding(Dimens.spaceXs),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(Dimens.spaceXs),
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceXs)) {
+                                Text(
+                                    text = note.label,
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                if (index > 0) {
+                                    Text(
+                                        text = "alt $index",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            SaxophoneFingeringView(fingering = fingering, width = 72.dp)
+                        }
+                    }
+                }
+            }
+        }
     }
 }

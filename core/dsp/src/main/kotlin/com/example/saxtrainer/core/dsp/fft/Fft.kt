@@ -20,9 +20,9 @@ class Fft(val size: Int) {
     private val cosTable = FloatArray(size / 2) { cos(2.0 * PI * it / size).toFloat() }
     private val sinTable = FloatArray(size / 2) { sin(2.0 * PI * it / size).toFloat() }
     private val reversed = IntArray(size).also { table ->
-        val bits = Integer.numberOfTrailingZeros(size)
+        val bits = size.countTrailingZeroBits()
         for (i in 0 until size) {
-            table[i] = Integer.reverse(i) ushr (Int.SIZE_BITS - bits)
+            table[i] = reverseLowBits(i, bits)
         }
     }
 
@@ -65,6 +65,25 @@ class Fft(val size: Int) {
                 start += span
             }
             span = span shl 1
+        }
+    }
+
+    private companion object {
+        /**
+         * The low [bits] of [value], in reverse order - which is the position that value's sample
+         * takes once the input has been shuffled for an in-place transform.
+         *
+         * Written out rather than taken from the standard library because there is no multiplatform
+         * bit reverse; only the trailing-zero count has one.
+         */
+        fun reverseLowBits(value: Int, bits: Int): Int {
+            var remaining = value
+            var reversed = 0
+            repeat(bits) {
+                reversed = (reversed shl 1) or (remaining and 1)
+                remaining = remaining ushr 1
+            }
+            return reversed
         }
     }
 }

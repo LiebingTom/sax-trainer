@@ -1,5 +1,7 @@
 package com.example.saxtrainer.core.music
 
+import kotlin.math.pow
+
 /**
  * How long a note is *written*, as opposed to how long it lasts.
  *
@@ -83,6 +85,6 @@ data class NotatedDuration(val value: NoteValue, val dots: Int = 0) {
         }
 
         /** One dot adds a half, two dots add a half and a quarter, and so on. */
-        private fun dotFactor(dots: Int): Double = 2.0 - Math.pow(0.5, dots.toDouble())
+        private fun dotFactor(dots: Int): Double = 2.0 - 0.5.pow(dots)
     }
 }

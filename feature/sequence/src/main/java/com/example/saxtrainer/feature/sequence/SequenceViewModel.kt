@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.listening.DetectedNote
 import com.example.saxtrainer.core.audio.listening.NoteListener
-import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.audio.metronome.Metronome
 import com.example.saxtrainer.core.audio.metronome.clickCountIn
 import com.example.saxtrainer.core.exercise.BeatClock
 import com.example.saxtrainer.core.exercise.MonotonicBeatClock
@@ -46,7 +46,7 @@ import kotlin.math.abs
 class SequenceViewModel(
     private val settingsRepository: SettingsRepository,
     private val audioCapture: AudioCapture? = null,
-    private val metronome: MetronomeEngine? = null,
+    private val metronome: Metronome? = null,
     private val preset: SequencePreset? = null,
     private val config: SequenceConfig = SequenceConfig(),
     private val processingDispatcher: CoroutineDispatcher = Dispatchers.Default,

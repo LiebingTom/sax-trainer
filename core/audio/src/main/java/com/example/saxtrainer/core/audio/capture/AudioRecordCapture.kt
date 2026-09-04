@@ -12,14 +12,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 
-/** Microphone permission check, kept here so features do not duplicate the constant. */
-object AudioPermission {
-    const val RECORD_AUDIO: String = Manifest.permission.RECORD_AUDIO
-
-    fun isGranted(context: Context): Boolean =
-        ContextCompat.checkSelfPermission(context, RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-}
-
 /**
  * [AudioCapture] backed by [AudioRecord].
  *
@@ -33,7 +25,9 @@ class AudioRecordCapture(
 ) : AudioCapture {
 
     override fun frames(config: AudioCaptureConfig): Flow<AudioCaptureEvent> = flow {
-        if (!AudioPermission.isGranted(context)) {
+        // Checked here as well as by whoever asked for it: permission can be revoked while the
+        // app is in the background, and opening the recorder without it throws.
+        if (!isRecordingPermitted()) {
             emit(AudioCaptureEvent.Failed(AudioCaptureError.PermissionDenied))
             return@flow
         }
@@ -139,6 +133,10 @@ class AudioRecordCapture(
             window[destination++] = source[i] * SHORT_TO_FLOAT
         }
     }
+
+    private fun isRecordingPermitted(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
 
     private companion object {
         const val BYTES_PER_SAMPLE = 2

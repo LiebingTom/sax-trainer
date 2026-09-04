@@ -25,27 +25,27 @@ import kotlinx.coroutines.flow.asStateFlow
 class MetronomeEngine(
     private val audioConfig: AudioConfig = AudioConfig(),
     private val timeSignature: TimeSignature = TimeSignature.FOUR_FOUR,
-) {
+) : Metronome {
     private val _state = MutableStateFlow(
         MetronomeEngineState(beatsPerBar = timeSignature.beatsPerBar),
     )
-    val state: StateFlow<MetronomeEngineState> = _state.asStateFlow()
+    override val state: StateFlow<MetronomeEngineState> = _state.asStateFlow()
 
     @Volatile
     private var running = false
 
     @Volatile
-    private var targetBpm = DEFAULT_BPM
+    private var targetBpm = Metronome.DEFAULT_BPM
 
     private var renderThread: Thread? = null
 
-    fun setBpm(bpm: Int) {
+    override fun setBpm(bpm: Int) {
         val clamped = bpm.coerceIn(Tempo.SUPPORTED_RANGE)
         targetBpm = clamped
         _state.value = _state.value.copy(bpm = clamped)
     }
 
-    fun start() {
+    override fun start() {
         if (running) return
         running = true
         _state.value = _state.value.copy(
@@ -56,7 +56,7 @@ class MetronomeEngine(
         renderThread = Thread(::renderLoop, "MetronomeEngine").also { it.start() }
     }
 
-    fun stop() {
+    override fun stop() {
         running = false
         renderThread?.join(JOIN_TIMEOUT_MS)
         renderThread = null
@@ -64,7 +64,7 @@ class MetronomeEngine(
     }
 
     /** Releases the render thread. The engine can be started again afterwards. */
-    fun release() {
+    override fun release() {
         stop()
     }
 
@@ -160,10 +160,8 @@ class MetronomeEngine(
         }
     }
 
-    companion object {
-        const val DEFAULT_BPM = 80
-
-        private const val SECONDS_PER_MINUTE = 60.0
+    private companion object {
+        const val SECONDS_PER_MINUTE = 60.0
         private const val RENDER_FRAMES = 256
         private const val BUFFER_MULTIPLIER = 4
         private const val MAX_PENDING_BEATS = 16

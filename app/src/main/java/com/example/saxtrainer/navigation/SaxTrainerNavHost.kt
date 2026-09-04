@@ -57,11 +57,15 @@ fun SaxTrainerNavHost(
             HomeScreen(onEntryClick = { route -> navController.navigate(route) })
         }
         composable(SaxTrainerDestination.METRONOME) {
-            MetronomeRoute(onBack = { navController.popBackStack() })
+            MetronomeRoute(
+                newMetronome = container.newMetronome,
+                onBack = { navController.popBackStack() },
+            )
         }
         composable(SaxTrainerDestination.LONG_TONES) {
             LongToneRoute(
                 audioCapture = container.audioCapture,
+                newMetronome = container.newMetronome,
                 settingsRepository = container.settingsRepository,
                 onBack = { navController.popBackStack() },
             )
@@ -88,6 +92,7 @@ fun SaxTrainerNavHost(
             FingeringRoute(
                 settingsRepository = container.settingsRepository,
                 audioCapture = container.audioCapture,
+                newMetronome = container.newMetronome,
                 preset = lesson?.stepAt(stepIndex)?.let(::fingeringPresetOf),
                 onExerciseFinished = { result -> finish(fingeringOutcomeOf(result)) },
                 onBack = { navController.popBackStack() },
@@ -101,6 +106,7 @@ fun SaxTrainerNavHost(
             NoteTrainerRoute(
                 settingsRepository = container.settingsRepository,
                 audioCapture = container.audioCapture,
+                newMetronome = container.newMetronome,
                 preset = lesson?.stepAt(stepIndex)?.let(::noteTrainerPresetOf),
                 onExerciseFinished = { result -> finish(noteTrainerOutcomeOf(result)) },
                 onBack = { navController.popBackStack() },
@@ -114,6 +120,7 @@ fun SaxTrainerNavHost(
             SequenceRoute(
                 settingsRepository = container.settingsRepository,
                 audioCapture = container.audioCapture,
+                newMetronome = container.newMetronome,
                 preset = lesson?.stepAt(stepIndex)?.let(::sequencePresetOf),
                 onExerciseFinished = { result -> finish(sequenceOutcomeOf(result)) },
                 onBack = { navController.popBackStack() },

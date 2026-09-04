@@ -1,20 +1,17 @@
 package com.example.saxtrainer.feature.fingering
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.saxtrainer.core.audio.capture.AudioCapture
-import com.example.saxtrainer.core.audio.capture.AudioPermission
-import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.audio.capture.rememberMicrophoneAccess
+import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
 import com.example.saxtrainer.core.settings.SettingsRepository
 
 /**
@@ -32,6 +29,7 @@ import com.example.saxtrainer.core.settings.SettingsRepository
 fun FingeringRoute(
     settingsRepository: SettingsRepository,
     audioCapture: AudioCapture,
+    newMetronome: MetronomeFactory,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     preset: FingeringPreset? = null,
@@ -41,25 +39,21 @@ fun FingeringRoute(
             settingsRepository = settingsRepository,
             audioCapture = audioCapture,
             // Only ever heard during the count-in; the exercise itself makes no sound.
-            metronome = MetronomeEngine(),
+            metronome = newMetronome.create(),
             preset = preset,
         )
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val microphone = rememberMicrophoneAccess()
 
     // The microphone is only ever asked for when playing is checked; a refusal switches checking
     // off instead of stopping the exercise.
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) viewModel.start() else viewModel.onMicrophoneUnavailable()
-    }
-
     val start: () -> Unit = {
-        if (state.checkPlaying && !AudioPermission.isGranted(context)) {
-            permissionLauncher.launch(AudioPermission.RECORD_AUDIO)
+        if (state.checkPlaying) {
+            microphone.request { granted ->
+                if (granted) viewModel.start() else viewModel.onMicrophoneUnavailable()
+            }
         } else {
             viewModel.start()
         }

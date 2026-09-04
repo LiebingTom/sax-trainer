@@ -1,20 +1,17 @@
 package com.example.saxtrainer.feature.sequence
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.saxtrainer.core.audio.capture.AudioCapture
-import com.example.saxtrainer.core.audio.capture.AudioPermission
-import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.audio.capture.rememberMicrophoneAccess
+import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
 import com.example.saxtrainer.core.settings.SettingsRepository
 
 /**
@@ -29,6 +26,7 @@ import com.example.saxtrainer.core.settings.SettingsRepository
 fun SequenceRoute(
     settingsRepository: SettingsRepository,
     audioCapture: AudioCapture,
+    newMetronome: MetronomeFactory,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     preset: SequencePreset? = null,
@@ -37,23 +35,19 @@ fun SequenceRoute(
         SequenceViewModel(
             settingsRepository = settingsRepository,
             audioCapture = audioCapture,
-            metronome = MetronomeEngine(),
+            metronome = newMetronome.create(),
             preset = preset,
         )
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) viewModel.start() else viewModel.onMicrophoneUnavailable()
-    }
+    val microphone = rememberMicrophoneAccess()
 
     val start: () -> Unit = {
-        if (state.checkPitch && !AudioPermission.isGranted(context)) {
-            permissionLauncher.launch(AudioPermission.RECORD_AUDIO)
+        if (state.checkPitch) {
+            microphone.request { granted ->
+                if (granted) viewModel.start() else viewModel.onMicrophoneUnavailable()
+            }
         } else {
             viewModel.start()
         }

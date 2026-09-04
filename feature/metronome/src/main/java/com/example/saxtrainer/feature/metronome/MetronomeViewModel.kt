@@ -2,7 +2,7 @@ package com.example.saxtrainer.feature.metronome
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.audio.metronome.Metronome
 import com.example.saxtrainer.core.exercise.monotonicNanos
 import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
 import com.example.saxtrainer.core.audio.metronome.MetronomeError
@@ -15,7 +15,7 @@ import com.example.saxtrainer.core.music.TimeSignature
 
 /** Everything the metronome screen renders. */
 data class MetronomeUiState(
-    val bpm: Int = MetronomeEngine.DEFAULT_BPM,
+    val bpm: Int = Metronome.DEFAULT_BPM,
     val isRunning: Boolean = false,
     val beatsPerBar: Int = TimeSignature.FOUR_FOUR.beatsPerBar,
     val currentBeat: Int = 0,
@@ -31,7 +31,7 @@ data class MetronomeUiState(
  * engine keeps the beat, this class only forwards user intent and exposes state.
  */
 class MetronomeViewModel(
-    private val engine: MetronomeEngine = MetronomeEngine(),
+    private val engine: Metronome,
     private val tapTempo: TapTempo = TapTempo(),
     private val nanoTime: () -> Long = monotonicNanos,
 ) : ViewModel() {

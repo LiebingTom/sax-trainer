@@ -13,7 +13,7 @@ enum class MetronomeError {
  */
 data class MetronomeEngineState(
     val isRunning: Boolean = false,
-    val bpm: Int = MetronomeEngine.DEFAULT_BPM,
+    val bpm: Int = Metronome.DEFAULT_BPM,
     val beatsPerBar: Int = TimeSignature.FOUR_FOUR.beatsPerBar,
     val beatInBar: Int = 0,
     val beatCounter: Long = 0,

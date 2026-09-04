@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Context
 import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.capture.AudioRecordCapture
+import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
 import com.example.saxtrainer.core.learning.Curriculum
 import com.example.saxtrainer.core.learning.InMemoryLessonProgressRepository
 import com.example.saxtrainer.core.learning.InMemoryLessonRunRepository
@@ -21,6 +23,9 @@ import com.example.saxtrainer.core.settings.SharedPreferencesSettingsRepository
 class AppContainer(context: Context) {
     val settingsRepository: SettingsRepository = SharedPreferencesSettingsRepository(context)
     val audioCapture: AudioCapture = AudioRecordCapture(context)
+
+    /** A new click per practice: two exercises must never share one. */
+    val newMetronome = MetronomeFactory { MetronomeEngine() }
     val curriculum: Curriculum = SaxTrainerCurriculum
 
     /**

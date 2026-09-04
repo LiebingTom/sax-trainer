@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.capture.AudioCaptureError
 import com.example.saxtrainer.core.audio.capture.AudioCaptureEvent
-import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.audio.metronome.Metronome
 import com.example.saxtrainer.core.audio.metronome.clickCountIn
 import com.example.saxtrainer.core.exercise.BeatClock
 import com.example.saxtrainer.core.exercise.ExercisePattern
@@ -58,7 +58,7 @@ class LongToneViewModel(
     private val audioCapture: AudioCapture,
     private val settingsRepository: SettingsRepository,
     /** Only ever used to click the count-in; the exercise itself is played into a silent room. */
-    private val metronome: MetronomeEngine? = null,
+    private val metronome: Metronome? = null,
     private val config: LongToneConfig = LongToneConfig(),
     private val processingDispatcher: CoroutineDispatcher = Dispatchers.Default,
     /** Only ever drawn from when the presentation of a note is left to chance. */

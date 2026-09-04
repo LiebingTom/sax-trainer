@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.listening.Hearing
 import com.example.saxtrainer.core.audio.listening.NoteListener
-import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.audio.metronome.Metronome
 import com.example.saxtrainer.core.audio.metronome.clickCountIn
 import com.example.saxtrainer.core.exercise.BeatClock
 import com.example.saxtrainer.core.exercise.MonotonicBeatClock
@@ -67,7 +67,7 @@ class FingeringViewModel(
     private val settingsRepository: SettingsRepository,
     private val audioCapture: AudioCapture? = null,
     /** Only ever used to click the count-in; this trainer has no click of its own to keep. */
-    private val metronome: MetronomeEngine? = null,
+    private val metronome: Metronome? = null,
     private val preset: FingeringPreset? = null,
     private val config: FingeringConfig = FingeringConfig(),
     private val random: Random = Random.Default,

@@ -31,7 +31,6 @@ dependencies {
     implementation(project(":core:fingering"))
     implementation(project(":core:music"))
     implementation(project(":core:settings"))
-    implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)

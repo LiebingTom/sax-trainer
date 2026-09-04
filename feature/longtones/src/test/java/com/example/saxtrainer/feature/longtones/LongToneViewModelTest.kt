@@ -10,18 +10,14 @@ import com.example.saxtrainer.core.exercise.SequenceCatalog
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
-import com.example.saxtrainer.core.music.NoteNaming
-import com.example.saxtrainer.core.settings.AppSettings
-import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.settings.TrainingTool
+import com.example.saxtrainer.core.testing.FakeSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -57,37 +53,7 @@ class LongToneViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private class FakeSettingsRepository : SettingsRepository {
-        private val state = MutableStateFlow(AppSettings())
-        override val settings: StateFlow<AppSettings> = state
-        override fun setNoteNaming(noteNaming: NoteNaming) {
-            state.value = state.value.copy(noteNaming = noteNaming)
-        }
-
-        override fun setInstrument(instrument: Instrument) {
-            state.value = state.value.copy(instrument = instrument)
-        }
-
-        override fun setNoteDisplay(noteDisplay: NoteDisplay) {
-            state.value = state.value.copy(noteDisplay = noteDisplay)
-        }
-
-        override fun setCountInClick(enabled: Boolean) {
-            state.value = state.value.copy(countInClick = enabled)
-        }
-
-        override fun setCountInBeats(beats: Int) {
-            state.value = state.value.copy(countInBeats = beats)
-        }
-
-        override fun setNoteDisplayFor(tool: TrainingTool, noteDisplay: NoteDisplay) {
-            state.value = state.value.copy(
-                noteDisplayOverrides = state.value.noteDisplayOverrides + (tool to noteDisplay),
-            )
-        }
-    }
-
-    /**
+        /**
      * Emits silent frames in real time (virtual time here), carrying the same sample counters a real
      * recorder would, and records whether the flow released its resources.
      */

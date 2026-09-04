@@ -1,29 +1,18 @@
 package com.example.saxtrainer.feature.notetrainer
 
 import com.example.saxtrainer.core.audio.capture.AudioCapture
-import com.example.saxtrainer.core.audio.capture.AudioCaptureConfig
-import com.example.saxtrainer.core.audio.capture.AudioCaptureEvent
-import com.example.saxtrainer.core.audio.capture.AudioFrame
 import com.example.saxtrainer.core.exercise.MonotonicBeatClock
 import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
-import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.Instrument
-import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
-import com.example.saxtrainer.core.settings.TrainingTool
-import kotlin.math.PI
-import kotlin.math.sin
+import com.example.saxtrainer.core.testing.FakeMicrophone
+import com.example.saxtrainer.core.testing.FakeSettingsRepository
 import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -67,70 +56,7 @@ class NoteTrainerViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private class FakeSettingsRepository(
-        initial: AppSettings = AppSettings(countInBeats = 0),
-    ) : SettingsRepository {
-        private val state = MutableStateFlow(initial)
-        override val settings: StateFlow<AppSettings> = state
-
-        override fun setInstrument(instrument: Instrument) {
-            state.value = state.value.copy(instrument = instrument)
-        }
-
-        override fun setNoteNaming(naming: NoteNaming) {
-            state.value = state.value.copy(noteNaming = naming)
-        }
-
-        override fun setNoteDisplay(noteDisplay: NoteDisplay) {
-            state.value = state.value.copy(noteDisplay = noteDisplay)
-        }
-
-        override fun setCountInBeats(beats: Int) {
-            state.value = state.value.copy(countInBeats = beats)
-        }
-
-        override fun setCountInClick(enabled: Boolean) {
-            state.value = state.value.copy(countInClick = enabled)
-        }
-
-        override fun setNoteDisplayFor(tool: TrainingTool, noteDisplay: NoteDisplay) {
-            state.value = state.value.copy(
-                noteDisplayOverrides = state.value.noteDisplayOverrides + (tool to noteDisplay),
-            )
-        }
-    }
-
-    /**
-     * Plays a steady tone into the trainer; null means silence, and [noisy] means a sound with no
-     * pitch in it - which the trainer has to tell apart from a wrong note.
-     */
-    private class FakeMicrophone(
-        private val frameDurationMs: Long,
-        @Volatile var frequencyHz: Double? = null,
-        @Volatile var noisy: Boolean = false,
-    ) : AudioCapture {
-        override fun frames(config: AudioCaptureConfig): Flow<AudioCaptureEvent> = flow {
-            val frame = AudioFrame(FloatArray(config.frameSize), config.sampleRate)
-            val noise = Random(7)
-            var samples = 0L
-            while (true) {
-                delay(frameDurationMs)
-                val tone = frequencyHz
-                for (i in frame.samples.indices) {
-                    frame.samples[i] = when {
-                        noisy -> (noise.nextDouble() - 0.5).toFloat()
-                        tone == null -> 0f
-                        else -> (0.5 * sin(2.0 * PI * tone * i / config.sampleRate)).toFloat()
-                    }
-                }
-                samples += config.hopSize
-                frame.position(startSample = samples, newSamples = config.hopSize)
-                emit(AudioCaptureEvent.Frame(frame))
-            }
-        }
-    }
-
-    private fun TestScope.viewModel(
+        private fun TestScope.viewModel(
         microphone: AudioCapture? = FakeMicrophone(frameDurationMs),
         settings: SettingsRepository = FakeSettingsRepository(),
         preset: NoteTrainerPreset? = null,

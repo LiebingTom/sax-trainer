@@ -3,17 +3,10 @@ package com.example.saxtrainer.feature.notequiz
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
-import com.example.saxtrainer.core.music.NoteNaming
-import com.example.saxtrainer.core.settings.AppSettings
-import com.example.saxtrainer.core.settings.Instrument
-import com.example.saxtrainer.core.settings.NoteDisplay
-import com.example.saxtrainer.core.settings.SettingsRepository
-import com.example.saxtrainer.core.settings.TrainingTool
+import com.example.saxtrainer.core.testing.FakeSettingsRepository
 import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -45,38 +38,7 @@ class QuizViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private class FakeSettingsRepository : SettingsRepository {
-        private val state = MutableStateFlow(AppSettings())
-        override val settings: StateFlow<AppSettings> = state
-
-        override fun setInstrument(instrument: Instrument) {
-            state.value = state.value.copy(instrument = instrument)
-        }
-
-        override fun setNoteNaming(naming: NoteNaming) {
-            state.value = state.value.copy(noteNaming = naming)
-        }
-
-        override fun setNoteDisplay(noteDisplay: NoteDisplay) {
-            state.value = state.value.copy(noteDisplay = noteDisplay)
-        }
-
-        override fun setCountInBeats(beats: Int) {
-            state.value = state.value.copy(countInBeats = beats)
-        }
-
-        override fun setCountInClick(enabled: Boolean) {
-            state.value = state.value.copy(countInClick = enabled)
-        }
-
-        override fun setNoteDisplayFor(tool: TrainingTool, noteDisplay: NoteDisplay) {
-            state.value = state.value.copy(
-                noteDisplayOverrides = state.value.noteDisplayOverrides + (tool to noteDisplay),
-            )
-        }
-    }
-
-    private fun TestScope.viewModel(
+        private fun TestScope.viewModel(
         seed: Int = 1,
         preset: QuizPreset? = null,
     ) = QuizViewModel(

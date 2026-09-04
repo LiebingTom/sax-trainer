@@ -8,20 +8,16 @@ import com.example.saxtrainer.core.exercise.MonotonicBeatClock
 import com.example.saxtrainer.core.exercise.NoteTiming
 import com.example.saxtrainer.core.exercise.SequenceLibrary
 import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.NoteNaming
-import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.Instrument
-import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
-import com.example.saxtrainer.core.settings.TrainingTool
+import com.example.saxtrainer.core.testing.FakeMicrophone
+import com.example.saxtrainer.core.testing.FakeSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -65,30 +61,6 @@ class SequenceViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
-    }
-
-    private class FakeSettingsRepository : SettingsRepository {
-        private val state = MutableStateFlow(AppSettings())
-        override val settings: StateFlow<AppSettings> = state
-        override fun setNoteNaming(noteNaming: NoteNaming) {
-            state.value = state.value.copy(noteNaming = noteNaming)
-        }
-
-        override fun setInstrument(instrument: Instrument) {
-            state.value = state.value.copy(instrument = instrument)
-        }
-
-        override fun setNoteDisplay(noteDisplay: NoteDisplay) = Unit
-
-        override fun setNoteDisplayFor(tool: TrainingTool, noteDisplay: NoteDisplay) = Unit
-
-        override fun setCountInClick(enabled: Boolean) {
-            state.value = state.value.copy(countInClick = enabled)
-        }
-
-        override fun setCountInBeats(beats: Int) {
-            state.value = state.value.copy(countInBeats = beats)
-        }
     }
 
     /** Plays a steady tone into the trainer; null means silence. */

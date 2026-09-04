@@ -129,7 +129,8 @@ class AudioRecordCapture(
     private fun appendToWindow(window: FloatArray, source: ShortArray, count: Int) {
         val keep = window.size - count
         if (keep > 0) {
-            System.arraycopy(window, count, window, 0, keep)
+            // Always shifts towards zero, so copying a range of the array onto itself is safe.
+            window.copyInto(window, 0, count, window.size)
         }
         val destinationStart = maxOf(0, keep)
         val sourceStart = maxOf(0, count - window.size)

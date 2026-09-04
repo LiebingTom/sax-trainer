@@ -3,6 +3,7 @@ package com.example.saxtrainer.feature.metronome
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.exercise.monotonicNanos
 import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
 import com.example.saxtrainer.core.audio.metronome.MetronomeError
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,7 +33,7 @@ data class MetronomeUiState(
 class MetronomeViewModel(
     private val engine: MetronomeEngine = MetronomeEngine(),
     private val tapTempo: TapTempo = TapTempo(),
-    private val nanoTime: () -> Long = System::nanoTime,
+    private val nanoTime: () -> Long = monotonicNanos,
 ) : ViewModel() {
 
     val uiState: StateFlow<MetronomeUiState> = engine.state

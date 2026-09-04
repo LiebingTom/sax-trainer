@@ -1,5 +1,6 @@
 package com.example.saxtrainer.feature.fingering
 
+import com.example.saxtrainer.core.exercise.monotonicNanos
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -17,7 +18,7 @@ import kotlinx.coroutines.flow.flow
  */
 class FingeringSessionClock(
     private val tickIntervalMs: Long,
-    private val nanoTime: () -> Long = System::nanoTime,
+    private val nanoTime: () -> Long = monotonicNanos,
 ) {
     /** Seconds since collection started, emitted about every [tickIntervalMs]. */
     fun elapsedSeconds(): Flow<Float> = flow {

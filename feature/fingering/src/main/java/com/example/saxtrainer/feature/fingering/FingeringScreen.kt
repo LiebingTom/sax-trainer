@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.example.saxtrainer.core.designsystem.component.CurrentAndNextNote
 import com.example.saxtrainer.core.designsystem.component.DEFAULT_STAFF_MARGIN
 import com.example.saxtrainer.core.designsystem.component.IconSource
+import com.example.saxtrainer.core.designsystem.icon.ChooseNotes
+import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
 import com.example.saxtrainer.core.designsystem.component.InlineIcon
 import com.example.saxtrainer.core.designsystem.component.NoteChoiceDialog
 import com.example.saxtrainer.core.designsystem.component.NoteDisplayPicker
@@ -155,7 +157,7 @@ private fun Setup(
                         {
                             IconButton(onClick = onEditCustomNotes) {
                                 InlineIcon(
-                                    icon = IconSource.Drawable(R.drawable.ic_choose_notes),
+                                    icon = IconSource.Vector(SaxTrainerIcons.ChooseNotes),
                                     contentDescription = "Choose the notes yourself",
                                 )
                             }

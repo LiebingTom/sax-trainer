@@ -35,7 +35,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.saxtrainer.core.designsystem.R
+import com.example.saxtrainer.core.designsystem.icon.ArrowBack
+import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.ProgressColors
 
@@ -149,7 +150,7 @@ fun ScreenScaffold(
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
                             InlineIcon(
-                                icon = IconSource.Drawable(R.drawable.ic_arrow_back),
+                                icon = IconSource.Vector(SaxTrainerIcons.ArrowBack),
                                 contentDescription = "Back",
                             )
                         }

@@ -1,7 +1,16 @@
 package com.example.saxtrainer.home
 
-import com.example.saxtrainer.R
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.saxtrainer.core.designsystem.component.IconSource
+import com.example.saxtrainer.core.designsystem.icon.Fingering
+import com.example.saxtrainer.core.designsystem.icon.Learning
+import com.example.saxtrainer.core.designsystem.icon.LongTone
+import com.example.saxtrainer.core.designsystem.icon.Metronome
+import com.example.saxtrainer.core.designsystem.icon.NoteQuiz
+import com.example.saxtrainer.core.designsystem.icon.NoteTrainer
+import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
+import com.example.saxtrainer.core.designsystem.icon.Sequence
+import com.example.saxtrainer.core.designsystem.icon.Settings
 import com.example.saxtrainer.learning.SaxTrainerCurriculum
 import com.example.saxtrainer.learning.catalog.units.ACCIDENTALS_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.FIRST_NOTES_UNIT_ID
@@ -35,7 +44,7 @@ val learningEntries: List<HomeEntry> = SaxTrainerCurriculum.units.map { unit ->
         id = "learning-${unit.id}",
         title = unit.title,
         description = unit.description,
-        icon = IconSource.Drawable(iconForUnit(unit.id)),
+        icon = IconSource.Vector(iconForUnit(unit.id)),
         route = SaxTrainerDestination.learningUnit(unit.id),
     )
 }
@@ -44,18 +53,18 @@ val learningEntries: List<HomeEntry> = SaxTrainerCurriculum.units.map { unit ->
  * A unit is a topic rather than a trainer, so it names its own icon instead of borrowing one.
  * Anything unnamed falls back to the generic learning mark.
  */
-private fun iconForUnit(unitId: String): Int = when (unitId) {
-    FIRST_NOTES_UNIT_ID -> R.drawable.ic_note_quiz
-    OCTAVE_UNIT_ID -> R.drawable.ic_note_trainer
-    ACCIDENTALS_UNIT_ID -> R.drawable.ic_fingering
-    else -> R.drawable.ic_learning
+private fun iconForUnit(unitId: String): ImageVector = when (unitId) {
+    FIRST_NOTES_UNIT_ID -> SaxTrainerIcons.NoteQuiz
+    OCTAVE_UNIT_ID -> SaxTrainerIcons.NoteTrainer
+    ACCIDENTALS_UNIT_ID -> SaxTrainerIcons.Fingering
+    else -> SaxTrainerIcons.Learning
 }
 
 private val noteQuiz = HomeEntry(
     id = "notequiz",
     title = "Note Quiz",
     description = "Match written notes to fingerings. No instrument needed.",
-    icon = IconSource.Drawable(R.drawable.ic_note_quiz),
+    icon = IconSource.Vector(SaxTrainerIcons.NoteQuiz),
     route = SaxTrainerDestination.NOTE_QUIZ,
 )
 
@@ -63,7 +72,7 @@ private val fingering = HomeEntry(
     id = "fingering",
     title = "Fingering Trainer",
     description = "Learn which keys to press for each written note.",
-    icon = IconSource.Drawable(R.drawable.ic_fingering),
+    icon = IconSource.Vector(SaxTrainerIcons.Fingering),
     route = SaxTrainerDestination.FINGERING,
 )
 
@@ -71,7 +80,7 @@ private val noteTrainer = HomeEntry(
     id = "notetrainer",
     title = "Note Trainer",
     description = "Read a note and play it. How quickly is up to you.",
-    icon = IconSource.Drawable(R.drawable.ic_note_trainer),
+    icon = IconSource.Vector(SaxTrainerIcons.NoteTrainer),
     route = SaxTrainerDestination.NOTE_TRAINER,
 )
 
@@ -79,7 +88,7 @@ private val longTones = HomeEntry(
     id = "longtones",
     title = "Long Tones",
     description = "Hold a note steadily with live level and spectrum feedback.",
-    icon = IconSource.Drawable(R.drawable.ic_long_tone),
+    icon = IconSource.Vector(SaxTrainerIcons.LongTone),
     route = SaxTrainerDestination.LONG_TONES,
 )
 
@@ -87,7 +96,7 @@ private val sequence = HomeEntry(
     id = "sequence",
     title = "Sequence Trainer",
     description = "Play scales and patterns in time, with an optional click.",
-    icon = IconSource.Drawable(R.drawable.ic_sequence),
+    icon = IconSource.Vector(SaxTrainerIcons.Sequence),
     route = SaxTrainerDestination.SEQUENCE,
 )
 
@@ -95,7 +104,7 @@ private val metronome = HomeEntry(
     id = "metronome",
     title = "Metronome",
     description = "Steady click with accented downbeat and tap tempo.",
-    icon = IconSource.Drawable(R.drawable.ic_metronome),
+    icon = IconSource.Vector(SaxTrainerIcons.Metronome),
     route = SaxTrainerDestination.METRONOME,
 )
 
@@ -120,7 +129,7 @@ val appEntries: List<HomeEntry> = listOf(
         id = "settings",
         title = "Settings",
         description = "Instrument and transposition used across all tools.",
-        icon = IconSource.Drawable(R.drawable.ic_settings),
+        icon = IconSource.Vector(SaxTrainerIcons.Settings),
         route = SaxTrainerDestination.SETTINGS,
     ),
 )

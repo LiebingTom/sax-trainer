@@ -36,6 +36,7 @@ import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.component.fingeringHeightOf
 import com.example.saxtrainer.core.designsystem.component.reservedStepRange
 import com.example.saxtrainer.core.designsystem.component.staffStepRange
+import com.example.saxtrainer.core.designsystem.text.toFixed
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
@@ -300,7 +301,7 @@ private fun RunningPanel(state: NoteTrainerUiState) {
                 state.isPaused -> "Paused"
                 progress.listening == Listening.CORRECT ->
                     progress.lastReactionSeconds
-                        ?.let { "Yes - ${"%.1f".format(it)} s" }
+                        ?.let { "Yes - ${it.toFixed(1)} s" }
                         ?: "Yes"
 
                 progress.listening == Listening.WRONG_PITCH -> progress.detectedNote
@@ -370,7 +371,7 @@ private fun ResultCard(state: NoteTrainerUiState, result: NoteTrainerResult) {
             )
             result.medianReactionSeconds?.let { median ->
                 Text(
-                    text = "Usually ${"%.1f".format(median)} s, " +
+                    text = "Usually ${median.toFixed(1)} s, " +
                         "${result.withinTarget(state.targetSeconds)} inside " +
                         "${state.targetSeconds} s",
                     style = MaterialTheme.typography.bodyMedium,

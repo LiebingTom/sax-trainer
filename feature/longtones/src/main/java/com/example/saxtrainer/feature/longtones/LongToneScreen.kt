@@ -42,6 +42,8 @@ import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
+import com.example.saxtrainer.core.designsystem.text.minutesAndSeconds
+import com.example.saxtrainer.core.designsystem.text.toFixed
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.designsystem.theme.numericLarge
@@ -227,10 +229,10 @@ private fun SoundingLine(state: LongToneUiState) {
 
     Text(
         text = if (state.transposition == Transposition.CONCERT) {
-            "${state.instrumentName} - ${"%.1f".format(currentNote.frequencyHz())} Hz"
+            "${state.instrumentName} - ${currentNote.frequencyHz().toFixed(1)} Hz"
         } else {
             "${state.instrumentName} - sounds ${state.soundingLabel(currentNote)}, " +
-                "${"%.1f".format(currentNote.frequencyHz())} Hz"
+                "${currentNote.frequencyHz().toFixed(1)} Hz"
         },
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -321,7 +323,7 @@ private fun ExerciseSetup(
     Spacer(Modifier.height(Dimens.spaceSm))
     Text(
         text = "${selection.beatsPerNote.value.roundToInt()} beats at ${selection.tempo.bpm} BPM - " +
-            "${"%.1f".format(selection.secondsPerNote)} s per note, " +
+            "${selection.secondsPerNote.toFixed(1)} s per note, " +
             "${selection.pattern.noteCount} notes, ${formatDuration(selection.totalSeconds)} total",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -370,7 +372,7 @@ private fun ColumnScope.RunningPanel(state: LongToneUiState) {
         ) {
             MetricDisplay(
                 label = "Elapsed",
-                value = "%.1f".format(progress?.noteElapsedSeconds ?: 0f),
+                value = (progress?.noteElapsedSeconds ?: 0f).toFixed(1),
                 unit = "s",
             )
             MetricDisplay(
@@ -476,7 +478,7 @@ private fun formatCents(cents: Float): String {
 
 private fun formatDuration(seconds: Float): String {
     val total = seconds.roundToInt()
-    return "%d:%02d".format(total / 60, total % 60)
+    return minutesAndSeconds(total)
 }
 
 @Composable
@@ -501,7 +503,7 @@ private fun ResultCard(state: LongToneUiState, result: LongToneResult) {
             ) {
                 MetricDisplay(
                     label = "Played",
-                    value = "%.1f".format(result.heldSeconds),
+                    value = result.heldSeconds.toFixed(1),
                     unit = "s",
                 )
                 MetricDisplay(
@@ -517,7 +519,7 @@ private fun ResultCard(state: LongToneUiState, result: LongToneResult) {
             }
             Text(
                 text = "Average level ${result.averageLevelDbfs.roundToInt()} dB - " +
-                    "tone sounding for ${"%.1f".format(result.soundingSeconds)} s",
+                    "tone sounding for ${result.soundingSeconds.toFixed(1)} s",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -538,7 +540,7 @@ private fun ResultCard(state: LongToneUiState, result: LongToneResult) {
                 result.steps.forEachIndexed { index, step ->
                     Text(
                         text = "${index + 1}. ${state.writtenLabel(step.note)}  " +
-                            "${"%.1f".format(step.heldSeconds)} s  " +
+                            "${step.heldSeconds.toFixed(1)} s  " +
                             (step.averagePitchCents?.let(::formatCents) ?: "-"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

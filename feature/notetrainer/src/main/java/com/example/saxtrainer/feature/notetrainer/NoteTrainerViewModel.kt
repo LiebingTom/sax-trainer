@@ -9,6 +9,8 @@ import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
 import com.example.saxtrainer.core.audio.metronome.clickCountIn
 import com.example.saxtrainer.core.exercise.BeatClock
 import com.example.saxtrainer.core.exercise.MonotonicBeatClock
+import com.example.saxtrainer.core.exercise.monotonicNanos
+import kotlin.concurrent.Volatile
 import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.exercise.PauseSwitch
 import com.example.saxtrainer.core.exercise.countIn
@@ -64,7 +66,7 @@ class NoteTrainerViewModel(
     private val processingDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val countInClock: BeatClock = MonotonicBeatClock(),
     /** Injectable so tests can measure a reaction on virtual time. */
-    private val nanoTime: () -> Long = System::nanoTime,
+    private val nanoTime: () -> Long = monotonicNanos,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(initialState())

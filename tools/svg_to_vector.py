@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
-"""Turn an SVG icon into an Android vector drawable.
+"""Turn an SVG icon into a Compose `ImageVector`.
 
-Android cannot draw an SVG at runtime, so every icon has to ship as a `<vector>` resource. The
-conversion is mechanical for icons the app actually uses - a handful of filled paths on a square
-viewBox - so it lives here rather than being done by hand each time an icon changes.
+Icons used to ship as Android `<vector>` resources. They are Kotlin now, because a resource is
+reachable from Android only and the app's UI is shared - see `core/designsystem/.../icon/`. The path
+data is identical either way; only the wrapper changed, so this converter did too.
 
 Two things this does that a copy and paste would get wrong:
 
 * Material Symbols export with `viewBox="0 -960 960 960"`, i.e. the drawing sits above the origin.
-  Android's viewport always starts at 0,0, so the paths are wrapped in a group that shifts them back
+  A vector's viewport always starts at 0,0, so the paths go inside a group that shifts them back
   down. The same handling covers any other offset viewBox.
-* Every path is given a plain white fill. Icons are drawn through `Icon(painter, tint = ...)`, which
-  replaces the fill with the theme colour, so whatever colour the SVG was exported in is noise.
+* Colour is dropped. Icons are drawn through `Icon(imageVector, tint = ...)`, which replaces the
+  fill with the theme colour, so whatever colour the SVG was exported in is noise.
 
 Anything it cannot convert faithfully is an error rather than a silently wrong icon: transforms,
 gradients, strokes, and shapes that are not paths. Inkscape can remove all of those - see the notes
 in `tools/icons.map`.
 
 Usage:
-    python tools/svg_to_vector.py <input.svg> <output.xml>
+    python tools/svg_to_vector.py <input.svg> <Output.kt>
     python tools/svg_to_vector.py --map tools/icons.map
 """
 
@@ -39,12 +39,20 @@ NON_PATH_SHAPES = {"rect", "circle", "ellipse", "line", "polyline", "polygon", "
 # Constructs a vector drawable cannot represent the way an SVG means them.
 UNSUPPORTED = {"linearGradient", "radialGradient", "mask", "clipPath", "pattern", "filter", "style"}
 
-TEMPLATE = """<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="{size}dp"
-    android:height="{size}dp"
-    android:viewportWidth="{viewport_width:g}"
-    android:viewportHeight="{viewport_height:g}">
-{body}</vector>
+TEMPLATE = """package com.example.saxtrainer.core.designsystem.icon
+
+import androidx.compose.ui.graphics.vector.ImageVector
+
+/** Generated from `{source}` - see `tools/icons.map`. */
+val SaxTrainerIcons.{name}: ImageVector get() = {lower}
+
+private val {lower}: ImageVector by lazy(LazyThreadSafetyMode.NONE) {{
+    saxIcon(
+        "{name}",
+        viewport = {viewport:g}f,
+{paths}{translate}
+    )
+}}
 """
 
 
@@ -105,7 +113,7 @@ def collect_paths(root: ElementTree.Element) -> list[tuple[str, str]]:
     return paths
 
 
-def vector_of(svg: str, size: int = 24) -> str:
+def kotlin_of(svg: str, name: str, source: str) -> str:
     root = ElementTree.fromstring(svg)
     if local_name(root.tag) != "svg":
         raise ConversionError("not an SVG document")
@@ -113,53 +121,42 @@ def vector_of(svg: str, size: int = 24) -> str:
     min_x, min_y, width, height = parse_view_box(root)
     if width <= 0 or height <= 0:
         raise ConversionError(f"viewBox has no area ({width} x {height})")
+    if width != height:
+        raise ConversionError(f"viewBox is not square ({width} x {height})")
 
     paths = collect_paths(root)
-    indent = "    "
-    shifted = min_x != 0 or min_y != 0
-
-    lines = []
-    if shifted:
-        # Android's viewport starts at 0,0, so an offset viewBox is undone by a group.
-        shift = " ".join(
-            f'android:translate{axis}="{-value:g}"'
-            for axis, value in (("X", min_x), ("Y", min_y))
-            if value != 0
-        )
-        lines.append(f"{indent}<group {shift}>")
-        indent += "    "
-
-    for data, fill_type in paths:
-        lines.append(f"{indent}<path")
-        lines.append(f'{indent}    android:fillColor="@android:color/white"')
-        if fill_type != "nonZero":
-            lines.append(f'{indent}    android:fillType="{fill_type}"')
-        lines.append(f'{indent}    android:pathData="{data}" />')
-
-    if shifted:
-        lines.append("    </group>")
+    if any(fill_type != "nonZero" for _, fill_type in paths):
+        # Representable, just not needed yet - saxIcon takes no per-path fill type.
+        raise ConversionError("an even-odd fill would be dropped")
+    if min_x != 0:
+        raise ConversionError(f"a horizontal viewBox offset ({min_x:g}) is not handled")
 
     return TEMPLATE.format(
-        size=size,
-        viewport_width=width,
-        viewport_height=height,
-        body="\n".join(lines) + "\n",
+        source=source,
+        name=name,
+        lower=name[0].lower() + name[1:],
+        viewport=width,
+        # A vector's viewport starts at 0,0, so an offset viewBox is undone by a group.
+        translate=f"\n        translateY = {-min_y:g}f," if min_y else "",
+        paths="\n".join(f'        "{data}",' for data, _ in paths),
     )
 
 
-def convert(source: Path, destination: Path, size: int = 24) -> None:
+def convert(source: Path, destination: Path) -> None:
+    if destination.suffix != ".kt":
+        raise ConversionError(f"{destination}: destination must be a .kt file")
     try:
-        xml = vector_of(source.read_text(encoding="utf-8"), size)
+        kotlin = kotlin_of(source.read_text(encoding="utf-8"), destination.stem, source.as_posix())
     except (ConversionError, ElementTree.ParseError) as failure:
         raise ConversionError(f"{source}: {failure}") from failure
 
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(xml, encoding="utf-8", newline="\n")
+    destination.write_text(kotlin, encoding="utf-8", newline="\n")
     print(f"{source} -> {destination}")
 
 
 def read_map(path: Path) -> list[tuple[Path, Path]]:
-    """`source.svg -> module/src/main/res/drawable/ic_name.xml` per line, # for comments."""
+    """`source.svg -> module/.../icon/Name.kt` per line, # for comments."""
     root = path.parent.parent
     entries = []
     for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -167,7 +164,7 @@ def read_map(path: Path) -> list[tuple[Path, Path]]:
         if not line:
             continue
         if "->" not in line:
-            raise ConversionError(f"{path}:{number}: expected 'source.svg -> destination.xml'")
+            raise ConversionError(f"{path}:{number}: expected 'source.svg -> Destination.kt'")
         source, destination = (part.strip() for part in line.split("->", 1))
         entries.append((root / source, root / destination))
     return entries
@@ -178,15 +175,14 @@ def main() -> int:
     parser.add_argument("source", nargs="?", type=Path)
     parser.add_argument("destination", nargs="?", type=Path)
     parser.add_argument("--map", type=Path, help="convert every icon listed in a map file")
-    parser.add_argument("--size", type=int, default=24, help="drawn size in dp (default 24)")
     arguments = parser.parse_args()
 
     try:
         if arguments.map:
             for source, destination in read_map(arguments.map):
-                convert(source, destination, arguments.size)
+                convert(source, destination)
         elif arguments.source and arguments.destination:
-            convert(arguments.source, arguments.destination, arguments.size)
+            convert(arguments.source, arguments.destination)
         else:
             parser.error("give a source and a destination, or --map")
     except ConversionError as failure:

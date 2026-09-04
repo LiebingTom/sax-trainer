@@ -26,6 +26,8 @@ android {
 dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:audio"))
+    // Only for the shared monotonic reading the tap-tempo estimator measures against.
+    implementation(project(":core:exercise"))
     implementation(project(":core:music"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

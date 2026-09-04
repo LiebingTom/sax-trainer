@@ -24,7 +24,7 @@ interface BeatClock {
  */
 class MonotonicBeatClock(
     private val tickIntervalMs: Long = DEFAULT_TICK_MS,
-    private val nanoTime: () -> Long = System::nanoTime,
+    private val nanoTime: () -> Long = monotonicNanos,
 ) : BeatClock {
 
     override fun elapsedBeats(tempo: Tempo): Flow<Beats> = flow {

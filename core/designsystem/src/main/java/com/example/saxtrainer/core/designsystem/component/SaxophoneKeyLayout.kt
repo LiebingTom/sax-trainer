@@ -55,8 +55,9 @@ data class KeyPlacement(
  *   right-hand one.
  *
  * The picture is a front view: left hand above, right hand below, thumb octave key off to the left,
- * palm keys and the little-finger table right of the left hand, side keys and the two F sharp keys
- * left of the right hand, and the two right little-finger spatulas at the bottom.
+ * palm keys - two columns of them - and the little-finger table right of the left hand, side keys
+ * and the two F sharp keys left of the right hand, and the two right little-finger spatulas at the
+ * bottom.
  */
 object SaxophoneKeyLayout {
 
@@ -78,7 +79,10 @@ object SaxophoneKeyLayout {
     private const val F_SHARP_COLUMN_X = 0.2254f
     private const val SPATULA_X = 0.4350f
     private const val FRONT_F_X = 0.5650f
-    private const val PALM_COLUMN_X = 0.8510f
+    private const val PALM_COLUMN_X = 0.8020f
+
+    /** High D stands off to the right of the other two, a group gap clear of their column. */
+    private const val PALM_D_COLUMN_X = 0.9455f
     private const val TABLE_X = 0.8490f
 
     /** Palm keys and the outer side keys are the same lever. */
@@ -124,10 +128,19 @@ object SaxophoneKeyLayout {
         KeyPlacement(SaxKey.LH3, x = MAIN_COLUMN_X, y = 0.3843f, size = MAIN_KEY),
 
         // --- palm keys ---------------------------------------------------------------------------
-        // One column, a finger gap clear of the bis key, which is what they actually sit beside.
-        KeyPlacement(SaxKey.PALM_D, PALM_COLUMN_X, 0.0741f, BAR_KEY, PALM_BAR, KeyGroup.PALM),
-        KeyPlacement(SaxKey.PALM_EB, PALM_COLUMN_X, 0.1651f, BAR_KEY, PALM_BAR, KeyGroup.PALM),
-        KeyPlacement(SaxKey.PALM_F, PALM_COLUMN_X, 0.2562f, BAR_KEY, PALM_BAR, KeyGroup.PALM),
+        // Two columns, as they sit under the hand: high E flat and high F above one another, and
+        // high D standing off to the right, level with the gap between them.
+        //
+        //     | |
+        //       |
+        //     | |
+        //
+        // A group gap between the two columns and another between E flat and F, which is what
+        // makes the block two columns wide - so it clears the bis key by a group gap rather than
+        // the finger gap a single column had room for.
+        KeyPlacement(SaxKey.PALM_EB, PALM_COLUMN_X, 0.1196f, BAR_KEY, PALM_BAR, KeyGroup.PALM),
+        KeyPlacement(SaxKey.PALM_F, PALM_COLUMN_X, 0.2106f, BAR_KEY, PALM_BAR, KeyGroup.PALM),
+        KeyPlacement(SaxKey.PALM_D, PALM_D_COLUMN_X, 0.1651f, BAR_KEY, PALM_BAR, KeyGroup.PALM),
 
         // --- left little finger table ----------------------------------------------------------
         // G sharp across the top, low C sharp and B side by side, low B flat across the bottom.

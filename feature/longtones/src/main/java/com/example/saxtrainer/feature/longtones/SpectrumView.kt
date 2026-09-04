@@ -4,7 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,9 +35,11 @@ fun SpectrumView(
     val background = MaterialTheme.colorScheme.surfaceContainerHighest
 
     Canvas(
+        // Height comes from the caller: on a running exercise it takes the space left over, and
+        // anywhere else it falls back to a readable minimum.
         modifier = modifier
             .fillMaxWidth()
-            .height(Dimens.spectrumHeight)
+            .heightIn(min = Dimens.spectrumHeight)
             .background(background, MaterialTheme.shapes.medium)
             .clearAndSetSemantics {
                 contentDescription = "Live frequency spectrum up to ${maxFrequencyHz.roundToInt()} hertz"

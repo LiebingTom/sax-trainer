@@ -79,6 +79,25 @@ object TrebleStaff {
         style: AccidentalStyle = AccidentalStyle.SHARPS,
         naturalsExplicit: Boolean = false,
     ): StaffPlacement {
+        val spelling = spellingOf(note, style, naturalsExplicit)
+        val diatonicIndex = spelling.octave * LETTERS_PER_OCTAVE + spelling.letterIndex
+        return StaffPlacement(
+            stepsFromBottomLine = diatonicIndex - BOTTOM_LINE_INDEX,
+            accidental = spelling.accidental,
+        )
+    }
+
+    /**
+     * How [note] is written: the letter it sits on and the sign in front of it.
+     *
+     * The one place that decides, so a name and a staff position are always two views of the same
+     * answer. [placementOf] turns it into geometry; [NoteNaming] turns it into words.
+     */
+    fun spellingOf(
+        note: Note,
+        style: AccidentalStyle = AccidentalStyle.SHARPS,
+        naturalsExplicit: Boolean = false,
+    ): NoteSpelling {
         val altered = note.name.isAltered
         val letterIndex = when {
             !altered -> note.name.naturalLetterIndex
@@ -86,11 +105,6 @@ object TrebleStaff {
             // Spelled downwards from the next letter, e.g. C sharp becomes D flat.
             else -> (note.name.naturalLetterIndex + 1) % LETTERS_PER_OCTAVE
         }
-        // A flat spelling of A sharp is B flat, which stays in the same octave; only a flat spelling
-        // that wraps past B would change octave, and no such pitch exists in this model.
-        val octave = note.octave
-
-        val diatonicIndex = octave * LETTERS_PER_OCTAVE + letterIndex
         val accidental = when {
             !altered && naturalsExplicit -> Accidental.NATURAL
             !altered -> Accidental.NONE
@@ -98,14 +112,23 @@ object TrebleStaff {
             else -> Accidental.FLAT
         }
 
-        return StaffPlacement(
-            stepsFromBottomLine = diatonicIndex - BOTTOM_LINE_INDEX,
-            accidental = accidental,
-        )
+        // A flat spelling of A sharp is B flat, which stays in the same octave; only a flat spelling
+        // that wraps past B would change octave, and no such pitch exists in this model.
+        return NoteSpelling(letterIndex = letterIndex, accidental = accidental, octave = note.octave)
     }
 
     private const val LETTERS_PER_OCTAVE = 7
 }
+
+/**
+ * How this note is written under [style]: A sharp 4 reads "A#4" with sharps and "Bb4" with flats.
+ *
+ * [Note.label] always spells with sharps, because that is how [NoteName] names the pitch classes.
+ * A screen showing music in a flat key needs the written spelling to agree with the staff, which
+ * [TrebleStaff.placementOf] already gets right - this is the same rule for the text.
+ */
+fun Note.labelIn(style: AccidentalStyle): String =
+    NoteNaming.INTERNATIONAL.labelOf(this, style)
 
 private const val STEPS_PER_OCTAVE = 7
 

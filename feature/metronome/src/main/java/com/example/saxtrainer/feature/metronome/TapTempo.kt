@@ -1,6 +1,7 @@
 package com.example.saxtrainer.feature.metronome
 
-import com.example.saxtrainer.feature.metronome.engine.MetronomeEngine
+import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.music.Tempo
 
 /**
  * Derives a tempo from tap timestamps. Uses a monotonic clock supplied by the caller (nanoseconds)
@@ -31,7 +32,7 @@ class TapTempo(
 
         val average = intervals.sum().toDouble() / intervals.size
         val bpm = (NANOS_PER_MINUTE / average).toInt()
-        return bpm.coerceIn(MetronomeEngine.MIN_BPM, MetronomeEngine.MAX_BPM)
+        return bpm.coerceIn(Tempo.SUPPORTED_RANGE.first, Tempo.SUPPORTED_RANGE.last)
     }
 
     fun reset() {

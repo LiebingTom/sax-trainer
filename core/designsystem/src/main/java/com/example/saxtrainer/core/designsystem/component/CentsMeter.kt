@@ -124,6 +124,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTicks(
     )
 }
 
-private val MeterHeight = 36.dp
+/** The same height as the level meter, so the two readings read as a pair. */
+private val MeterHeight = Dimens.meterHeight
 private val MarkerWidth = 6.dp
 private const val DEFAULT_RANGE_CENTS = 50f

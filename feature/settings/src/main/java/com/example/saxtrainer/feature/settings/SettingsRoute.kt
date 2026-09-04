@@ -21,6 +21,9 @@ fun SettingsRoute(
         state = state,
         onInstrumentSelected = viewModel::selectInstrument,
         onNoteDisplaySelected = viewModel::selectNoteDisplay,
+        onNoteNamingSelected = viewModel::selectNoteNaming,
+        onCountInSelected = viewModel::selectCountInBeats,
+        onCountInClickChanged = viewModel::setCountInClick,
         onBack = onBack,
         modifier = modifier,
     )

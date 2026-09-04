@@ -14,13 +14,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.capture.AudioPermission
+import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
 import com.example.saxtrainer.core.settings.SettingsRepository
 
 /**
  * Stateful entry point of the fingering trainer.
  *
  * The exercise runs on its own clock whether or not the player makes a sound; the microphone is only
- * involved when checking is switched on, and it is asked for at that point rather than up front.
+ * involved when "Play the notes" is switched on, and it is asked for at that point rather than up
+ * front.
  *
  * A [preset] starts the trainer on a ready-made exercise instead of the setup screen. Where that
  * exercise came from is not the trainer's concern; [onExerciseFinished] simply reports how the run
@@ -38,6 +40,8 @@ fun FingeringRoute(
         FingeringViewModel(
             settingsRepository = settingsRepository,
             audioCapture = audioCapture,
+            // Only ever heard during the count-in; the exercise itself makes no sound.
+            metronome = MetronomeEngine(),
             preset = preset,
         )
     },
@@ -45,8 +49,8 @@ fun FingeringRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // The microphone is only ever asked for when checking is on; a refusal switches checking off
-    // instead of stopping the exercise.
+    // The microphone is only ever asked for when playing is checked; a refusal switches checking
+    // off instead of stopping the exercise.
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -92,9 +96,9 @@ fun FingeringRoute(
         onRandomChange = viewModel::setRandomOrder,
         onSecondsChange = viewModel::setSecondsPerNote,
         onCheckPlayingChange = viewModel::setCheckPlaying,
-        onCheckModeChange = viewModel::setCheckMode,
         onNoteDisplayChange = viewModel::setNoteDisplay,
         onStart = start,
+        onTogglePause = viewModel::togglePause,
         onStop = viewModel::stop,
         onReset = viewModel::reset,
         onBack = onBack,

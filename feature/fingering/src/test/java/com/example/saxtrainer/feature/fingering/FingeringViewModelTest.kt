@@ -4,18 +4,26 @@ import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.capture.AudioCaptureConfig
 import com.example.saxtrainer.core.audio.capture.AudioCaptureEvent
 import com.example.saxtrainer.core.audio.capture.AudioFrame
+import com.example.saxtrainer.core.exercise.MonotonicBeatClock
+import com.example.saxtrainer.core.exercise.NoteOrder
+import com.example.saxtrainer.core.fingering.NoteSet
+import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.settings.TrainingTool
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
@@ -33,9 +41,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import kotlin.math.PI
-import kotlin.math.sin
-import kotlin.random.Random
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FingeringViewModelTest {
@@ -53,15 +58,33 @@ class FingeringViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private class FakeSettingsRepository : SettingsRepository {
-        private val state = MutableStateFlow(AppSettings())
+    /**
+     * Most tests are about the exercise rather than the count-in, so they start without one; the
+     * ones that are about it ask for beats explicitly.
+     */
+    private class FakeSettingsRepository(
+        initial: AppSettings = AppSettings(countInBeats = 0),
+    ) : SettingsRepository {
+        private val state = MutableStateFlow(initial)
         override val settings: StateFlow<AppSettings> = state
+        override fun setNoteNaming(noteNaming: NoteNaming) {
+            state.value = state.value.copy(noteNaming = noteNaming)
+        }
+
         override fun setInstrument(instrument: Instrument) {
             state.value = state.value.copy(instrument = instrument)
         }
 
         override fun setNoteDisplay(noteDisplay: NoteDisplay) {
             state.value = state.value.copy(noteDisplay = noteDisplay)
+        }
+
+        override fun setCountInClick(enabled: Boolean) {
+            state.value = state.value.copy(countInClick = enabled)
+        }
+
+        override fun setCountInBeats(beats: Int) {
+            state.value = state.value.copy(countInBeats = beats)
         }
 
         override fun setNoteDisplayFor(tool: TrainingTool, noteDisplay: NoteDisplay) {
@@ -71,22 +94,27 @@ class FingeringViewModelTest {
         }
     }
 
-    /** Plays a steady tone into the trainer; null means silence. */
+    /**
+     * Plays a steady tone into the trainer; null means silence, and [noisy] means a sound with no
+     * pitch in it - which the trainer has to tell apart from a wrong note.
+     */
     private class FakeMicrophone(
         private val frameDurationMs: Long,
         @Volatile var frequencyHz: Double? = null,
+        @Volatile var noisy: Boolean = false,
     ) : AudioCapture {
         override fun frames(config: AudioCaptureConfig): Flow<AudioCaptureEvent> = flow {
             val frame = AudioFrame(FloatArray(config.frameSize), config.sampleRate)
+            val noise = Random(7)
             var samples = 0L
             while (true) {
                 delay(frameDurationMs)
                 val tone = frequencyHz
                 for (i in frame.samples.indices) {
-                    frame.samples[i] = if (tone == null) {
-                        0f
-                    } else {
-                        (0.5 * sin(2.0 * PI * tone * i / config.sampleRate)).toFloat()
+                    frame.samples[i] = when {
+                        noisy -> (noise.nextDouble() - 0.5).toFloat()
+                        tone == null -> 0f
+                        else -> (0.5 * sin(2.0 * PI * tone * i / config.sampleRate)).toFloat()
                     }
                 }
                 samples += config.hopSize
@@ -97,6 +125,11 @@ class FingeringViewModelTest {
     }
 
     private fun TestScope.virtualClock() = FingeringSessionClock(
+        tickIntervalMs = config.tickIntervalMs,
+        nanoTime = { testScheduler.currentTime * 1_000_000 },
+    )
+
+    private fun TestScope.virtualBeatClock() = MonotonicBeatClock(
         tickIntervalMs = config.tickIntervalMs,
         nanoTime = { testScheduler.currentTime * 1_000_000 },
     )
@@ -114,6 +147,7 @@ class FingeringViewModelTest {
         random = Random(seed),
         processingDispatcher = dispatcher,
         clock = virtualClock(),
+        countInClock = virtualBeatClock(),
     )
 
     /** Puts exactly these notes into the custom set and switches to it, as the dialog would. */
@@ -124,13 +158,13 @@ class FingeringViewModelTest {
         applyCustomNotes()
     }
 
-    private val c4 = Note(NoteName.C, 4)
-    private val d4 = Note(NoteName.D, 4)
-    private val e4 = Note(NoteName.E, 4)
-
     /** What a written note sounds like on the default tenor saxophone. */
     private fun soundingFrequencyOf(written: Note) =
         Instrument.TENOR_SAX.transposition.concertFor(written).frequencyHz()
+
+    private val c4 = Note(NoteName.C, 4)
+    private val d4 = Note(NoteName.D, 4)
+    private val e4 = Note(NoteName.E, 4)
 
     @Test
     fun `the beginner set is ready to go on the first run`() = runTest(dispatcher) {
@@ -145,7 +179,6 @@ class FingeringViewModelTest {
         )
         assertTrue("mixed order is the default", state.isRandom)
         assertFalse("listening is off until asked for", state.checkPlaying)
-        assertEquals(CheckMode.SHOW, state.checkMode)
         assertEquals(config.defaultSeconds, state.secondsPerNote)
         assertTrue(state.canStart)
     }
@@ -332,6 +365,154 @@ class FingeringViewModelTest {
         assertNull(viewModel.uiState.value.progress)
     }
 
+    // --- count-in and pause ---------------------------------------------------------------------
+
+    @Test
+    fun `the exercise counts the player in before its first note`() = runTest(dispatcher) {
+        val viewModel = viewModel(settings = FakeSettingsRepository(AppSettings(countInBeats = 4)))
+        viewModel.selectOnly(c4)
+
+        viewModel.start()
+        advanceTimeBy(10)
+        assertEquals(FingeringPhase.CountIn(4), viewModel.uiState.value.phase)
+        assertNull("no note is shown during the count", viewModel.uiState.value.progress)
+
+        // Two quiet lead-in beats come first, so the count still stands at four well into them.
+        advanceTimeBy(1_500)
+        assertEquals(FingeringPhase.CountIn(4), viewModel.uiState.value.phase)
+
+        // The trainer has no tempo of its own, so it counts at its reference sixty: a beat a second.
+        advanceTimeBy(1_500)
+        assertEquals(FingeringPhase.CountIn(3), viewModel.uiState.value.phase)
+
+        advanceTimeBy(3_000)
+        assertEquals(FingeringPhase.Running, viewModel.uiState.value.phase)
+        assertEquals(c4, viewModel.uiState.value.progress!!.currentNote)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `no count-in means the first note is there straight away`() = runTest(dispatcher) {
+        val viewModel = viewModel(settings = FakeSettingsRepository(AppSettings(countInBeats = 0)))
+        viewModel.selectOnly(c4)
+
+        viewModel.start()
+        advanceTimeBy(10)
+
+        assertEquals(FingeringPhase.Running, viewModel.uiState.value.phase)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `stopping during the count-in reports nothing`() = runTest(dispatcher) {
+        val viewModel = viewModel(settings = FakeSettingsRepository(AppSettings(countInBeats = 4)))
+        viewModel.selectOnly(c4)
+
+        viewModel.start()
+        advanceTimeBy(1_000)
+        viewModel.stop()
+        advanceUntilIdle()
+
+        // Nothing was practised, so there is nothing to say about it.
+        assertEquals(FingeringPhase.Idle, viewModel.uiState.value.phase)
+    }
+
+    @Test
+    fun `a paused exercise does not move on`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.selectOnly(c4, d4)
+        viewModel.setRandomOrder(false)
+        viewModel.setSecondsPerNote(5)
+
+        viewModel.start()
+        advanceTimeBy(2_000)
+        viewModel.togglePause()
+        val heldAt = viewModel.uiState.value.progress!!.remainingSeconds
+
+        advanceTimeBy(60_000)
+
+        assertTrue(viewModel.uiState.value.isPaused)
+        assertEquals(FingeringPhase.Running, viewModel.uiState.value.phase)
+        assertEquals(c4, viewModel.uiState.value.progress!!.currentNote)
+        assertEquals(heldAt, viewModel.uiState.value.progress!!.remainingSeconds, 0.1f)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `continuing picks the note up where it was left`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.selectOnly(c4, d4)
+        viewModel.setRandomOrder(false)
+        viewModel.setSecondsPerNote(5)
+
+        viewModel.start()
+        advanceTimeBy(2_000)
+        viewModel.togglePause()
+        advanceTimeBy(60_000)
+        viewModel.togglePause()
+
+        assertFalse(viewModel.uiState.value.isPaused)
+
+        // Three seconds of the first note were still to come, and they are what comes next.
+        advanceTimeBy(2_000)
+        assertEquals(c4, viewModel.uiState.value.progress!!.currentNote)
+
+        advanceTimeBy(1_100)
+        assertEquals(d4, viewModel.uiState.value.progress!!.currentNote)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `pausing is not stopping`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.selectOnly(c4)
+        viewModel.setSecondsPerNote(5)
+
+        viewModel.start()
+        advanceTimeBy(1_000)
+        viewModel.togglePause()
+        advanceTimeBy(60_000)
+
+        // A held exercise publishes no result: it is still there to come back to.
+        assertFalse(viewModel.uiState.value.phase is FingeringPhase.Finished)
+
+        viewModel.stop()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.phase is FingeringPhase.Finished)
+        assertFalse("the pause was released by stopping", viewModel.uiState.value.isPaused)
+    }
+
+    @Test
+    fun `the count-in is held too`() = runTest(dispatcher) {
+        val viewModel = viewModel(settings = FakeSettingsRepository(AppSettings(countInBeats = 4)))
+        viewModel.selectOnly(c4)
+
+        viewModel.start()
+        // Two lead-in beats and one counted one, all at the reference sixty.
+        advanceTimeBy(3_100)
+        assertEquals(FingeringPhase.CountIn(3), viewModel.uiState.value.phase)
+
+        viewModel.togglePause()
+        advanceTimeBy(60_000)
+        assertEquals(FingeringPhase.CountIn(3), viewModel.uiState.value.phase)
+
+        viewModel.togglePause()
+        advanceTimeBy(3_000)
+        assertEquals(FingeringPhase.Running, viewModel.uiState.value.phase)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
     @Test
     fun `stopping early keeps the notes already practised`() = runTest(dispatcher) {
         val viewModel = viewModel()
@@ -381,7 +562,6 @@ class FingeringViewModelTest {
         viewModel.editCustomNotes()
         viewModel.setSecondsPerNote(8)
         viewModel.setRandomOrder(true)
-        viewModel.setCheckPlaying(true)
 
         val state = viewModel.uiState.value
         assertEquals(NoteSet.CUSTOM, state.noteSet)
@@ -389,7 +569,6 @@ class FingeringViewModelTest {
         assertFalse("the dialog cannot be opened mid exercise", state.isEditingCustomNotes)
         assertEquals(5, state.secondsPerNote)
         assertFalse(state.isRandom)
-        assertFalse(state.checkPlaying)
 
         viewModel.stop()
         advanceUntilIdle()
@@ -433,138 +612,143 @@ class FingeringViewModelTest {
         assertTrue("two seeds should not give the same order", first != second)
     }
 
-    // --- listening ---------------------------------------------------------------------------
+    // --- playing the notes ---------------------------------------------------------------------
 
-    @Test
-    fun `playing the right note marks it correct without moving the exercise on`() =
-        runTest(dispatcher) {
-            val microphone = FakeMicrophone(frameDurationMs = 40)
-            val viewModel = viewModel(microphone = microphone)
-            viewModel.selectOnly(c4, d4)
-            viewModel.setRandomOrder(false)
-            viewModel.setSecondsPerNote(5)
-            viewModel.setCheckPlaying(true)
-            viewModel.setCheckMode(CheckMode.SHOW)
-
-            microphone.frequencyHz = soundingFrequencyOf(c4)
-            viewModel.start()
-            advanceTimeBy(1_500)
-
-            val progress = viewModel.uiState.value.progress!!
-            assertTrue("the played note should be recognised", progress.isCorrect)
-            assertEquals(
-                Instrument.TENOR_SAX.transposition.concertFor(c4),
-                progress.detectedNote,
-            )
-            assertEquals("showing only must not skip ahead", c4, progress.currentNote)
-
-            viewModel.stop()
-            advanceUntilIdle()
-        }
-
-    @Test
-    fun `playing the wrong note is not marked correct`() = runTest(dispatcher) {
-        val microphone = FakeMicrophone(frameDurationMs = 40)
+    /** A trainer with a microphone, one note, and playing switched on. */
+    private fun TestScope.playingViewModel(
+        microphone: AudioCapture,
+        vararg notes: Note,
+    ): FingeringViewModel {
         val viewModel = viewModel(microphone = microphone)
-        viewModel.selectOnly(c4, d4)
+        viewModel.selectOnly(*notes)
         viewModel.setRandomOrder(false)
-        viewModel.setSecondsPerNote(5)
+        viewModel.setSecondsPerNote(3)
         viewModel.setCheckPlaying(true)
-
-        microphone.frequencyHz = soundingFrequencyOf(e4) // a different note
-        viewModel.start()
-        advanceTimeBy(1_500)
-
-        val progress = viewModel.uiState.value.progress!!
-        assertFalse(progress.isCorrect)
-        assertEquals(Instrument.TENOR_SAX.transposition.concertFor(e4), progress.detectedNote)
-
-        viewModel.stop()
-        advanceUntilIdle()
+        return viewModel
     }
 
     @Test
-    fun `silence is neither correct nor a detected note`() = runTest(dispatcher) {
-        val microphone = FakeMicrophone(frameDurationMs = 40, frequencyHz = null)
-        val viewModel = viewModel(microphone = microphone)
-        viewModel.selectOnly(c4)
-        viewModel.setCheckPlaying(true)
+    fun `the fingering is held back until the note has been played`() = runTest(dispatcher) {
+        val microphone = FakeMicrophone(frameDurationMs = 40)
+        val viewModel = playingViewModel(microphone, c4, d4)
 
         viewModel.start()
-        advanceTimeBy(1_500)
+        advanceTimeBy(500)
 
-        val progress = viewModel.uiState.value.progress!!
-        assertFalse(progress.isCorrect)
-        assertNull(progress.detectedNote)
-
-        viewModel.stop()
-        advanceUntilIdle()
-    }
-
-    @Test
-    fun `advance mode moves on early once the note is held`() = runTest(dispatcher) {
-        val microphone = FakeMicrophone(frameDurationMs = 40)
-        val viewModel = viewModel(microphone = microphone)
-        viewModel.selectOnly(c4, d4)
-        viewModel.setRandomOrder(false)
-        viewModel.setSecondsPerNote(8)
-        viewModel.setCheckPlaying(true)
-        viewModel.setCheckMode(CheckMode.ADVANCE)
+        val asked = viewModel.uiState.value.progress!!
+        assertFalse("the answer would give the exercise away", asked.showFingering)
+        assertEquals(Heard.NOTHING, asked.heard)
 
         microphone.frequencyHz = soundingFrequencyOf(c4)
-        viewModel.start()
-        advanceTimeBy(2_000) // far short of the eight second limit
+        advanceTimeBy(500)
 
-        assertEquals(
-            "holding the right note should move the exercise on",
-            d4,
-            viewModel.uiState.value.progress!!.currentNote,
-        )
+        val played = viewModel.uiState.value.progress!!
+        assertTrue("the fingering is the reward for playing it", played.showFingering)
+        assertEquals(Heard.CORRECT, played.heard)
+        assertEquals(c4, played.currentNote)
 
         viewModel.stop()
         advanceUntilIdle()
     }
 
     @Test
-    fun `advance mode still waits out the timer when nothing is played`() = runTest(dispatcher) {
-        val microphone = FakeMicrophone(frameDurationMs = 40, frequencyHz = null)
-        val viewModel = viewModel(microphone = microphone)
-        viewModel.selectOnly(c4, d4)
-        viewModel.setRandomOrder(false)
-        viewModel.setSecondsPerNote(3)
-        viewModel.setCheckPlaying(true)
-        viewModel.setCheckMode(CheckMode.ADVANCE)
-
-        viewModel.start()
-        advanceTimeBy(1_500)
-        assertEquals(c4, viewModel.uiState.value.progress!!.currentNote)
-
-        advanceTimeBy(2_000)
-        assertEquals("the timer is the fallback", d4, viewModel.uiState.value.progress!!.currentNote)
-
-        viewModel.stop()
-        advanceUntilIdle()
-    }
-
-    @Test
-    fun `the result records which notes were played correctly`() = runTest(dispatcher) {
+    fun `a note played correctly is recorded and the exercise moves on`() = runTest(dispatcher) {
         val microphone = FakeMicrophone(frameDurationMs = 40)
-        val viewModel = viewModel(microphone = microphone)
-        viewModel.selectOnly(c4, d4)
-        viewModel.setRandomOrder(false)
-        viewModel.setSecondsPerNote(3)
-        viewModel.setCheckPlaying(true)
-        viewModel.setCheckMode(CheckMode.SHOW)
+        val viewModel = playingViewModel(microphone, c4, d4)
 
-        microphone.frequencyHz = soundingFrequencyOf(c4) // only the first note is played
         viewModel.start()
+        advanceTimeBy(300)
+        microphone.frequencyHz = soundingFrequencyOf(c4)
+        // Long enough to count as played, plus the time the fingering stays up as the answer.
+        advanceTimeBy(2_000)
+
+        assertEquals(1, viewModel.uiState.value.progress!!.noteIndex)
+
+        viewModel.stop()
         advanceUntilIdle()
 
         val result = (viewModel.uiState.value.phase as FingeringPhase.Finished).result
         assertTrue(result.checked)
-        assertEquals(listOf(c4, d4), result.notes.map { it.note })
-        assertEquals(listOf(true, false), result.notes.map { it.playedCorrectly })
-        assertEquals(1, result.correctCount)
+        assertEquals(listOf(true), result.notes.map { it.playedCorrectly })
+    }
+
+    @Test
+    fun `a wrong note is named and the exercise stays where it is`() = runTest(dispatcher) {
+        val microphone = FakeMicrophone(frameDurationMs = 40)
+        val viewModel = playingViewModel(microphone, c4, d4)
+
+        viewModel.start()
+        advanceTimeBy(300)
+        microphone.frequencyHz = soundingFrequencyOf(e4)
+        advanceTimeBy(1_000)
+
+        val progress = viewModel.uiState.value.progress!!
+        assertEquals(Heard.WRONG, progress.heard)
+        // Named as the player would read it, not as it sounds in the room.
+        assertEquals(e4, progress.detectedNote)
+        assertEquals("a wrong note does not move the exercise on", 0, progress.noteIndex)
+        assertFalse("and it does not give the answer away either", progress.showFingering)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `a sound with no pitch in it is not a wrong note`() = runTest(dispatcher) {
+        val microphone = FakeMicrophone(frameDurationMs = 40, noisy = true)
+        val viewModel = playingViewModel(microphone, c4)
+
+        viewModel.start()
+        advanceTimeBy(1_000)
+
+        val progress = viewModel.uiState.value.progress!!
+        assertEquals(Heard.UNCLEAR, progress.heard)
+        assertNull("nothing was recognised, so nothing is named", progress.detectedNote)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `a note nobody manages to play is shown anyway`() = runTest(dispatcher) {
+        // Not knowing the grip is exactly when a player needs to be shown it, so the time running
+        // out reveals the fingering rather than skipping past it.
+        val microphone = FakeMicrophone(frameDurationMs = 40, frequencyHz = null)
+        val viewModel = playingViewModel(microphone, c4, d4)
+
+        viewModel.start()
+        advanceTimeBy(3_200)
+
+        val progress = viewModel.uiState.value.progress!!
+        assertTrue(progress.showFingering)
+        assertEquals("still the same note, being shown", 0, progress.noteIndex)
+
+        // The answer stays up for a moment, then the exercise carries on.
+        advanceTimeBy(1_300)
+        assertEquals(1, viewModel.uiState.value.progress!!.noteIndex)
+
+        viewModel.stop()
+        advanceUntilIdle()
+
+        val result = (viewModel.uiState.value.phase as FingeringPhase.Finished).result
+        assertEquals(listOf(false), result.notes.map { it.playedCorrectly })
+    }
+
+    @Test
+    fun `with playing switched off the fingering is simply shown`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.selectOnly(c4)
+        viewModel.setSecondsPerNote(3)
+
+        viewModel.start()
+        advanceTimeBy(500)
+
+        val progress = viewModel.uiState.value.progress!!
+        assertTrue("the diagram is the lesson when nobody is listening", progress.showFingering)
+        assertEquals(Heard.NOTHING, progress.heard)
+
+        viewModel.stop()
+        advanceUntilIdle()
     }
 
     @Test
@@ -635,7 +819,6 @@ class FingeringViewModelTest {
                 order = NoteOrder.ORDERED,
                 secondsPerNote = 8,
                 rounds = 2,
-                checkMode = CheckMode.ADVANCE,
             ),
         ).uiState.value
 
@@ -643,7 +826,6 @@ class FingeringViewModelTest {
         assertEquals(NoteOrder.ORDERED, state.order)
         assertEquals(8, state.secondsPerNote)
         assertEquals(2, state.rounds)
-        assertEquals(CheckMode.ADVANCE, state.checkMode)
         assertTrue(state.isPreconfigured)
         assertTrue(state.canStart)
     }
@@ -908,5 +1090,48 @@ class FingeringViewModelTest {
 
         assertEquals(orderWith(NoteDisplay.NAME), orderWith(NoteDisplay.BOTH))
         advanceUntilIdle()
+    }
+
+    // --- what the notes are called ---------------------------------------------------------------
+
+    @Test
+    fun `note names follow the app setting`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        val viewModel = viewModel(settings = settings)
+        advanceUntilIdle()
+
+        assertEquals("B4", viewModel.uiState.value.nameOf(Note(NoteName.B, 4)))
+
+        settings.setNoteNaming(NoteNaming.GERMAN)
+        advanceUntilIdle()
+
+        assertEquals("H4", viewModel.uiState.value.nameOf(Note(NoteName.B, 4)))
+    }
+
+    @Test
+    fun `the eleventh pitch is a B flat, never an A sharp`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        val viewModel = viewModel(settings = settings)
+        advanceUntilIdle()
+
+        // The beginner-plus set calls it B flat in its own description; the screen now agrees.
+        assertEquals("B♭4", viewModel.uiState.value.nameOf(Note(NoteName.A_SHARP, 4)))
+
+        settings.setNoteNaming(NoteNaming.GERMAN)
+        advanceUntilIdle()
+
+        assertEquals("B4", viewModel.uiState.value.nameOf(Note(NoteName.A_SHARP, 4)))
+    }
+
+    @Test
+    fun `naming changes what is shown and nothing else`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        val viewModel = viewModel(settings = settings)
+        val before = viewModel.uiState.value.activeNotes
+
+        settings.setNoteNaming(NoteNaming.GERMAN)
+        advanceUntilIdle()
+
+        assertEquals("the notes practised are the same pitches", before, viewModel.uiState.value.activeNotes)
     }
 }

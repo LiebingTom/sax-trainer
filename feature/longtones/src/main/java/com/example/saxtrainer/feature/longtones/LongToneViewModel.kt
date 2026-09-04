@@ -5,9 +5,18 @@ import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.capture.AudioCaptureError
 import com.example.saxtrainer.core.audio.capture.AudioCaptureEvent
+import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.audio.metronome.clickCountIn
+import com.example.saxtrainer.core.exercise.BeatClock
 import com.example.saxtrainer.core.exercise.ExercisePattern
+import com.example.saxtrainer.core.exercise.MonotonicBeatClock
+import com.example.saxtrainer.core.exercise.PauseSwitch
 import com.example.saxtrainer.core.exercise.SequenceCatalog
 import com.example.saxtrainer.core.exercise.SequenceRunner
+import com.example.saxtrainer.core.exercise.countIn
+import com.example.saxtrainer.core.exercise.leadIn
+import com.example.saxtrainer.core.exercise.leadInBeatsFor
+import com.example.saxtrainer.core.exercise.pausedBy
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.Tempo
@@ -20,14 +29,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 import kotlin.random.Random
 
 /**
@@ -48,10 +57,14 @@ import kotlin.random.Random
 class LongToneViewModel(
     private val audioCapture: AudioCapture,
     private val settingsRepository: SettingsRepository,
+    /** Only ever used to click the count-in; the exercise itself is played into a silent room. */
+    private val metronome: MetronomeEngine? = null,
     private val config: LongToneConfig = LongToneConfig(),
     private val processingDispatcher: CoroutineDispatcher = Dispatchers.Default,
     /** Only ever drawn from when the presentation of a note is left to chance. */
     private val random: Random = Random.Default,
+    /** Only ever used for the count-in; the exercise itself runs on audio time. */
+    private val countInClock: BeatClock = MonotonicBeatClock(),
 ) : ViewModel() {
 
     /** How an attempt ended. Every exit path produces exactly one of these. */
@@ -68,6 +81,9 @@ class LongToneViewModel(
 
     private var exerciseJob: Job? = null
 
+    /** Held for the whole life of the ViewModel; a new attempt starts from it released. */
+    private val pause = PauseSwitch()
+
     init {
         // Instrument only affects how notes are labelled, so the exercise itself is unaffected.
         viewModelScope.launch {
@@ -75,7 +91,9 @@ class LongToneViewModel(
                 _uiState.value = _uiState.value.copy(
                     transposition = settings.instrument.transposition,
                     instrumentName = settings.instrument.displayName,
+                    noteNaming = settings.noteNaming,
                     noteDisplay = settings.noteDisplayFor(TrainingTool.LONG_TONES),
+                    countInClick = settings.countInClick,
                 )
             }
         }
@@ -102,12 +120,26 @@ class LongToneViewModel(
     /** Starts the count-in and recording. The caller must have obtained microphone permission. */
     fun start() {
         if (exerciseJob?.isActive == true) return
+        pause.resume()
         _uiState.value = _uiState.value.copy(
-            phase = LongTonePhase.Countdown(countInSeconds()),
+            phase = LongTonePhase.Countdown(countInBeats()),
             progress = null,
             measurements = LongToneMeasurements(),
+            isPaused = false,
         )
         exerciseJob = viewModelScope.launch(processingDispatcher) { runExercise() }
+    }
+
+    /**
+     * Holds the attempt, or lets it go again.
+     *
+     * Not the same as [stop]: the microphone stays open but nothing it hears is analysed, so the
+     * note keeps its place and no result is published. Above all this is what makes a long
+     * sequence of tones practicable - it can be broken off in the middle and picked up again.
+     */
+    fun togglePause() {
+        if (!_uiState.value.isBusy) return
+        _uiState.value = _uiState.value.copy(isPaused = pause.toggle())
     }
 
     /**
@@ -117,6 +149,8 @@ class LongToneViewModel(
     fun stop() {
         val job = exerciseJob
         exerciseJob = null
+        pause.resume()
+        _uiState.value = _uiState.value.copy(isPaused = false)
         // A count-in carries no audio, so it is resolved here: cancelling it may happen before the
         // exercise coroutine has even started, in which case nothing else would update the state.
         if (_uiState.value.phase is LongTonePhase.Countdown) {
@@ -137,6 +171,7 @@ class LongToneViewModel(
 
     override fun onCleared() {
         stop()
+        metronome?.release()
         super.onCleared()
     }
 
@@ -183,11 +218,48 @@ class LongToneViewModel(
         }
     }
 
+    /**
+     * Counts the bar in at the exercise's own tempo, using the count-in every practice shares.
+     *
+     * This exercise brings its own length - a bar - so it does not read the count-in setting; a
+     * practice with nothing of its own to say counts off what the settings ask for instead.
+     */
     private suspend fun countIn() {
-        for (second in countInSeconds() downTo 1) {
-            _uiState.value = _uiState.value.copy(phase = LongTonePhase.Countdown(second))
-            delay(COUNT_IN_STEP_MS)
+        val state = _uiState.value
+        val tempo = state.selection.tempo
+        val beats = countInBeats()
+        val held = countInClock.pausedBy(pause)
+        // start() has already put the count on screen at its starting number, so the quiet lead-in
+        // shows it standing there.
+        held.leadIn(leadInBeatsFor(beats), tempo)
+
+        // The click stops before the microphone opens, so it can never end up in the recording.
+        val engine = metronome?.takeIf { state.countInClick } ?: run {
+            held.countIn(beats, tempo, ::publishCountdown)
+            return
         }
+
+        // A clicked count cannot be held mid-stream: pausing stops the click and continuing counts
+        // again from the top, which is what an interrupted count-in is worth anyway.
+        var counted = false
+        while (!counted) {
+            pause.isPaused.first { !it }
+            counted = coroutineScope {
+                val counting = launch { engine.clickCountIn(beats, tempo, ::publishCountdown) }
+                val watcher = launch {
+                    pause.isPaused.first { it }
+                    counting.cancel()
+                }
+                counting.join()
+                watcher.cancel()
+                !pause.paused
+            }
+            engine.stop()
+        }
+    }
+
+    private fun publishCountdown(beatsRemaining: Int) {
+        _uiState.value = _uiState.value.copy(phase = LongTonePhase.Countdown(beatsRemaining))
     }
 
     /**
@@ -208,7 +280,11 @@ class LongToneViewModel(
                 when (event) {
                     is AudioCaptureEvent.Failed -> Outcome.Failed(event.error)
 
-                    is AudioCaptureEvent.Frame -> {
+                    is AudioCaptureEvent.Frame -> if (pause.paused) {
+                        // Frames still arrive - the microphone is never handed back mid-attempt -
+                        // but nothing is analysed, so audio time genuinely stands still.
+                        null
+                    } else {
                         val frame = event.frame
                         processor.processFrame(frame.samples, frame.newSamples)
 
@@ -294,7 +370,8 @@ class LongToneViewModel(
         selection: ExerciseSelection,
         results: List<LongToneStepResult>,
     ) {
-        val state = _uiState.value
+        pause.resume()
+        val state = _uiState.value.copy(isPaused = false)
         _uiState.value = when (outcome) {
             is Outcome.Failed -> state.copy(phase = LongTonePhase.Failed(outcome.error))
 
@@ -315,12 +392,8 @@ class LongToneViewModel(
         _uiState.value = _uiState.value.copy(selection = change(_uiState.value.selection))
     }
 
-    /** One bar of count-in at the chosen tempo, rounded to whole seconds for the display. */
-    private fun countInSeconds(): Int {
-        val selection = _uiState.value.selection
-        val beats = Beats.of(config.countInBars * COUNT_IN_BEATS_PER_BAR)
-        return selection.tempo.secondsFor(beats).roundToInt().coerceAtLeast(1)
-    }
+    /** One bar of count-in, in beats. */
+    private fun countInBeats(): Int = config.countInBars * COUNT_IN_BEATS_PER_BAR
 
     private fun initialState(): LongToneUiState {
         val instrument = settingsRepository.settings.value.instrument
@@ -338,12 +411,12 @@ class LongToneViewModel(
             transposition = instrument.transposition,
             instrumentName = instrument.displayName,
             noteDisplay = settingsRepository.settings.value.noteDisplayFor(TrainingTool.LONG_TONES),
+            countInClick = settingsRepository.settings.value.countInClick,
             centsDisplayRange = config.centsDisplayRange,
         )
     }
 
     private companion object {
-        const val COUNT_IN_STEP_MS = 1_000L
         const val COUNT_IN_BEATS_PER_BAR = 4
         const val MILLIS_PER_SECOND = 1_000f
         const val UPCOMING_NOTES = 1

@@ -3,13 +3,29 @@ package com.example.saxtrainer.feature.fingering
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.audio.capture.AudioCapture
+import com.example.saxtrainer.core.audio.listening.Hearing
+import com.example.saxtrainer.core.audio.listening.NoteListener
+import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.audio.metronome.clickCountIn
+import com.example.saxtrainer.core.exercise.BeatClock
+import com.example.saxtrainer.core.exercise.MonotonicBeatClock
+import com.example.saxtrainer.core.exercise.NoteOrder
+import com.example.saxtrainer.core.exercise.PauseSwitch
 import com.example.saxtrainer.core.exercise.SequenceRunner
+import com.example.saxtrainer.core.exercise.countIn
+import com.example.saxtrainer.core.exercise.discountingPausedSeconds
+import com.example.saxtrainer.core.exercise.leadIn
+import com.example.saxtrainer.core.exercise.leadInBeatsFor
+import com.example.saxtrainer.core.exercise.pausedBy
+import com.example.saxtrainer.core.fingering.NoteSet
+import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
+import com.example.saxtrainer.core.settings.TrainingTool
 import com.example.saxtrainer.core.settings.displayAt
 import com.example.saxtrainer.core.settings.noteDisplaySchedule
-import com.example.saxtrainer.core.settings.TrainingTool
+import kotlin.random.Random
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -18,39 +34,55 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
-import kotlin.random.Random
 
 /**
  * Runs a fingering exercise: show a note with its fingering, hold it for the chosen time, move on.
  *
- * The exercise always runs on its own clock, so it works in silence. Listening is optional: when it
- * is on, the microphone only reports whether the right note is sounding, and in
- * [CheckMode.ADVANCE] it may end a note early - the timer stays as the fallback, so nobody can get
- * stuck on a note they cannot play.
+ * With checking off it is a chart to read: note and fingering side by side, held for the chosen
+ * time. With checking on it becomes the exercise proper - the note is shown, the fingering is not,
+ * and the player has to find the grip and sound it. The fingering then appears as the answer,
+ * whether it was earned or the time simply ran out, because being shown the grip you could not
+ * remember is the point of a fingering trainer.
+ *
+ * A wrong note is said out loud and changes nothing else: the note stays until it is played or its
+ * time is up. A sound too unclear to read a pitch from is not a wrong note and is never counted as
+ * one. How quickly any of it happened is not measured here - that is the note trainer's exercise.
  *
  * Randomisation happens once, when the exercise is generated; [SequenceRunner] then walks a fixed
  * sequence, which keeps it a passive cursor and makes an exercise reproducible from a seed.
  *
  * A [preset] hands the trainer a ready-made exercise instead of asking the player to build one. The
  * trainer neither knows nor cares where it came from.
+ *
+ * The trainer has no tempo of its own, so the count-in it shares with every other practice is
+ * counted at [FingeringConfig.tempo] - the same reference speed the exercise itself is built at. A
+ * [metronome] counts it out loud; without one, or with the click switched off, the same count runs
+ * silently on the clock.
  */
 class FingeringViewModel(
     private val settingsRepository: SettingsRepository,
     private val audioCapture: AudioCapture? = null,
+    /** Only ever used to click the count-in; this trainer has no click of its own to keep. */
+    private val metronome: MetronomeEngine? = null,
     private val preset: FingeringPreset? = null,
     private val config: FingeringConfig = FingeringConfig(),
     private val random: Random = Random.Default,
     private val processingDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val clock: FingeringSessionClock = FingeringSessionClock(config.tickIntervalMs),
+    private val countInClock: BeatClock = MonotonicBeatClock(config.tickIntervalMs),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(initialState())
     val uiState: StateFlow<FingeringUiState> = _uiState.asStateFlow()
 
     private var exerciseJob: Job? = null
+
+    /** Held for the whole life of the ViewModel; a new run starts from it released. */
+    private val pause = PauseSwitch()
 
     /** A preset that asked to start does so once, not again on every recomposition or rotation. */
     private var autoStartPending = preset?.autoStart == true
@@ -61,6 +93,9 @@ class FingeringViewModel(
                 _uiState.value = _uiState.value.copy(
                     transposition = settings.instrument.transposition,
                     instrumentName = settings.instrument.displayName,
+                    noteNaming = settings.noteNaming,
+                    countInBeats = settings.countInBeats,
+                    countInClick = settings.countInClick,
                     // A preset fixes the presentation for its own run; the player's saved
                     // preference is neither read nor written while it does.
                     noteDisplay = preset?.noteDisplay
@@ -103,8 +138,6 @@ class FingeringViewModel(
         it.copy(checkPlaying = enabled, checkUnavailable = false)
     }
 
-    fun setCheckMode(mode: CheckMode) = updateSetup { it.copy(checkMode = mode) }
-
     /** Changes how this tool shows notes; the shared default is left alone. */
     fun setNoteDisplay(noteDisplay: NoteDisplay) {
         settingsRepository.setNoteDisplayFor(TrainingTool.FINGERING, noteDisplay)
@@ -144,15 +177,37 @@ class FingeringViewModel(
             random = random,
         )
 
+        pause.resume()
+        _uiState.value = _uiState.value.copy(isPaused = false)
         exerciseJob = viewModelScope.launch(processingDispatcher) {
             runExercise(SequenceRunner(sequence))
         }
+    }
+
+    /**
+     * Holds the run, or lets it go again.
+     *
+     * Distinct from [stop]: the exercise keeps its place and its notes, and nothing is reported. A
+     * count-in is held too, so continuing gives the player the rest of their count rather than
+     * dropping them straight onto the first note.
+     */
+    fun togglePause() {
+        if (!_uiState.value.isBusy) return
+        _uiState.value = _uiState.value.copy(isPaused = pause.toggle())
     }
 
     /** Ends the exercise early and keeps the notes that were practised. */
     fun stop() {
         val job = exerciseJob
         exerciseJob = null
+        pause.resume()
+        // A count-in has practised nothing, so there is no result to publish - and cancelling it may
+        // happen before the exercise coroutine runs again, in which case nothing else would move the
+        // state on.
+        _uiState.value = _uiState.value.copy(isPaused = false)
+        if (_uiState.value.phase is FingeringPhase.CountIn) {
+            _uiState.value = _uiState.value.copy(phase = FingeringPhase.Idle)
+        }
         job?.cancel()
     }
 
@@ -164,6 +219,7 @@ class FingeringViewModel(
 
     override fun onCleared() {
         stop()
+        metronome?.release()
         super.onCleared()
     }
 
@@ -174,60 +230,95 @@ class FingeringViewModel(
         // being read, and so the preview of the next note is honest.
         val displays = noteDisplaySchedule(_uiState.value.noteDisplay, noteCount, random)
         val listening = _uiState.value.checkPlaying && audioCapture != null
-        val heard = MutableStateFlow<DetectedNote?>(null)
-
-        // Listening runs beside the clock and only reports; it never drives the exercise on its own.
-        val listenJob = if (listening) {
-            launch {
-                NoteListener(audioCapture!!, config.capture, config.listening)
-                    .detectedNotes()
-                    .collect { heard.value = it }
-            }
-        } else {
-            null
-        }
+        val heard = MutableStateFlow<Hearing>(Hearing.Silent)
+        var listenJob: Job? = null
 
         var noteStartSeconds = 0f
+        // When the fingering went up, in this note's own time. Null while it is still being asked
+        // for; once set, the note is over as soon as the answer has been on screen long enough.
+        var revealedSeconds: Float? = null
         var correctSinceSeconds: Float? = null
         var playedCorrectly = false
 
         try {
-            publishProgress(runner, displays, elapsedInNote = 0f, detected = null, correct = false)
+            countIn()
+
+            // The microphone is opened after the count, so a click can never be heard as a note.
+            // Listening only reports; the clock still runs the exercise.
+            if (listening) {
+                listenJob = launch {
+                    NoteListener(audioCapture!!, config.capture, config.listening)
+                        .listen()
+                        .collect { heard.value = it }
+                }
+            }
+
+            publishProgress(runner, displays, elapsedInNote = 0f, listening = listening)
             _uiState.value = _uiState.value.copy(phase = FingeringPhase.Running)
 
             // Collection stops once the last note is over; the coroutine never cancels itself.
             clock.elapsedSeconds()
+                .discountingPausedSeconds(pause)
                 .mapNotNull { elapsed ->
                     val noteSeconds = noteSecondsOf(runner)
                     val elapsedInNote = elapsed - noteStartSeconds
+                    val written = runner.currentStep.note
 
-                    val expected = _uiState.value.soundingNoteOf(runner.currentStep.note)
-                    val detected = if (listening) heard.value else null
-                    val correct = detected != null && detected.note == expected
-                    if (correct) {
-                        playedCorrectly = true
-                        if (correctSinceSeconds == null) correctSinceSeconds = elapsedInNote
-                    } else {
-                        correctSinceSeconds = null
+                    val hearing = if (listening) heard.value else Hearing.Silent
+                    val state = _uiState.value
+                    val sounding = (hearing as? Hearing.Pitched)?.detected?.note
+                    val correct = sounding != null && sounding == state.soundingNoteOf(written)
+
+                    when {
+                        correct -> if (correctSinceSeconds == null) {
+                            correctSinceSeconds = elapsedInNote
+                        }
+                        // An unclear sound says nothing either way, so it neither counts against
+                        // the player nor breaks a note they are already holding.
+                        hearing is Hearing.Unclear -> Unit
+                        else -> correctSinceSeconds = null
                     }
 
-                    val heldCorrectSeconds = correctSinceSeconds?.let { elapsedInNote - it } ?: 0f
-                    val playedLongEnough = listening &&
-                        _uiState.value.checkMode == CheckMode.ADVANCE &&
-                        heldCorrectSeconds >= config.requiredCorrectSeconds
+                    val heldSeconds = correctSinceSeconds?.let { elapsedInNote - it } ?: 0f
+                    if (revealedSeconds == null &&
+                        listening &&
+                        heldSeconds >= config.requiredCorrectSeconds
+                    ) {
+                        playedCorrectly = true
+                        revealedSeconds = elapsedInNote
+                    }
+                    // Time up without it being played: the fingering is shown anyway. Not knowing a
+                    // grip is exactly when a player needs to be shown it.
+                    if (revealedSeconds == null && listening && elapsedInNote >= noteSeconds) {
+                        revealedSeconds = elapsedInNote
+                    }
 
-                    if (elapsedInNote < noteSeconds && !playedLongEnough) {
-                        publishProgress(runner, displays, elapsedInNote, detected?.note, correct)
+                    val over = if (listening) {
+                        revealedSeconds?.let { elapsedInNote - it >= config.revealSeconds } == true
+                    } else {
+                        elapsedInNote >= noteSeconds
+                    }
+
+                    if (!over) {
+                        publishProgress(
+                            runner = runner,
+                            displays = displays,
+                            elapsedInNote = elapsedInNote,
+                            listening = listening,
+                            revealed = revealedSeconds != null,
+                            hearing = hearing,
+                            correct = correct,
+                        )
                         null
                     } else {
-                        practised += PractisedNote(runner.currentStep.note, playedCorrectly)
-                        // An early finish still consumes the whole note, so later notes keep their
-                        // full time rather than inheriting the leftover.
-                        noteStartSeconds += maxOf(noteSeconds, elapsedInNote)
-                        playedCorrectly = false
+                        practised += PractisedNote(written, playedCorrectly)
+                        // The next note starts where this one ended, however long it actually took.
+                        noteStartSeconds = elapsed
+                        revealedSeconds = null
                         correctSinceSeconds = null
+                        playedCorrectly = false
                         if (runner.advance()) {
-                            publishProgress(runner, displays, elapsedInNote = 0f, detected = null, correct = false)
+                            publishProgress(runner, displays, elapsedInNote = 0f, listening = listening)
                             null
                         } else {
                             EXERCISE_OVER
@@ -238,7 +329,8 @@ class FingeringViewModel(
 
             finish(practised, noteCount, listening)
         } catch (cancellation: CancellationException) {
-            // Stopped by the player or by leaving the screen: report what was practised.
+            // Stopped by the player or by leaving the screen: report what was practised. A run
+            // that never got past its count-in has nothing to report; stop() has already said so.
             if (_uiState.value.phase is FingeringPhase.Running) {
                 finish(practised, noteCount, listening)
             }
@@ -248,14 +340,61 @@ class FingeringViewModel(
         }
     }
 
+    /**
+     * Counts the player in, out loud when there is a metronome and the click is switched on.
+     *
+     * A clicked count cannot simply be held: the engine is a stream, not a position, so pausing
+     * stops the click and continuing counts again from the top - which is what a count-in
+     * interrupted half way is worth anyway. A silent count is a clock and is simply held.
+     */
+    private suspend fun countIn() {
+        val state = _uiState.value
+        val beats = state.countInBeats
+        val held = countInClock.pausedBy(pause)
+
+        if (beats > 0) {
+            // Shown standing at its starting number through the quiet lead-in, so the screen says
+            // what is coming before the count begins to move.
+            publishCountIn(beats)
+            held.leadIn(leadInBeatsFor(beats), config.tempo)
+        }
+
+        val engine = metronome?.takeIf { state.countInClick } ?: run {
+            held.countIn(beats, config.tempo, ::publishCountIn)
+            return
+        }
+
+        var counted = false
+        while (!counted) {
+            pause.isPaused.first { !it }
+            counted = coroutineScope {
+                val counting = launch { engine.clickCountIn(beats, config.tempo, ::publishCountIn) }
+                val watcher = launch {
+                    pause.isPaused.first { it }
+                    counting.cancel()
+                }
+                counting.join()
+                watcher.cancel()
+                !pause.paused
+            }
+            engine.stop()
+        }
+    }
+
+    private fun publishCountIn(beatsRemaining: Int) {
+        _uiState.value = _uiState.value.copy(phase = FingeringPhase.CountIn(beatsRemaining))
+    }
+
     private fun finish(practised: List<PractisedNote>, plannedNoteCount: Int, checked: Boolean) {
+        pause.resume()
         _uiState.value = _uiState.value.copy(
+            isPaused = false,
             phase = FingeringPhase.Finished(
                 FingeringResult(
                     notes = practised.toList(),
                     plannedNoteCount = plannedNoteCount,
                     checked = checked,
-                )
+                ),
             ),
             progress = null,
         )
@@ -265,12 +404,16 @@ class FingeringViewModel(
         runner: SequenceRunner,
         displays: List<NoteDisplay>,
         elapsedInNote: Float,
-        detected: Note?,
-        correct: Boolean,
+        listening: Boolean,
+        revealed: Boolean = false,
+        hearing: Hearing = Hearing.Silent,
+        correct: Boolean = false,
     ) {
         val note = runner.currentStep.note
         val noteSeconds = noteSecondsOf(runner)
-        _uiState.value = _uiState.value.copy(
+        val state = _uiState.value
+        val sounding = (hearing as? Hearing.Pitched)?.detected?.note
+        _uiState.value = state.copy(
             progress = FingeringProgress(
                 noteIndex = runner.currentIndex,
                 noteCount = runner.sequence.steps.size,
@@ -281,8 +424,15 @@ class FingeringViewModel(
                 noteSeconds = noteSeconds,
                 noteDisplay = displays.displayAt(runner.currentIndex),
                 nextNoteDisplay = displays.displayAt(runner.currentIndex + 1),
-                detectedNote = detected,
-                isCorrect = correct,
+                showFingering = !listening || revealed,
+                heard = when {
+                    !listening -> Heard.NOTHING
+                    correct -> Heard.CORRECT
+                    sounding != null -> Heard.WRONG
+                    hearing is Hearing.Unclear -> Heard.UNCLEAR
+                    else -> Heard.NOTHING
+                },
+                detectedNote = sounding?.let(state::writtenNoteOf),
             ),
         )
     }
@@ -291,7 +441,7 @@ class FingeringViewModel(
         config.tempo.secondsFor(runner.currentStep.duration).toFloat()
 
     private fun updateSetup(change: (FingeringUiState) -> FingeringUiState) {
-        if (_uiState.value.isRunning) return
+        if (_uiState.value.isBusy) return
         _uiState.value = change(_uiState.value)
     }
 
@@ -311,7 +461,6 @@ class FingeringViewModel(
         secondsPerNote = preset.secondsPerNote,
         rounds = preset.rounds,
         checkPlaying = preset.checkPlaying && audioCapture != null,
-        checkMode = preset.checkMode,
         noteDisplay = preset.noteDisplay ?: noteDisplay,
         isPreconfigured = true,
     )
@@ -329,10 +478,12 @@ class FingeringViewModel(
             rounds = config.defaultRounds,
             secondsOptions = config.secondsOptions,
             checkPlaying = config.checkPlayingByDefault && audioCapture != null,
-            checkMode = config.defaultCheckMode,
             transposition = settings.instrument.transposition,
             instrumentName = settings.instrument.displayName,
+            noteNaming = settings.noteNaming,
             noteDisplay = settings.noteDisplayFor(TrainingTool.FINGERING),
+            countInBeats = settings.countInBeats,
+            countInClick = settings.countInClick,
         )
         return if (preset == null) state else state.withPreset(preset)
     }

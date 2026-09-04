@@ -1,5 +1,6 @@
 package com.example.saxtrainer.feature.fingering
 
+import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.settings.NoteDisplay
 
@@ -17,8 +18,8 @@ data class FingeringPreset(
     val order: NoteOrder = NoteOrder.RANDOM,
     val secondsPerNote: Int = 5,
     val rounds: Int = 1,
+    /** Whether the player has to sound each note, or only read its fingering. */
     val checkPlaying: Boolean = false,
-    val checkMode: CheckMode = CheckMode.SHOW,
     /** null leaves the player's own note-display preference alone. */
     val noteDisplay: NoteDisplay? = null,
     /** Whether the exercise begins by itself rather than waiting for Start. */

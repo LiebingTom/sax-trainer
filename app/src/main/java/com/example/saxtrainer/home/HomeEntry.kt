@@ -3,7 +3,9 @@ package com.example.saxtrainer.home
 import com.example.saxtrainer.R
 import com.example.saxtrainer.core.designsystem.component.IconSource
 import com.example.saxtrainer.learning.SaxTrainerCurriculum
-import com.example.saxtrainer.learning.catalog.FINGERING_PATH_ID
+import com.example.saxtrainer.learning.catalog.units.ACCIDENTALS_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.FIRST_NOTES_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.OCTAVE_UNIT_ID
 import com.example.saxtrainer.navigation.SaxTrainerDestination
 
 /**
@@ -19,51 +21,99 @@ data class HomeEntry(
     val route: String,
 )
 
+/** A handful of practice tools that belong together, under a heading that says why. */
+data class HomeGroup(val title: String, val entries: List<HomeEntry>)
+
 /**
- * Guided lessons, one entry per learning path.
+ * Guided lessons, one entry per learning unit.
  *
- * Derived from the curriculum rather than written out, so a trainer that gains lessons appears on
- * the landing page without this file or the home screen being edited.
+ * Derived from the curriculum rather than written out, so a new unit appears on the landing page
+ * without this file or the home screen being edited.
  */
-val learningEntries: List<HomeEntry> = SaxTrainerCurriculum.paths.map { path ->
+val learningEntries: List<HomeEntry> = SaxTrainerCurriculum.units.map { unit ->
     HomeEntry(
-        id = "learning-${path.id}",
-        title = path.title,
-        description = path.description,
-        icon = IconSource.Drawable(iconForPath(path.id)),
-        route = SaxTrainerDestination.learningPath(path.id),
+        id = "learning-${unit.id}",
+        title = unit.title,
+        description = unit.description,
+        icon = IconSource.Drawable(iconForUnit(unit.id)),
+        route = SaxTrainerDestination.learningUnit(unit.id),
     )
 }
 
-/** A path borrows its trainer's icon where there is one. */
-private fun iconForPath(pathId: String): Int = when (pathId) {
-    FINGERING_PATH_ID -> R.drawable.ic_fingering
+/**
+ * A unit is a topic rather than a trainer, so it names its own icon instead of borrowing one.
+ * Anything unnamed falls back to the generic learning mark.
+ */
+private fun iconForUnit(unitId: String): Int = when (unitId) {
+    FIRST_NOTES_UNIT_ID -> R.drawable.ic_note_quiz
+    OCTAVE_UNIT_ID -> R.drawable.ic_note_trainer
+    ACCIDENTALS_UNIT_ID -> R.drawable.ic_fingering
     else -> R.drawable.ic_learning
 }
 
-val practiceEntries: List<HomeEntry> = listOf(
-    HomeEntry(
-        id = "metronome",
-        title = "Metronome",
-        description = "Steady click with accented downbeat and tap tempo.",
-        icon = IconSource.Drawable(R.drawable.ic_metronome),
-        route = SaxTrainerDestination.METRONOME,
-    ),
-    HomeEntry(
-        id = "longtones",
-        title = "Long Tones",
-        description = "Hold a note steadily with live level and spectrum feedback.",
-        icon = IconSource.Drawable(R.drawable.ic_long_tone),
-        route = SaxTrainerDestination.LONG_TONES,
-    ),
-    HomeEntry(
-        id = "fingering",
-        title = "Fingering Trainer",
-        description = "Learn which keys to press for each written note.",
-        icon = IconSource.Drawable(R.drawable.ic_fingering),
-        route = SaxTrainerDestination.FINGERING,
-    ),
+private val noteQuiz = HomeEntry(
+    id = "notequiz",
+    title = "Note Quiz",
+    description = "Match written notes to fingerings. No instrument needed.",
+    icon = IconSource.Drawable(R.drawable.ic_note_quiz),
+    route = SaxTrainerDestination.NOTE_QUIZ,
 )
+
+private val fingering = HomeEntry(
+    id = "fingering",
+    title = "Fingering Trainer",
+    description = "Learn which keys to press for each written note.",
+    icon = IconSource.Drawable(R.drawable.ic_fingering),
+    route = SaxTrainerDestination.FINGERING,
+)
+
+private val noteTrainer = HomeEntry(
+    id = "notetrainer",
+    title = "Note Trainer",
+    description = "Read a note and play it. How quickly is up to you.",
+    icon = IconSource.Drawable(R.drawable.ic_note_trainer),
+    route = SaxTrainerDestination.NOTE_TRAINER,
+)
+
+private val longTones = HomeEntry(
+    id = "longtones",
+    title = "Long Tones",
+    description = "Hold a note steadily with live level and spectrum feedback.",
+    icon = IconSource.Drawable(R.drawable.ic_long_tone),
+    route = SaxTrainerDestination.LONG_TONES,
+)
+
+private val sequence = HomeEntry(
+    id = "sequence",
+    title = "Sequence Trainer",
+    description = "Play scales and patterns in time, with an optional click.",
+    icon = IconSource.Drawable(R.drawable.ic_sequence),
+    route = SaxTrainerDestination.SEQUENCE,
+)
+
+private val metronome = HomeEntry(
+    id = "metronome",
+    title = "Metronome",
+    description = "Steady click with accented downbeat and tap tempo.",
+    icon = IconSource.Drawable(R.drawable.ic_metronome),
+    route = SaxTrainerDestination.METRONOME,
+)
+
+/**
+ * The practice tools, grouped by the skill they train.
+ *
+ * Six cards in a flat list would say nothing about which tool answers which question, and the
+ * difference between them is the whole point: recognise the note, learn the grip, play the note,
+ * play a line. The headings are what make that visible without anybody reading a description.
+ */
+val practiceGroups: List<HomeGroup> = listOf(
+    HomeGroup("Know your notes", listOf(noteQuiz, fingering)),
+    HomeGroup("Play your notes", listOf(noteTrainer, longTones)),
+    HomeGroup("Play in time", listOf(sequence, metronome)),
+)
+
+/** Every practice tool, flattened - for previews and for anything that wants the plain list. */
+val practiceEntries: List<HomeEntry> = practiceGroups.flatMap { it.entries }
 
 val appEntries: List<HomeEntry> = listOf(
     HomeEntry(

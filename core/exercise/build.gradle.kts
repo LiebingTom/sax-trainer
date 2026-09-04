@@ -15,5 +15,8 @@ kotlin {
 
 dependencies {
     api(project(":core:music"))
+    // The beat clock is a Flow; nothing else here needs coroutines.
+    api(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

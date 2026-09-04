@@ -32,7 +32,7 @@ import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.designsystem.theme.numericLarge
-import com.example.saxtrainer.feature.metronome.engine.MetronomeError
+import com.example.saxtrainer.core.audio.metronome.MetronomeError
 
 /** Stateless metronome UI: it renders [state] and reports intent, it never keeps time itself. */
 @Composable
@@ -45,7 +45,28 @@ fun MetronomeScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ScreenScaffold(title = "Metronome", onBack = onBack, modifier = modifier) {
+    ScreenScaffold(
+        title = "Metronome",
+        onBack = onBack,
+        modifier = modifier,
+        actions = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
+            ) {
+                PrimaryButton(
+                    text = if (state.isRunning) "Stop" else "Start",
+                    onClick = onToggleRunning,
+                    modifier = Modifier.weight(1f),
+                )
+                SecondaryButton(
+                    text = "Tap tempo",
+                    onClick = onTap,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        },
+    ) {
         Spacer(Modifier.height(Dimens.spaceLg))
 
         if (state.error != null) {
@@ -99,22 +120,6 @@ fun MetronomeScreen(
         }
 
         Spacer(Modifier.height(Dimens.spaceLg))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
-        ) {
-            PrimaryButton(
-                text = if (state.isRunning) "Stop" else "Start",
-                onClick = onToggleRunning,
-                modifier = Modifier.weight(1f),
-            )
-            SecondaryButton(
-                text = "Tap tempo",
-                onClick = onTap,
-                modifier = Modifier.weight(1f),
-            )
-        }
     }
 }
 

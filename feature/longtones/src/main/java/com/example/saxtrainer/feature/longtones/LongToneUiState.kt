@@ -4,6 +4,7 @@ import com.example.saxtrainer.core.audio.capture.AudioCaptureError
 import com.example.saxtrainer.core.exercise.ExercisePattern
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.Transposition
 import com.example.saxtrainer.core.settings.NoteDisplay
@@ -20,7 +21,8 @@ import com.example.saxtrainer.core.settings.NoteDisplay
 sealed interface LongTonePhase {
     data object Idle : LongTonePhase
 
-    data class Countdown(val secondsLeft: Int) : LongTonePhase
+    /** Beats still to be counted before the first note; this exercise counts itself in a bar. */
+    data class Countdown(val beatsRemaining: Int) : LongTonePhase
 
     data object Running : LongTonePhase
 
@@ -174,17 +176,30 @@ data class LongToneUiState(
     val tempoRange: IntRange,
     val transposition: Transposition,
     val instrumentName: String,
+    /** What the note letters are called; a display convention, nothing else. */
+    val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
     val noteDisplay: NoteDisplay = NoteDisplay.BOTH,
     val noteDisplayOptions: List<NoteDisplay> = NoteDisplay.entries,
     val progress: ExerciseProgress? = null,
     val measurements: LongToneMeasurements = LongToneMeasurements(),
+    /**
+     * True while the attempt is held. Audio time is the exercise's clock, so a paused exercise is
+     * simply one that analyses nothing: the note keeps the seconds it had, and neither the tone the
+     * player is not playing nor the silence counts against them.
+     */
+    val isPaused: Boolean = false,
+    /** Whether the count-in is clicked out loud; from the app settings. */
+    val countInClick: Boolean = true,
     /** Half width of the cents meter, so the UI does not decide the scale itself. */
     val centsDisplayRange: Float = 50f,
 ) {
     val isBusy: Boolean get() = phase is LongTonePhase.Running || phase is LongTonePhase.Countdown
 
-    /** Note name as the player reads it on their instrument. */
-    fun writtenLabel(note: Note): String = transposition.writtenFor(note).label
+    /** Note name as the player reads it on their instrument, under the chosen naming. */
+    fun writtenLabel(note: Note): String = noteNaming.labelOf(transposition.writtenFor(note))
+
+    /** A sounding pitch, named the same way. */
+    fun soundingLabel(note: Note): String = noteNaming.labelOf(note)
 
     /** The note the player should be sounding right now, or the first one before the start. */
     val currentNote: Note get() = progress?.currentNote ?: selection.notes.first()

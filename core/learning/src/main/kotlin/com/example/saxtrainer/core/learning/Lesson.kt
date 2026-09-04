@@ -7,7 +7,10 @@ package com.example.saxtrainer.core.learning
  * single trainer on the classpath, so a lesson can name a trainer without knowing anything about it.
  */
 enum class TrainerId {
+    NOTE_QUIZ,
     FINGERING,
+    NOTE_TRAINER,
+    SEQUENCE,
     LONG_TONES,
     METRONOME,
 }
@@ -33,13 +36,17 @@ interface TrainerLaunch
 data class LessonStep(
     val trainerId: TrainerId,
     val launch: TrainerLaunch,
+    /** Shown while a lesson of several steps is being walked, e.g. "Read them". */
+    val title: String = "",
 )
 
 /**
- * One thing a player sits down to do.
+ * One thing a player sits down to do, made of one or more exercises.
  *
- * [steps] is a list from the start so that a lesson made of several exercises later - fingering,
- * then pitch, then rhythm - needs no change to this model. Today every lesson holds exactly one.
+ * A lesson's [steps] may run different trainers in turn - recognise the notes, then finger them,
+ * then play them - and are walked in order. The trainers themselves never learn that a lesson
+ * exists: each is handed a configuration and reports a result, and the app's navigation layer is
+ * what moves from one step to the next.
  */
 data class Lesson(
     val id: LessonId,
@@ -54,24 +61,36 @@ data class Lesson(
         require(requires != id) { "lesson ${id.value} cannot require itself" }
     }
 
-    /** The single step of a one-exercise lesson, which is every lesson so far. */
     val firstStep: LessonStep get() = steps.first()
+
+    val stepCount: Int get() = steps.size
+
+    val isMultiStep: Boolean get() = steps.size > 1
+
+    /** The step at [index], or null past the last one - which is how a lesson says it is over. */
+    fun stepAt(index: Int): LessonStep? = steps.getOrNull(index)
 }
 
 /**
- * The lessons for one trainer, in teaching order - "Learning > Fingering" and its levels.
+ * A topic, in teaching order - "Your first five notes" and its lessons.
  *
- * A path carries no icon or colour: how it is drawn is the landing page's business, and this module
+ * Organised by what is being learnt and never by which trainer teaches it: a unit's lessons may use
+ * any trainers the topic needs, and a single lesson may use several. Grouping by trainer instead
+ * would teach the ladder sideways, one trainer at a time rather than one group of notes at a time.
+ *
+ * A unit carries no icon or colour: how it is drawn is the landing page's business, and this module
  * has no Android on its classpath to describe it with.
+ *
+ * Named `LearningUnit` rather than `Unit`, which is already the name of something else in Kotlin.
  */
-data class LessonPath(
+data class LearningUnit(
     val id: String,
     val title: String,
     val description: String,
     val lessons: List<Lesson>,
 ) {
     init {
-        require(id.isNotBlank()) { "a lesson path needs an id" }
-        require(lessons.isNotEmpty()) { "lesson path $id has no lessons" }
+        require(id.isNotBlank()) { "a learning unit needs an id" }
+        require(lessons.isNotEmpty()) { "learning unit $id has no lessons" }
     }
 }

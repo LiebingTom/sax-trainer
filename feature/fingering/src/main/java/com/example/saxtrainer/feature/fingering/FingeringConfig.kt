@@ -1,18 +1,10 @@
 package com.example.saxtrainer.feature.fingering
 
 import com.example.saxtrainer.core.audio.capture.AudioCaptureConfig
+import com.example.saxtrainer.core.audio.listening.NoteListener
 import com.example.saxtrainer.core.fingering.FingeringChart
 import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Tempo
-
-/** What listening to the player should do, when it is switched on at all. */
-enum class CheckMode(val displayName: String, val description: String) {
-    /** Show whether the right note is sounding; the exercise still moves on by itself. */
-    SHOW("Just show me", "Marks the note green while you play it correctly"),
-
-    /** Move on as soon as the note is played correctly, with the timer as a fallback. */
-    ADVANCE("Move on when correct", "Continues early once you hold the right note"),
-}
 
 /**
  * Settings of the fingering exercise.
@@ -23,7 +15,7 @@ enum class CheckMode(val displayName: String, val description: String) {
  */
 data class FingeringConfig(
     val chart: FingeringChart = SaxophoneFingerings,
-    /** Display times offered on the setup screen. */
+    /** How long a note is worked on before the fingering is shown; offered on the setup screen. */
     val secondsOptions: List<Int> = listOf(3, 5, 8),
     val defaultSeconds: Int = 5,
     /** How often the selected notes are worked through, unless a preset says otherwise. */
@@ -34,9 +26,14 @@ data class FingeringConfig(
     val tickIntervalMs: Long = 50,
     /** Listening is off by default: the trainer must work in silence. */
     val checkPlayingByDefault: Boolean = false,
-    val defaultCheckMode: CheckMode = CheckMode.SHOW,
-    /** How long the right note must sound before [CheckMode.ADVANCE] moves on. */
-    val requiredCorrectSeconds: Float = 0.4f,
+    /**
+     * How long the right note has to sound before it counts as played. Short, because this is a
+     * fingering check and not a tone exercise - long enough to rule out a note passed through on
+     * the way to another, not long enough to ask anybody to hold it.
+     */
+    val requiredCorrectSeconds: Float = 0.3f,
+    /** How long the fingering stays up as the answer before the next note. */
+    val revealSeconds: Float = 1.2f,
     val capture: AudioCaptureConfig = AudioCaptureConfig(),
     val listening: NoteListener.ListeningSettings = NoteListener.ListeningSettings(),
 )

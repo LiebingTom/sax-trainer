@@ -75,3 +75,48 @@ class InMemoryLessonProgressRepository(
         )
     }
 }
+
+/**
+ * What a whole lesson scored, from what each of its steps did.
+ *
+ * Every step has to be finished for the lesson to count: an abandoned step means the lesson was not
+ * done, whatever the earlier ones managed. Steps that could not judge the playing are left out of
+ * the average rather than counted as zero, so a quiz followed by a silent exercise is scored on the
+ * quiz alone rather than being halved by something nobody measured.
+ */
+fun List<ExerciseOutcome>.asLessonOutcome(): ExerciseOutcome = ExerciseOutcome(
+    completed = isNotEmpty() && all { it.completed },
+    score = mapNotNull { it.score }.takeIf { it.isNotEmpty() }?.average()?.toFloat(),
+)
+
+/**
+ * What the steps of the lesson being worked through have scored so far.
+ *
+ * A lesson is only recorded once, when its last step ends, so the outcomes of the steps before it
+ * have to be kept somewhere in the meantime. Separate from [LessonProgressRepository] because this
+ * is scaffolding for one sitting rather than something worth remembering.
+ */
+interface LessonRunRepository {
+    fun record(id: LessonId, stepIndex: Int, outcome: ExerciseOutcome)
+
+    fun outcomeOf(id: LessonId): ExerciseOutcome
+
+    fun clear(id: LessonId)
+}
+
+/** A lesson run for this run of the app only. */
+class InMemoryLessonRunRepository : LessonRunRepository {
+
+    private val steps = mutableMapOf<LessonId, MutableMap<Int, ExerciseOutcome>>()
+
+    override fun record(id: LessonId, stepIndex: Int, outcome: ExerciseOutcome) {
+        steps.getOrPut(id) { mutableMapOf() }[stepIndex] = outcome
+    }
+
+    override fun outcomeOf(id: LessonId): ExerciseOutcome =
+        steps[id].orEmpty().toSortedMap().values.toList().asLessonOutcome()
+
+    override fun clear(id: LessonId) {
+        steps.remove(id)
+    }
+}

@@ -19,4 +19,13 @@ object FeedbackColors {
         @Composable
         @ReadOnlyComposable
         get() = if (isSystemInDarkTheme()) CorrectGreenDark else CorrectGreenLight
+
+    /**
+     * Shown when an answer was wrong. Material's `error` is about the app failing, not about the
+     * player being wrong, and the two should not look the same.
+     */
+    val incorrect: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = if (isSystemInDarkTheme()) IncorrectRedDark else IncorrectRedLight
 }

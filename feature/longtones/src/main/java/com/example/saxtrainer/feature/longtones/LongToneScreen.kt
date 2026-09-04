@@ -3,6 +3,7 @@ package com.example.saxtrainer.feature.longtones
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,8 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -32,11 +31,14 @@ import com.example.saxtrainer.core.designsystem.component.CentsMeterLabels
 import com.example.saxtrainer.core.designsystem.component.LevelMeter
 import com.example.saxtrainer.core.designsystem.component.MetricDisplay
 import com.example.saxtrainer.core.designsystem.component.CurrentAndNextNote
+import com.example.saxtrainer.core.designsystem.component.DEFAULT_STAFF_MARGIN
 import com.example.saxtrainer.core.designsystem.component.NoteDisplayPicker
 import com.example.saxtrainer.core.designsystem.component.NotePresentation
 import com.example.saxtrainer.core.designsystem.component.rememberNoteSlot
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
+import com.example.saxtrainer.core.designsystem.component.ScreenHeader
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
+import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
@@ -51,6 +53,7 @@ import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.Transposition
 import com.example.saxtrainer.core.settings.NoteDisplay
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /** Stateless long tone UI. All measurements arrive ready to render in [state]. */
@@ -63,6 +66,7 @@ fun LongToneScreen(
     onSetTempo: (Int) -> Unit,
     onSelectNoteDisplay: (NoteDisplay) -> Unit,
     onStart: () -> Unit,
+    onTogglePause: () -> Unit,
     onStop: () -> Unit,
     onReset: () -> Unit,
     onBack: () -> Unit,
@@ -71,54 +75,59 @@ fun LongToneScreen(
     onOpenAppSettings: (() -> Unit)? = null,
     detectedNoteColor: Color = MaterialTheme.colorScheme.error,
 ) {
-    ScreenScaffold(title = "Long Tones", onBack = onBack, modifier = modifier) {
-        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-            Spacer(Modifier.height(Dimens.spaceSm))
-
-            when (val phase = state.phase) {
-                is LongTonePhase.Failed -> ErrorCard(
-                    error = phase.error,
-                    onOpenAppSettings = onOpenAppSettings,
-                )
-
-                else -> if (permissionDenied) {
-                    ErrorCard(
-                        error = AudioCaptureError.PermissionDenied,
-                        onOpenAppSettings = onOpenAppSettings,
-                    )
-                }
-            }
-
-            NoteHeader(state, detectedNoteColor)
-            Spacer(Modifier.height(Dimens.spaceMd))
-
-            if (!state.isBusy) {
-                ExerciseSetup(
-                    state = state,
-                    onSelectPattern = onSelectPattern,
-                    onSelectRootNote = onSelectRootNote,
-                    onSelectBeats = onSelectBeats,
-                    onSetTempo = onSetTempo,
-                    onSelectNoteDisplay = onSelectNoteDisplay,
-                )
-                Spacer(Modifier.height(Dimens.spaceMd))
-            }
-
-            when (val phase = state.phase) {
-                is LongTonePhase.Countdown -> CountdownDisplay(phase.secondsLeft)
-                is LongTonePhase.Running -> RunningPanel(state)
-                is LongTonePhase.Finished -> ResultCard(state, phase.result)
-                else -> Unit
-            }
-
-            Spacer(Modifier.height(Dimens.spaceLg))
+    ScreenScaffold(
+        title = "Long Tones",
+        onBack = onBack,
+        modifier = modifier,
+        header = headerOf(state),
+        // The note being held is the subject; the meters that measure it belong below.
+        subject = { NoteHeader(state, detectedNoteColor) },
+        // While it runs the readings size themselves to the screen; the setup list still scrolls.
+        scrollable = state.phase !is LongTonePhase.Running,
+        timing = timingOf(state),
+        actions = {
             Actions(
                 state = state,
                 onStart = onStart,
+                onTogglePause = onTogglePause,
                 onStop = onStop,
                 onReset = onReset,
             )
-            Spacer(Modifier.height(Dimens.spaceLg))
+        },
+    ) {
+        Spacer(Modifier.height(Dimens.spaceSm))
+
+        when (val phase = state.phase) {
+            is LongTonePhase.Failed -> ErrorCard(
+                error = phase.error,
+                onOpenAppSettings = onOpenAppSettings,
+            )
+
+            else -> if (permissionDenied) {
+                ErrorCard(
+                    error = AudioCaptureError.PermissionDenied,
+                    onOpenAppSettings = onOpenAppSettings,
+                )
+            }
+        }
+
+        if (!state.isBusy) {
+            ExerciseSetup(
+                state = state,
+                onSelectPattern = onSelectPattern,
+                onSelectRootNote = onSelectRootNote,
+                onSelectBeats = onSelectBeats,
+                onSetTempo = onSetTempo,
+                onSelectNoteDisplay = onSelectNoteDisplay,
+            )
+            Spacer(Modifier.height(Dimens.spaceMd))
+        }
+
+        when (val phase = state.phase) {
+            is LongTonePhase.Countdown -> CountdownDisplay(phase.beatsRemaining, state.isPaused)
+            is LongTonePhase.Running -> RunningPanel(state)
+            is LongTonePhase.Finished -> ResultCard(state, phase.result)
+            else -> Unit
         }
     }
 }
@@ -155,6 +164,7 @@ private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
             notes = writtenNotes,
             nameStyle = numericLarge,
             staffLineSpacing = CurrentNoteStaffSpacing,
+            naming = state.noteNaming,
             mayShowName = state.noteDisplay.showsName,
             mayShowStaff = state.noteDisplay.showsStaff,
             mayShowBothAtOnce = state.noteDisplay == NoteDisplay.BOTH,
@@ -163,6 +173,7 @@ private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
             notes = writtenNotes,
             nameStyle = nextNameStyle,
             staffLineSpacing = NextNoteStaffSpacing,
+            naming = state.noteNaming,
             mayShowName = state.noteDisplay.showsName,
             mayShowStaff = state.noteDisplay.showsStaff,
             mayShowBothAtOnce = state.noteDisplay == NoteDisplay.BOTH,
@@ -201,18 +212,30 @@ private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
                 slot = currentSlot,
             )
         }
-        Text(
-            text = if (state.transposition == Transposition.CONCERT) {
-                "${state.instrumentName} - ${"%.1f".format(currentNote.frequencyHz())} Hz"
-            } else {
-                "${state.instrumentName} - sounds ${currentNote.label}, " +
-                    "${"%.1f".format(currentNote.frequencyHz())} Hz"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
     }
+}
+
+/**
+ * What the note on screen actually sounds like on the horn in the player's hands.
+ *
+ * Detail rather than subject: it belongs with the readings below, not beside the note itself,
+ * which is why it reads left aligned like the rest of them.
+ */
+@Composable
+private fun SoundingLine(state: LongToneUiState) {
+    val currentNote = state.currentNote
+
+    Text(
+        text = if (state.transposition == Transposition.CONCERT) {
+            "${state.instrumentName} - ${"%.1f".format(currentNote.frequencyHz())} Hz"
+        } else {
+            "${state.instrumentName} - sounds ${state.soundingLabel(currentNote)}, " +
+                "${"%.1f".format(currentNote.frequencyHz())} Hz"
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable
@@ -306,7 +329,7 @@ private fun ExerciseSetup(
 }
 
 @Composable
-private fun CountdownDisplay(secondsLeft: Int) {
+private fun CountdownDisplay(beatsRemaining: Int, paused: Boolean) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -315,12 +338,12 @@ private fun CountdownDisplay(secondsLeft: Int) {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = secondsLeft.toString(),
+                text = beatsRemaining.toString(),
                 style = numericLarge,
                 color = MaterialTheme.colorScheme.secondary,
             )
             Text(
-                text = "Get ready",
+                text = if (paused) "Paused" else "Get ready",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -329,18 +352,18 @@ private fun CountdownDisplay(secondsLeft: Int) {
 }
 
 @Composable
-private fun RunningPanel(state: LongToneUiState) {
+private fun ColumnScope.RunningPanel(state: LongToneUiState) {
     val measurements = state.measurements
     val progress = state.progress
 
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+    Column(
+        modifier = Modifier.weight(1f),
+        verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+    ) {
         if (progress != null) {
             ExercisePositionRow(state, progress)
-            LinearProgressIndicator(
-                progress = { progress.noteFraction },
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
+        SoundingLine(state)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -375,9 +398,12 @@ private fun RunningPanel(state: LongToneUiState) {
             },
         )
         PitchPanel(state)
+        // Whatever room is left over after the readings above it: the taller the screen, the taller
+        // the spectrum, rather than a fixed block that has to be scrolled to on a small one.
         SpectrumView(
             bands = measurements.spectrumBands,
             maxFrequencyHz = measurements.displayMaxFrequencyHz,
+            modifier = Modifier.weight(1f),
         )
         SpectrumAxisLabels(maxFrequencyHz = measurements.displayMaxFrequencyHz)
     }
@@ -387,8 +413,7 @@ private fun RunningPanel(state: LongToneUiState) {
 @Composable
 private fun ExercisePositionRow(state: LongToneUiState, progress: ExerciseProgress) {
     Text(
-        text = "${state.selection.pattern.name}  " +
-            "${progress.displayPosition} / ${progress.noteCount}",
+        text = state.selection.pattern.name,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.fillMaxWidth(),
@@ -528,6 +553,7 @@ private fun ResultCard(state: LongToneUiState, result: LongToneResult) {
 private fun Actions(
     state: LongToneUiState,
     onStart: () -> Unit,
+    onTogglePause: () -> Unit,
     onStop: () -> Unit,
     onReset: () -> Unit,
 ) {
@@ -536,11 +562,20 @@ private fun Actions(
         horizontalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
     ) {
         when (state.phase) {
-            is LongTonePhase.Countdown, is LongTonePhase.Running -> PrimaryButton(
-                text = "Stop",
-                onClick = onStop,
-                modifier = Modifier.weight(1f),
-            )
+            // Pause takes the primary place while an attempt is on: stopping ends it, holding it
+            // does not, and a long sequence of tones is exactly where that matters.
+            is LongTonePhase.Countdown, is LongTonePhase.Running -> {
+                PrimaryButton(
+                    text = if (state.isPaused) "Continue" else "Pause",
+                    onClick = onTogglePause,
+                    modifier = Modifier.weight(1f),
+                )
+                SecondaryButton(
+                    text = "Stop",
+                    onClick = onStop,
+                    modifier = Modifier.weight(1f),
+                )
+            }
 
             is LongTonePhase.Finished -> {
                 PrimaryButton(
@@ -633,9 +668,57 @@ private fun LongToneScreenPreview() {
             onSetTempo = {},
             onSelectNoteDisplay = {},
             onStart = {},
+            onTogglePause = {},
             onStop = {},
             onReset = {},
             onBack = {},
         )
     }
 }
+
+/**
+ * What the screen says for itself, above the rule at the top.
+ *
+ * While it is being set up it says what the practice is, in plain words; once it is running it asks
+ * for what the player should be doing right now.
+ */
+private fun headerOf(state: LongToneUiState): ScreenHeader = when (state.phase) {
+    is LongTonePhase.Countdown -> ScreenHeader.Question("Get ready")
+    LongTonePhase.Running -> ScreenHeader.Question("Hold it steady")
+    is LongTonePhase.Finished -> ScreenHeader.Question("How did that go?")
+    // Idle and Failed both leave the player choosing what to do next.
+    else -> ScreenHeader.Description(
+        "Hold each note steady, with the pitch and the level shown as you play.",
+    )
+}
+
+/**
+ * How long is left on the note, for the bar across the foot of the screen.
+ *
+ * Null whenever nothing is being timed, which takes the bar off the screen rather than leaving an
+ * empty one behind.
+ */
+private fun timingOf(state: LongToneUiState): ScreenTiming? {
+    val progress = state.progress ?: return null
+    if (state.phase !is LongTonePhase.Running) return null
+
+    val remaining = (progress.noteTargetSeconds - progress.noteElapsedSeconds).coerceAtLeast(0f)
+    return ScreenTiming(
+        fraction = progress.noteFraction,
+        sessionFraction = sessionFractionOf(progress.displayPosition, progress.noteCount),
+        step = progress.displayPosition,
+        stepCount = progress.noteCount,
+        secondsLeft = ceil(remaining).toInt(),
+        secondsAtMost = ceil(progress.noteTargetSeconds).toInt(),
+        paused = state.isPaused,
+    )
+}
+
+/**
+ * How far through the whole run: steps finished over steps planned.
+ *
+ * Counted as steps *finished*, so the first one reads as nothing done rather than as a slice
+ * already gone.
+ */
+private fun sessionFractionOf(step: Int, stepCount: Int): Float =
+    if (stepCount <= 0) 0f else ((step - 1).toFloat() / stepCount).coerceIn(0f, 1f)

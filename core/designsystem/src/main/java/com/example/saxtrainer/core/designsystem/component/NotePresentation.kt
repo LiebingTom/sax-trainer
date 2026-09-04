@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.music.AccidentalStyle
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.conventionalStyle
 
 /**
  * A fixed footprint for one note.
@@ -60,7 +62,12 @@ fun rememberNoteSlot(
     mayShowStaff: Boolean = true,
     mayShowBothAtOnce: Boolean = mayShowName && mayShowStaff,
     reserveSecondaryNote: Boolean = false,
-    accidentalStyle: AccidentalStyle = AccidentalStyle.SHARPS,
+    /** What the letters are called, because "Fis" is wider than "F sharp" is tall. */
+    naming: NoteNaming = NoteNaming.INTERNATIONAL,
+    /** How each note is spelled, which decides both its name and the line it sits on. */
+    styleOf: (Note) -> AccidentalStyle = Note::conventionalStyle,
+    /** Extra staff steps either side - see [reservedStepRange]. Zero fits the notes exactly. */
+    stepMargin: Int = 0,
 ): NoteSlot {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -73,14 +80,17 @@ fun rememberNoteSlot(
         mayShowStaff,
         mayShowBothAtOnce,
         reserveSecondaryNote,
-        accidentalStyle,
+        naming,
         density,
+        stepMargin,
     ) {
-        val stepRange = staffStepRange(notes, accidentalStyle)
+        val stepRange = reservedStepRange(notes, styleOf, stepMargin)
         val staffWidth = staffWidthOf(staffLineSpacing, reserveSecondaryNote)
         val staffHeight = staffHeightOf(stepRange, staffLineSpacing)
 
-        val measured = notes.map { measurer.measure(AnnotatedString(it.label), nameStyle).size }
+        val measured = notes.map {
+            measurer.measure(AnnotatedString(naming.labelOf(it, styleOf(it))), nameStyle).size
+        }
         val nameWidth = with(density) { measured.maxOf { it.width }.toDp() }
         val nameHeight = with(density) { measured.maxOf { it.height }.toDp() }
 
@@ -124,6 +134,8 @@ fun NotePresentation(
     staffLineSpacing: Dp = DefaultStaffSpacing,
     secondaryNote: Note? = null,
     secondaryColor: Color = staffColor,
+    /** How the note is spelled, so the staff agrees with whatever [label] says. */
+    accidentalStyle: AccidentalStyle = note.conventionalStyle(),
     slot: NoteSlot? = null,
 ) {
     // A preference that hides both would leave nothing on screen; the name is the safer fallback.
@@ -145,6 +157,7 @@ fun NotePresentation(
                     secondaryNote = secondaryNote,
                     secondaryColor = secondaryColor,
                     lineSpacing = staffLineSpacing,
+                    accidentalStyle = accidentalStyle,
                     stepRange = slot?.stepRange,
                     reserveSecondaryWidth = slot?.reservesSecondaryNote == true,
                 )

@@ -6,7 +6,9 @@ import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.capture.AudioRecordCapture
 import com.example.saxtrainer.core.learning.Curriculum
 import com.example.saxtrainer.core.learning.InMemoryLessonProgressRepository
+import com.example.saxtrainer.core.learning.InMemoryLessonRunRepository
 import com.example.saxtrainer.core.learning.LessonProgressRepository
+import com.example.saxtrainer.core.learning.LessonRunRepository
 import com.example.saxtrainer.learning.SaxTrainerCurriculum
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.settings.SharedPreferencesSettingsRepository
@@ -27,6 +29,12 @@ class AppContainer(context: Context) {
      * line changes when it arrives.
      */
     val lessonProgress: LessonProgressRepository = InMemoryLessonProgressRepository()
+
+    /**
+     * What the steps of the lesson being worked through have scored so far. Scaffolding for one
+     * sitting, so there is nothing here worth persisting even when progress is.
+     */
+    val lessonRuns: LessonRunRepository = InMemoryLessonRunRepository()
 }
 
 class SaxTrainerApplication : Application() {

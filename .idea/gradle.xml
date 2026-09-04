@@ -24,6 +24,9 @@
             <option value="$PROJECT_DIR$/feature/learning" />
             <option value="$PROJECT_DIR$/feature/longtones" />
             <option value="$PROJECT_DIR$/feature/metronome" />
+            <option value="$PROJECT_DIR$/feature/notequiz" />
+            <option value="$PROJECT_DIR$/feature/notetrainer" />
+            <option value="$PROJECT_DIR$/feature/sequence" />
             <option value="$PROJECT_DIR$/feature/settings" />
           </set>
         </option>

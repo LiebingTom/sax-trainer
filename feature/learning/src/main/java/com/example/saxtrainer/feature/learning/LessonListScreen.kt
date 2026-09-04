@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -41,29 +39,29 @@ fun LessonListScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ScreenScaffold(title = state.title, onBack = onBack, modifier = modifier) {
-        Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
-        ) {
-            Spacer(Modifier.height(Dimens.spaceSm))
-            Text(
-                text = state.description,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = state.summary,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.height(Dimens.spaceXs))
+    ScreenScaffold(
+        title = state.title,
+        onBack = onBack,
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+    ) {
+        Spacer(Modifier.height(Dimens.spaceSm))
+        Text(
+            text = state.description,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = state.summary,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(Dimens.spaceXs))
 
-            state.lessons.forEach { item ->
-                LessonCard(item = item, onClick = { onLessonClick(item.id) })
-            }
-            Spacer(Modifier.height(Dimens.spaceLg))
+        state.lessons.forEach { item ->
+            LessonCard(item = item, onClick = { onLessonClick(item.id) })
         }
+        Spacer(Modifier.height(Dimens.spaceLg))
     }
 }
 
@@ -107,9 +105,11 @@ private fun LessonCard(item: LessonItem, onClick: () -> Unit) {
     }
 }
 
-/** What has happened to this lesson so far, or nothing if it has never been opened. */
+/** What has happened to this lesson so far, or what it is going to ask for. */
 private fun statusOf(item: LessonItem): String? = when {
     !item.unlocked -> "Finish the level before this one first"
+    // A lesson of several exercises is worth saying so before it is started.
+    item.isMultiStep && item.attempts == 0 -> "${item.stepCount} exercises"
     item.bestScore != null -> "Best: ${(item.bestScore * 100).roundToInt()}% played correctly"
     item.attempts > 0 -> if (item.attempts == 1) "Tried once" else "Tried ${item.attempts} times"
     else -> null

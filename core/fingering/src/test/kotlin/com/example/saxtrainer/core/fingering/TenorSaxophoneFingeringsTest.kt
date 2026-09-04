@@ -211,6 +211,24 @@ class TenorSaxophoneFingeringsTest {
     }
 
     @Test
+    fun `no two notes are fingered the same way`() {
+        // A quiz that shows a fingering and asks which note it is only has an answer while this
+        // holds. It has always been true of this chart; nothing said so until now.
+        val byKeys = chart.supportedNotes
+            .flatMap { note -> chart.fingeringsFor(note)!!.all.map { it.pressedKeys to note } }
+            .groupBy({ it.first }, { it.second })
+
+        val shared = byKeys.filterValues { it.distinct().size > 1 }
+
+        assertTrue(
+            "the same grip is listed for " + shared.values.joinToString { notes ->
+                notes.distinct().joinToString("/") { it.label }
+            },
+            shared.isEmpty(),
+        )
+    }
+
+    @Test
     fun `the shared chart is the tenor data`() {
         assertEquals(TenorSaxophoneFingerings.supportedNotes, SaxophoneFingerings.supportedNotes)
         assertEquals(

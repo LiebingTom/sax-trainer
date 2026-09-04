@@ -27,3 +27,6 @@ additional/icons/tune.svg         -> feature/fingering/src/main/res/drawable/ic_
 # Still hand-drawn, waiting to be replaced:
 #   app/src/main/res/drawable/ic_metronome.xml
 #   app/src/main/res/drawable/ic_fingering.xml
+#   app/src/main/res/drawable/ic_sequence.xml
+#   app/src/main/res/drawable/ic_note_quiz.xml
+#   app/src/main/res/drawable/ic_note_trainer.xml

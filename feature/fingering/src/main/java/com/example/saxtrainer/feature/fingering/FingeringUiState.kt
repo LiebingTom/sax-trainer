@@ -1,23 +1,46 @@
 package com.example.saxtrainer.feature.fingering
 
+import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.fingering.Fingering
+import com.example.saxtrainer.core.fingering.NoteSet
+import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.Transposition
+import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.NoteDisplay
 
 /** Where the exercise is. Simpler than a long tone: the trainer works whether or not you play. */
 sealed interface FingeringPhase {
     data object Idle : FingeringPhase
 
+    /** Beats counted off before the first note, so the player is not caught out by it. */
+    data class CountIn(val beatsRemaining: Int) : FingeringPhase
+
     data object Running : FingeringPhase
 
     data class Finished(val result: FingeringResult) : FingeringPhase
 }
 
+/** What the microphone is making of the note being asked for, right now. */
+enum class Heard {
+    /** Nobody is playing. */
+    NOTHING,
+
+    /** A sound, but not one a pitch could be read from. Never counted against the player. */
+    UNCLEAR,
+
+    /** A note, but not the one on screen. */
+    WRONG,
+
+    /** The note on screen, sounding. */
+    CORRECT,
+}
+
 /** One note of the exercise as it turned out. */
 data class PractisedNote(
     val note: Note,
-    /** True when the microphone heard this note played correctly; false whenever checking was off. */
+    /** True when the microphone heard this note played; false whenever checking was off. */
     val playedCorrectly: Boolean,
 )
 
@@ -50,12 +73,21 @@ data class FingeringProgress(
     val noteDisplay: NoteDisplay = NoteDisplay.BOTH,
     /** How the note after it will be presented, so the preview matches what arrives. */
     val nextNoteDisplay: NoteDisplay = NoteDisplay.BOTH,
-    /** What the microphone hears, in concert pitch; null when not listening or nothing is played. */
+    /**
+     * Whether the fingering is on screen.
+     *
+     * With checking off it always is - the diagram is the lesson. With checking on it is the
+     * answer, so it is held back until the note has been played or its time is up, and recalling
+     * the grip is what the exercise is actually asking for.
+     */
+    val showFingering: Boolean = true,
+    val heard: Heard = Heard.NOTHING,
+    /** What the microphone hears, as the player would write it; null when nothing is heard. */
     val detectedNote: Note? = null,
-    /** True while the player is sounding the note that is shown. */
-    val isCorrect: Boolean = false,
 ) {
     val displayPosition: Int get() = noteIndex + 1
+
+    val isCorrect: Boolean get() = heard == Heard.CORRECT
 
     /** How much of the current note has elapsed, for the progress bar. */
     val noteFraction: Float
@@ -85,15 +117,26 @@ data class FingeringUiState(
     /** How often the notes are worked through. */
     val rounds: Int = 1,
     val secondsOptions: List<Int> = emptyList(),
+    /** Whether the player has to play each note, or only look at its fingering. */
     val checkPlaying: Boolean = false,
-    val checkMode: CheckMode = CheckMode.SHOW,
     /** Set when listening was asked for but the microphone could not be used. */
     val checkUnavailable: Boolean = false,
     val transposition: Transposition = Transposition.CONCERT,
     val instrumentName: String = "",
+    /** What the note letters are called; a display convention, nothing else. */
+    val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
     val noteDisplay: NoteDisplay = NoteDisplay.BOTH,
     val noteDisplayOptions: List<NoteDisplay> = NoteDisplay.entries,
     val progress: FingeringProgress? = null,
+    /**
+     * True while the run is held. The exercise keeps its place: nothing is judged, nothing advances,
+     * and no result is published until it is either continued or stopped.
+     */
+    val isPaused: Boolean = false,
+    /** Beats counted off before the first note; taken from the app settings, zero for none. */
+    val countInBeats: Int = AppSettings.DEFAULT_COUNT_IN_BEATS,
+    /** Whether that count is clicked out loud, also from the app settings. */
+    val countInClick: Boolean = true,
     /**
      * True when the exercise was handed to the trainer ready-made, so the setup screen is not part
      * of this run and there is nothing here for the player to change.
@@ -101,6 +144,9 @@ data class FingeringUiState(
     val isPreconfigured: Boolean = false,
 ) {
     val isRunning: Boolean get() = phase is FingeringPhase.Running
+
+    /** Running or about to be: either way the setup is no longer the player's to change. */
+    val isBusy: Boolean get() = isRunning || phase is FingeringPhase.CountIn
 
     val canStart: Boolean get() = activeNotes.isNotEmpty()
 
@@ -112,11 +158,17 @@ data class FingeringUiState(
     fun summaryOf(set: NoteSet, chart: com.example.saxtrainer.core.fingering.FingeringChart): String =
         NoteSets.notesOf(set, chart, customNotes)
             .takeIf { it.isNotEmpty() }
-            ?.joinToString(" ") { it.label }
+            ?.joinToString(" ") { nameOf(it) }
             ?: "No notes chosen yet"
 
     fun isInDraft(note: Note): Boolean = customNotesDraft?.contains(note) == true
 
+    /** How a note is written on screen, under the chosen naming. */
+    fun nameOf(note: Note): String = noteNaming.labelOf(note)
+
     /** The pitch a written note should sound as on the chosen instrument. */
     fun soundingNoteOf(writtenNote: Note): Note = transposition.concertFor(writtenNote)
+
+    /** What a heard concert pitch would be written as, so the screen speaks the player's language. */
+    fun writtenNoteOf(concertNote: Note): Note = transposition.writtenFor(concertNote)
 }

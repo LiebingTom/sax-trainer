@@ -5,10 +5,12 @@ import com.example.saxtrainer.core.audio.capture.AudioCaptureConfig
 import com.example.saxtrainer.core.audio.capture.AudioCaptureError
 import com.example.saxtrainer.core.audio.capture.AudioCaptureEvent
 import com.example.saxtrainer.core.audio.capture.AudioFrame
+import com.example.saxtrainer.core.exercise.MonotonicBeatClock
 import com.example.saxtrainer.core.exercise.SequenceCatalog
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.NoteDisplay
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -41,7 +44,8 @@ class LongToneViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val config = LongToneConfig()
     private val frameDurationMs = 1_000L * config.capture.hopSize / config.capture.sampleRate
-    private val countInMs = 4_000L // one bar of 4/4 at the default 60 BPM
+    // Two quiet lead-in beats and one counted bar of 4/4, at the default 60 BPM.
+    private val countInMs = 6_000L
 
     @Before
     fun setUp() {
@@ -56,12 +60,24 @@ class LongToneViewModelTest {
     private class FakeSettingsRepository : SettingsRepository {
         private val state = MutableStateFlow(AppSettings())
         override val settings: StateFlow<AppSettings> = state
+        override fun setNoteNaming(noteNaming: NoteNaming) {
+            state.value = state.value.copy(noteNaming = noteNaming)
+        }
+
         override fun setInstrument(instrument: Instrument) {
             state.value = state.value.copy(instrument = instrument)
         }
 
         override fun setNoteDisplay(noteDisplay: NoteDisplay) {
             state.value = state.value.copy(noteDisplay = noteDisplay)
+        }
+
+        override fun setCountInClick(enabled: Boolean) {
+            state.value = state.value.copy(countInClick = enabled)
+        }
+
+        override fun setCountInBeats(beats: Int) {
+            state.value = state.value.copy(countInBeats = beats)
         }
 
         override fun setNoteDisplayFor(tool: TrainingTool, noteDisplay: NoteDisplay) {
@@ -109,7 +125,7 @@ class LongToneViewModelTest {
         }
     }
 
-    private fun viewModel(
+    private fun TestScope.viewModel(
         capture: AudioCapture,
         settings: SettingsRepository = FakeSettingsRepository(),
         seed: Int = 1,
@@ -119,6 +135,9 @@ class LongToneViewModelTest {
         config = config,
         processingDispatcher = dispatcher,
         random = Random(seed),
+        countInClock = MonotonicBeatClock(
+            nanoTime = { testScheduler.currentTime * 1_000_000 },
+        ),
     )
 
     private fun finishedResult(viewModel: LongToneViewModel): LongToneResult {
@@ -236,6 +255,74 @@ class LongToneViewModelTest {
         advanceUntilIdle()
     }
 
+    // --- pause ------------------------------------------------------------------------------------
+
+    @Test
+    fun `a paused attempt analyses nothing, so its note keeps its place`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
+        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+
+        viewModel.start()
+        advanceTimeBy(countInMs + 1_000L)
+        viewModel.togglePause()
+        val heldAt = viewModel.uiState.value.progress!!.noteElapsedSeconds
+
+        // Frames keep arriving all this time; none of them is analysed.
+        advanceTimeBy(30_000L)
+
+        assertTrue(viewModel.uiState.value.isPaused)
+        assertTrue(viewModel.uiState.value.phase is LongTonePhase.Running)
+        val held = viewModel.uiState.value.progress!!
+        assertEquals(0, held.noteIndex)
+        assertEquals(heldAt, held.noteElapsedSeconds, 1e-3f)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `continuing carries the sequence on from the note it was held on`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
+        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+
+        viewModel.start()
+        advanceTimeBy(countInMs + 1_000L)
+        viewModel.togglePause()
+        advanceTimeBy(30_000L)
+        viewModel.togglePause()
+
+        assertFalse(viewModel.uiState.value.isPaused)
+
+        // Three of the note's four seconds were still to come, and the sequence takes them next.
+        advanceTimeBy(2_000L)
+        assertEquals(0, viewModel.uiState.value.progress!!.noteIndex)
+
+        advanceTimeBy(1_500L)
+        assertEquals(1, viewModel.uiState.value.progress!!.noteIndex)
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `pausing publishes no result, and stopping still does`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
+        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+
+        viewModel.start()
+        advanceTimeBy(countInMs + 1_000L)
+        viewModel.togglePause()
+        advanceTimeBy(30_000L)
+
+        assertFalse(viewModel.uiState.value.phase is LongTonePhase.Finished)
+
+        viewModel.stop()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.phase is LongTonePhase.Finished)
+        assertFalse(viewModel.uiState.value.isPaused)
+    }
+
     @Test
     fun `stopping early keeps the notes played so far including the unfinished one`() =
         runTest(dispatcher) {
@@ -298,8 +385,20 @@ class LongToneViewModelTest {
         viewModel.setTempo(120)
 
         viewModel.start()
-        // Four beats at 120 BPM is two seconds.
-        assertEquals(LongTonePhase.Countdown(2), viewModel.uiState.value.phase)
+        // A bar is four beats however fast they go by, so the count is always four numbers.
+        assertEquals(LongTonePhase.Countdown(4), viewModel.uiState.value.phase)
+
+        // Two quiet lead-in beats come first: at 120 BPM that is a second of standing at four.
+        advanceTimeBy(900)
+        assertEquals(LongTonePhase.Countdown(4), viewModel.uiState.value.phase)
+
+        // At 120 BPM a beat is half a second.
+        advanceTimeBy(700)
+        assertEquals(LongTonePhase.Countdown(3), viewModel.uiState.value.phase)
+
+        // Four counted beats is two seconds, after which the exercise itself begins.
+        advanceTimeBy(1_500)
+        assertTrue(viewModel.uiState.value.phase is LongTonePhase.Running)
 
         viewModel.stop()
         advanceUntilIdle()

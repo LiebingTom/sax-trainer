@@ -6,11 +6,11 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.saxtrainer.core.learning.Lesson
 import com.example.saxtrainer.core.learning.LessonId
-import com.example.saxtrainer.core.learning.LessonPath
+import com.example.saxtrainer.core.learning.LearningUnit
 import com.example.saxtrainer.core.learning.LessonProgressRepository
 
 /**
- * Stateful entry point of one learning path.
+ * Stateful entry point of one learning unit.
  *
  * There is no ViewModel: the screen holds no state beyond the progress it is given, and the only
  * decision it makes - which lesson was tapped - is reported straight out. Which trainer that lesson
@@ -18,7 +18,7 @@ import com.example.saxtrainer.core.learning.LessonProgressRepository
  */
 @Composable
 fun LearningRoute(
-    path: LessonPath,
+    unit: LearningUnit,
     progressRepository: LessonProgressRepository,
     isUnlocked: (Lesson) -> Boolean,
     onStartLesson: (LessonId) -> Unit,
@@ -28,7 +28,7 @@ fun LearningRoute(
     val progress by progressRepository.progress.collectAsStateWithLifecycle()
 
     LessonListScreen(
-        state = learningUiStateOf(path = path, progress = progress, isUnlocked = isUnlocked),
+        state = learningUiStateOf(unit = unit, progress = progress, isUnlocked = isUnlocked),
         onLessonClick = onStartLesson,
         onBack = onBack,
         modifier = modifier,

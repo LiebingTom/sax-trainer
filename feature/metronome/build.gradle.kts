@@ -26,6 +26,7 @@ android {
 dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:audio"))
+    implementation(project(":core:music"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)

@@ -1,15 +1,16 @@
 package com.example.saxtrainer.feature.fingering
 
+import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.Tempo
+import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.random.Random
 
 class FingeringExerciseGeneratorTest {
 

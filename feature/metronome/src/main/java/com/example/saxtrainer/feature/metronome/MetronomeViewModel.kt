@@ -2,25 +2,27 @@ package com.example.saxtrainer.feature.metronome
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.saxtrainer.feature.metronome.engine.MetronomeEngine
-import com.example.saxtrainer.feature.metronome.engine.MetronomeEngineState
-import com.example.saxtrainer.feature.metronome.engine.MetronomeError
+import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
+import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
+import com.example.saxtrainer.core.audio.metronome.MetronomeError
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import com.example.saxtrainer.core.music.Tempo
+import com.example.saxtrainer.core.music.TimeSignature
 
 /** Everything the metronome screen renders. */
 data class MetronomeUiState(
     val bpm: Int = MetronomeEngine.DEFAULT_BPM,
     val isRunning: Boolean = false,
-    val beatsPerBar: Int = MetronomeEngine.BEATS_PER_BAR,
+    val beatsPerBar: Int = TimeSignature.FOUR_FOUR.beatsPerBar,
     val currentBeat: Int = 0,
     val beatCounter: Long = 0,
     val error: MetronomeError? = null,
 ) {
-    val minBpm: Int get() = MetronomeEngine.MIN_BPM
-    val maxBpm: Int get() = MetronomeEngine.MAX_BPM
+    val minBpm: Int get() = Tempo.SUPPORTED_RANGE.first
+    val maxBpm: Int get() = Tempo.SUPPORTED_RANGE.last
 }
 
 /**

@@ -28,7 +28,7 @@ fun HomeScreen(
     onEntryClick: (route: String) -> Unit,
     modifier: Modifier = Modifier,
     learning: List<HomeEntry> = learningEntries,
-    practice: List<HomeEntry> = practiceEntries,
+    practice: List<HomeGroup> = practiceGroups,
     app: List<HomeEntry> = appEntries,
 ) {
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
@@ -54,13 +54,24 @@ fun HomeScreen(
                 }
             }
             item { SectionHeader("Practice") }
-            items(practice, key = { it.id }) { entry ->
-                FeatureCard(
-                    title = entry.title,
-                    description = entry.description,
-                    icon = entry.icon,
-                    onClick = { onEntryClick(entry.route) },
-                )
+            practice.forEach { group ->
+                // A heading per group: the tools differ by the question they answer, and that is
+                // worth saying before the descriptions have to.
+                item(key = "group-${group.title}") {
+                    Text(
+                        text = group.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                items(group.entries, key = { it.id }) { entry ->
+                    FeatureCard(
+                        title = entry.title,
+                        description = entry.description,
+                        icon = entry.icon,
+                        onClick = { onEntryClick(entry.route) },
+                    )
+                }
             }
             item { SectionHeader("App") }
             items(app, key = { it.id }) { entry ->

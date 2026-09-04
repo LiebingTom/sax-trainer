@@ -19,8 +19,8 @@ class CurriculumTest {
         requires = requires?.let(::LessonId),
     )
 
-    private fun path(id: String, vararg lessons: Lesson) =
-        LessonPath(id = id, title = id, description = "", lessons = lessons.toList())
+    private fun unit(id: String, vararg lessons: Lesson) =
+        LearningUnit(id = id, title = id, description = "", lessons = lessons.toList())
 
     @Test
     fun `a lesson needs at least one exercise`() {
@@ -30,45 +30,45 @@ class CurriculumTest {
     }
 
     @Test
-    fun `lessons are found by id and by path`() {
-        val curriculum = Curriculum(listOf(path("fingering", lesson("f1"), lesson("f2"))))
+    fun `lessons are found by id and by unit`() {
+        val curriculum = Curriculum(listOf(unit("fingering", lesson("f1"), lesson("f2"))))
 
         assertEquals("f1", curriculum.lessonOf(LessonId("f1"))!!.title)
-        assertEquals(2, curriculum.pathOf("fingering")!!.lessons.size)
+        assertEquals(2, curriculum.unitOf("fingering")!!.lessons.size)
         assertNull(curriculum.lessonOf(LessonId("nope")))
-        assertNull(curriculum.pathOf("nope"))
+        assertNull(curriculum.unitOf("nope"))
         assertEquals(2, curriculum.lessons.size)
     }
 
     @Test
     fun `two lessons cannot share an id`() {
         val failure = assertThrows(IllegalArgumentException::class.java) {
-            Curriculum(listOf(path("a", lesson("same")), path("b", lesson("same"))))
+            Curriculum(listOf(unit("a", lesson("same")), unit("b", lesson("same"))))
         }
         assertTrue(failure.message!!.contains("same"))
     }
 
     @Test
-    fun `a prerequisite must be an earlier lesson of the same path`() {
+    fun `a prerequisite must be an earlier lesson of the same unit`() {
         // Points at nothing.
         assertThrows(IllegalArgumentException::class.java) {
-            Curriculum(listOf(path("p", lesson("l1", requires = "missing"))))
+            Curriculum(listOf(unit("p", lesson("l1", requires = "missing"))))
         }
         // Points forwards, which is how a cycle would start.
         assertThrows(IllegalArgumentException::class.java) {
-            Curriculum(listOf(path("p", lesson("l1", requires = "l2"), lesson("l2"))))
+            Curriculum(listOf(unit("p", lesson("l1", requires = "l2"), lesson("l2"))))
         }
-        // Points into another path.
+        // Points into another unit.
         assertThrows(IllegalArgumentException::class.java) {
-            Curriculum(listOf(path("a", lesson("a1")), path("b", lesson("b1", requires = "a1"))))
+            Curriculum(listOf(unit("a", lesson("a1")), unit("b", lesson("b1", requires = "a1"))))
         }
-        // Backwards within the path is the one legal direction.
-        Curriculum(listOf(path("p", lesson("l1"), lesson("l2", requires = "l1"))))
+        // Backwards within the unit is the one legal direction.
+        Curriculum(listOf(unit("p", lesson("l1"), lesson("l2", requires = "l1"))))
     }
 
     @Test
     fun `a lesson without a prerequisite is always open`() {
-        val curriculum = Curriculum(listOf(path("p", lesson("l1"), lesson("l2"))))
+        val curriculum = Curriculum(listOf(unit("p", lesson("l1"), lesson("l2"))))
 
         assertTrue(curriculum.isUnlocked(LessonId("l1"), LessonProgressState()))
         assertTrue(curriculum.isUnlocked(LessonId("l2"), LessonProgressState()))
@@ -76,7 +76,7 @@ class CurriculumTest {
 
     @Test
     fun `a gated lesson opens once its prerequisite is completed`() {
-        val curriculum = Curriculum(listOf(path("p", lesson("l1"), lesson("l2", requires = "l1"))))
+        val curriculum = Curriculum(listOf(unit("p", lesson("l1"), lesson("l2", requires = "l1"))))
         val progress = InMemoryLessonProgressRepository()
 
         assertFalse(curriculum.isUnlocked(LessonId("l2"), progress.progress.value))
@@ -91,7 +91,7 @@ class CurriculumTest {
 
     @Test
     fun `an unknown lesson is not treated as locked`() {
-        val curriculum = Curriculum(listOf(path("p", lesson("l1"))))
+        val curriculum = Curriculum(listOf(unit("p", lesson("l1"))))
 
         assertTrue(curriculum.isUnlocked(LessonId("nope"), LessonProgressState()))
     }

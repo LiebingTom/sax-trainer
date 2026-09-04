@@ -19,6 +19,15 @@ internal val TealContainerDark = Color(0xFF0B4B49)
 internal val Copper40 = Color(0xFF8C4A2F)
 internal val Copper80 = Color(0xFFFFB59B)
 
+/**
+ * The quiet second accent: a neutral that sits beside brass without competing with it.
+ *
+ * Used where two measures of the same kind are drawn together and one of them is context rather
+ * than the thing being watched - the session bar under the note bar.
+ */
+internal val SlateLight = Color(0xFF79747E)
+internal val SlateDark = Color(0xFF938F99)
+
 internal val SurfaceLight = Color(0xFFFDF8F2)
 internal val SurfaceDark = Color(0xFF14120F)
 internal val OnSurfaceLight = Color(0xFF1D1B17)
@@ -30,3 +39,6 @@ internal val White = Color(0xFFFFFFFF)
 /** Feedback colours that Material's scheme has no slot for. */
 internal val CorrectGreenLight = Color(0xFF2E7D32)
 internal val CorrectGreenDark = Color(0xFF7BD88F)
+
+internal val IncorrectRedLight = Color(0xFFB3261E)
+internal val IncorrectRedDark = Color(0xFFF2B8B5)

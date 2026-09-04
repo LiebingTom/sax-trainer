@@ -41,6 +41,12 @@ import com.example.saxtrainer.core.music.NoteName
  * given which keys are down - and no feature knowledge, so a trainer, a tuner or a reference chart
  * can all use it.
  */
+/**
+ * How tall a diagram [width] wide comes out, so a caller can reserve the room before drawing it and
+ * a row of them does not resize as its contents change.
+ */
+fun fingeringHeightOf(width: Dp): Dp = width * SaxophoneDiagramMetrics.HEIGHT_RATIO
+
 @Composable
 fun SaxophoneFingeringView(
     fingering: Fingering,
@@ -53,7 +59,7 @@ fun SaxophoneFingeringView(
 ) {
     Canvas(
         modifier = modifier
-            .size(width = width, height = width * SaxophoneDiagramMetrics.HEIGHT_RATIO)
+            .size(width = width, height = fingeringHeightOf(width))
             .then(
                 if (contentDescription != null) {
                     Modifier.clearAndSetSemantics { this.contentDescription = contentDescription }

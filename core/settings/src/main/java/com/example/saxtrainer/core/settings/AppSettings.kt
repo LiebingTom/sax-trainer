@@ -1,5 +1,6 @@
 package com.example.saxtrainer.core.settings
 
+import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.Transposition
 
 /** Instruments the app can be set to. Adding one is a single entry here. */
@@ -62,11 +63,40 @@ enum class NoteDisplay(
  */
 data class AppSettings(
     val instrument: Instrument = Instrument.TENOR_SAX,
+    /**
+     * What the note letters are called. A display convention: nothing measured or fingered changes
+     * with it, only what is written on screen.
+     */
+    val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
     /** Used by any tool that has not been given a preference of its own. */
     val noteDisplay: NoteDisplay = NoteDisplay.BOTH,
     /** Per-tool choices; a missing entry means the tool follows [noteDisplay]. */
     val noteDisplayOverrides: Map<TrainingTool, NoteDisplay> = emptyMap(),
+    /**
+     * Beats counted off before a practice begins, for every practice that does not bring a count-in
+     * of its own.
+     *
+     * Counted in beats rather than seconds because that is what a player counts, and because a
+     * practice that has a tempo can then use it. A practice with no tempo of its own counts at its
+     * own reference speed; a practice that already counts itself in - Long Tones, Sequences - keeps
+     * its own and ignores this.
+     */
+    val countInBeats: Int = DEFAULT_COUNT_IN_BEATS,
+    /**
+     * Whether that count-in is clicked out loud.
+     *
+     * The click is the metronome's, so the count sounds like the one a player is used to counting
+     * with. Turned off, the count is still shown - practising silently is a first-class case here.
+     */
+    val countInClick: Boolean = true,
 ) {
     /** How [tool] should show notes: its own choice if it has one, otherwise the shared default. */
     fun noteDisplayFor(tool: TrainingTool): NoteDisplay = noteDisplayOverrides[tool] ?: noteDisplay
+
+    companion object {
+        const val DEFAULT_COUNT_IN_BEATS = 4
+
+        /** What the settings screen offers; zero means starting without a count-in. */
+        val COUNT_IN_CHOICES = listOf(0, 2, 4, 8)
+    }
 }

@@ -1,0 +1,552 @@
+package com.example.saxtrainer.feature.notetrainer
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.example.saxtrainer.core.designsystem.component.MusicalNoteView
+import com.example.saxtrainer.core.designsystem.component.NoteChoiceDialog
+import com.example.saxtrainer.core.designsystem.component.PrimaryButton
+import com.example.saxtrainer.core.designsystem.component.SaxophoneFingeringView
+import com.example.saxtrainer.core.designsystem.component.ScreenHeader
+import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
+import com.example.saxtrainer.core.designsystem.component.ScreenTiming
+import com.example.saxtrainer.core.designsystem.component.SecondaryButton
+import com.example.saxtrainer.core.designsystem.component.SectionHeader
+import com.example.saxtrainer.core.designsystem.component.SelectableRow
+import com.example.saxtrainer.core.designsystem.component.fingeringHeightOf
+import com.example.saxtrainer.core.designsystem.component.reservedStepRange
+import com.example.saxtrainer.core.designsystem.component.staffStepRange
+import com.example.saxtrainer.core.designsystem.theme.Dimens
+import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
+import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
+import com.example.saxtrainer.core.fingering.NoteSet
+import com.example.saxtrainer.core.fingering.SaxophoneFingerings
+import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.conventionalStyle
+
+/**
+ * The note trainer, stateless.
+ *
+ * While a note is being asked for the screen holds one thing: the note, drawn on the staff. No
+ * dashboard, because the player is looking at their hands and the horn is in their mouth.
+ */
+@Composable
+fun NoteTrainerScreen(
+    state: NoteTrainerUiState,
+    onSelectNoteSet: (NoteSet) -> Unit,
+    onEditCustomNotes: () -> Unit,
+    onToggleCustomNote: (Note) -> Unit,
+    onSelectAllCustomNotes: () -> Unit,
+    onClearCustomNotes: () -> Unit,
+    onApplyCustomNotes: () -> Unit,
+    onCancelCustomNotes: () -> Unit,
+    onRandomChange: (Boolean) -> Unit,
+    onRoundsChange: (Int) -> Unit,
+    onShowFingeringHintChange: (Boolean) -> Unit,
+    onShowNoteNameChange: (Boolean) -> Unit,
+    onTargetChange: (Int) -> Unit,
+    onStart: () -> Unit,
+    onTogglePause: () -> Unit,
+    onSkip: () -> Unit,
+    onStop: () -> Unit,
+    onReset: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // The note being read, kept apart from everything that answers it.
+    val noteSubject: (@Composable ColumnScope.() -> Unit)? =
+        if (state.phase is NoteTrainerPhase.Running) ({ NoteSubject(state) }) else null
+
+    ScreenScaffold(
+        title = "Note Trainer",
+        onBack = onBack,
+        modifier = modifier,
+        header = headerOf(state),
+        subject = noteSubject,
+        timing = timingOf(state),
+        actions = {
+            Actions(state, onStart, onTogglePause, onSkip, onStop, onReset)
+        },
+    ) {
+        Spacer(Modifier.height(Dimens.spaceSm))
+
+        when (val phase = state.phase) {
+            is NoteTrainerPhase.Idle -> if (state.isPreconfigured) {
+                ReadyPanel(state)
+            } else {
+                Setup(
+                    state = state,
+                    onSelectNoteSet = onSelectNoteSet,
+                    onEditCustomNotes = onEditCustomNotes,
+                    onRandomChange = onRandomChange,
+                    onRoundsChange = onRoundsChange,
+                    onShowFingeringHintChange = onShowFingeringHintChange,
+                    onShowNoteNameChange = onShowNoteNameChange,
+                    onTargetChange = onTargetChange,
+                )
+            }
+
+            is NoteTrainerPhase.CountIn -> CountInPanel(phase.beatsRemaining, state.isPaused)
+            is NoteTrainerPhase.Running -> RunningPanel(state)
+            is NoteTrainerPhase.Finished -> ResultCard(state, phase.result)
+        }
+
+        if (state.isEditingCustomNotes) {
+            NoteChoiceDialog(
+                notes = state.availableNotes,
+                chosen = state.customNotesDraft.orEmpty(),
+                label = state::nameOf,
+                onToggle = onToggleCustomNote,
+                onSelectAll = onSelectAllCustomNotes,
+                onClearAll = onClearCustomNotes,
+                onApply = onApplyCustomNotes,
+                onCancel = onCancelCustomNotes,
+            )
+        }
+    }
+}
+
+@Composable
+private fun Setup(
+    state: NoteTrainerUiState,
+    onSelectNoteSet: (NoteSet) -> Unit,
+    onEditCustomNotes: () -> Unit,
+    onRandomChange: (Boolean) -> Unit,
+    onRoundsChange: (Int) -> Unit,
+    onShowFingeringHintChange: (Boolean) -> Unit,
+    onShowNoteNameChange: (Boolean) -> Unit,
+    onTargetChange: (Int) -> Unit,
+) {
+    SectionHeader("Notes")
+    state.noteSets.forEach { set ->
+        SelectableRow(
+            title = set.displayName,
+            supportingText = state.summaryOf(set, SaxophoneFingerings),
+            selected = set == state.noteSet,
+            onClick = {
+                if (set == NoteSet.CUSTOM) onEditCustomNotes() else onSelectNoteSet(set)
+            },
+        )
+    }
+
+    Spacer(Modifier.height(Dimens.spaceSm))
+    SwitchRow(
+        title = "Mixed order",
+        supportingText = "Read the note instead of reciting the scale",
+        checked = state.isRandom,
+        onCheckedChange = onRandomChange,
+    )
+    SwitchRow(
+        title = "Show the fingering",
+        supportingText = "A hint while you look for the note; off, the grip is yours to recall",
+        checked = state.showFingeringHint,
+        onCheckedChange = onShowFingeringHintChange,
+    )
+    SwitchRow(
+        title = "Show the note name",
+        supportingText = "Under the staff, for when you want it. Reading the notation is the point",
+        checked = state.showNoteName,
+        onCheckedChange = onShowNoteNameChange,
+    )
+
+    Spacer(Modifier.height(Dimens.spaceSm))
+    SectionHeader("Rounds")
+    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+        state.roundOptions.forEach { rounds ->
+            FilterChip(
+                selected = rounds == state.rounds,
+                onClick = { onRoundsChange(rounds) },
+                label = { Text("$rounds") },
+            )
+        }
+    }
+
+    Spacer(Modifier.height(Dimens.spaceSm))
+    SectionHeader("Quick is")
+    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+        state.targetOptions.forEach { seconds ->
+            FilterChip(
+                selected = seconds == state.targetSeconds,
+                onClick = { onTargetChange(seconds) },
+                label = { Text("$seconds s") },
+            )
+        }
+    }
+    Text(
+        text = "Only for the score. A note waits as long as you need it to.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    if (state.microphoneUnavailable) {
+        Spacer(Modifier.height(Dimens.spaceSm))
+        Text(
+            text = "This exercise listens to what you play, so it needs the microphone.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    } else if (state.activeNotes.isEmpty()) {
+        Spacer(Modifier.height(Dimens.spaceSm))
+        Text(
+            text = "Choose at least one note to practise.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+}
+
+@Composable
+private fun SwitchRow(
+    title: String,
+    supportingText: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = supportingText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun CountInPanel(beatsRemaining: Int, paused: Boolean) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+    ) {
+        Text(
+            text = "$beatsRemaining",
+            style = MaterialTheme.typography.displayLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = if (paused) "Paused" else "Get ready",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** One note, as large as it will go, and as little else as possible. */
+@Composable
+private fun RunningPanel(state: NoteTrainerUiState) {
+    val progress = state.progress ?: return
+
+    val correctColor = FeedbackColors.correct
+    val wrongColor = FeedbackColors.incorrect
+    val noteColor = if (progress.isCorrect) correctColor else MaterialTheme.colorScheme.primary
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
+    ) {
+        if (state.showNoteName) {
+            Text(
+                text = state.nameOf(progress.currentNote),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (state.showFingeringHint) {
+            if (progress.fingering != null) {
+                SaxophoneFingeringView(
+                    fingering = progress.fingering,
+                    width = HintFingeringWidth,
+                    pressedColor = MaterialTheme.colorScheme.onSurface,
+                    contentDescription = "Fingering for ${state.nameOf(progress.currentNote)}",
+                )
+            } else {
+                Spacer(Modifier.height(fingeringHeightOf(HintFingeringWidth)))
+            }
+        }
+
+        Text(
+            text = when {
+                state.isPaused -> "Paused"
+                progress.listening == Listening.CORRECT ->
+                    progress.lastReactionSeconds
+                        ?.let { "Yes - ${"%.1f".format(it)} s" }
+                        ?: "Yes"
+
+                progress.listening == Listening.WRONG_PITCH -> progress.detectedNote
+                    ?.let { "That is ${state.nameOf(it)}" }
+                    ?: "Not that one"
+
+                // Something was played but no pitch could be read from it, which is not the same as
+                // playing the wrong note and is not treated like one.
+                progress.listening == Listening.UNCLEAR -> "Keep the tone going"
+                else -> "Play it"
+            },
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            color = when (progress.listening) {
+                Listening.CORRECT -> correctColor
+                Listening.WRONG_PITCH -> wrongColor
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}
+
+/** What a ready-made exercise is about to ask for. It was decided elsewhere; nothing to change. */
+@Composable
+private fun ReadyPanel(state: NoteTrainerUiState) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(Dimens.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+        ) {
+            Text(text = "Ready", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = state.activeNotes.joinToString(" ") { state.nameOf(it) },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ResultCard(state: NoteTrainerUiState, result: NoteTrainerResult) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(Dimens.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+        ) {
+            Text(
+                text = if (result.completed) "Note practice complete" else "Stopped early",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = "${result.correctCount} of ${result.attempts.size} played",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            result.medianReactionSeconds?.let { median ->
+                Text(
+                    text = "Usually ${"%.1f".format(median)} s, " +
+                        "${result.withinTarget(state.targetSeconds)} inside " +
+                        "${state.targetSeconds} s",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            val correctColor = FeedbackColors.correct
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+                result.attempts.forEach { attempt ->
+                    Text(
+                        text = state.nameOf(attempt.note),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = when {
+                            attempt.skipped -> MaterialTheme.colorScheme.onSurfaceVariant
+                            attempt.wrongTries == 0 -> correctColor
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Actions(
+    state: NoteTrainerUiState,
+    onStart: () -> Unit,
+    onTogglePause: () -> Unit,
+    onSkip: () -> Unit,
+    onStop: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+        when (state.phase) {
+            is NoteTrainerPhase.Idle -> PrimaryButton(
+                text = "Start",
+                onClick = onStart,
+                enabled = state.canStart,
+                modifier = Modifier.weight(1f),
+            )
+
+            is NoteTrainerPhase.CountIn -> {
+                PauseButton(state, onTogglePause)
+                SecondaryButton(text = "Stop", onClick = onStop, modifier = Modifier.weight(1f))
+            }
+
+            is NoteTrainerPhase.Running -> {
+                PauseButton(state, onTogglePause)
+                SecondaryButton(text = "Skip", onClick = onSkip, modifier = Modifier.weight(1f))
+                SecondaryButton(text = "Stop", onClick = onStop, modifier = Modifier.weight(1f))
+            }
+
+            is NoteTrainerPhase.Finished -> {
+                PrimaryButton(
+                    text = "Again",
+                    onClick = onStart,
+                    enabled = state.canStart,
+                    modifier = Modifier.weight(1f),
+                )
+                if (!state.isPreconfigured) {
+                    SecondaryButton(
+                        text = "Change notes",
+                        onClick = onReset,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.PauseButton(state: NoteTrainerUiState, onTogglePause: () -> Unit) {
+    PrimaryButton(
+        text = if (state.isPaused) "Continue" else "Pause",
+        onClick = onTogglePause,
+        modifier = Modifier.weight(1f),
+    )
+}
+
+private val NoteStaffSpacing = 22.dp
+private val HintFingeringWidth = 96.dp
+
+@Preview(showBackground = true)
+@Composable
+private fun NoteTrainerSetupPreview() {
+    SaxTrainerTheme {
+        NoteTrainerScreen(
+            state = NoteTrainerUiState(
+                activeNotes = listOf(Note(NoteName.C, 4), Note(NoteName.D, 4)),
+                targetOptions = listOf(2, 4, 8),
+            ),
+            onSelectNoteSet = {},
+            onEditCustomNotes = {},
+            onToggleCustomNote = {},
+            onSelectAllCustomNotes = {},
+            onClearCustomNotes = {},
+            onApplyCustomNotes = {},
+            onCancelCustomNotes = {},
+            onRandomChange = {},
+            onRoundsChange = {},
+            onShowFingeringHintChange = {},
+            onShowNoteNameChange = {},
+            onTargetChange = {},
+            onStart = {},
+            onTogglePause = {},
+            onSkip = {},
+            onStop = {},
+            onReset = {},
+            onBack = {},
+        )
+    }
+}
+
+/**
+ * What the screen says for itself, above the rule at the top.
+ *
+ * While it is being set up it says what the practice is, in plain words; once it is running it asks
+ * for what the player should be doing right now.
+ */
+private fun headerOf(state: NoteTrainerUiState): ScreenHeader = when (state.phase) {
+    NoteTrainerPhase.Idle -> ScreenHeader.Description(
+        "Read a note, find the fingering and play it. The app listens and says what it heard.",
+    )
+
+    is NoteTrainerPhase.CountIn -> ScreenHeader.Question("Get ready")
+    NoteTrainerPhase.Running -> ScreenHeader.Question("Play the note you see")
+    is NoteTrainerPhase.Finished -> ScreenHeader.Question("How did that go?")
+}
+
+/**
+ * How far through the exercise, for the bar across the foot of the screen.
+ *
+ * Deliberately no seconds: a note here waits for the player rather than the other way round, so
+ * there is nothing running out to draw. The bar measures the run instead.
+ */
+private fun timingOf(state: NoteTrainerUiState): ScreenTiming? {
+    val progress = state.progress ?: return null
+    if (state.phase !is NoteTrainerPhase.Running) return null
+
+    return ScreenTiming(
+        fraction = sessionFractionOf(progress.displayPosition, progress.noteCount),
+        step = progress.displayPosition,
+        stepCount = progress.noteCount,
+        paused = state.isPaused,
+    )
+}
+
+/**
+ * How far through the whole run: steps finished over steps planned.
+ *
+ * Counted as steps *finished*, so the first one reads as nothing done rather than as a slice
+ * already gone.
+ */
+private fun sessionFractionOf(step: Int, stepCount: Int): Float =
+    if (stepCount <= 0) 0f else ((step - 1).toFloat() / stepCount).coerceIn(0f, 1f)
+
+/**
+ * The note being read, and nothing else.
+ *
+ * The staff keeps the height of the widest note in the exercise, so it does not resize between
+ * notes and the player's eye stays where it was.
+ */
+@Composable
+private fun NoteSubject(state: NoteTrainerUiState) {
+    val progress = state.progress ?: return
+    val noteColor =
+        if (progress.isCorrect) FeedbackColors.correct else MaterialTheme.colorScheme.primary
+
+    MusicalNoteView(
+        primaryNote = progress.currentNote,
+        lineSpacing = NoteStaffSpacing,
+        accidentalStyle = progress.currentNote.conventionalStyle(),
+        stepRange = reservedStepRange(state.activeNotes),
+        primaryColor = noteColor,
+        staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}

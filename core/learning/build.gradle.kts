@@ -1,20 +1,39 @@
-plugins {
-    alias(libs.plugins.kotlin.jvm)
-}
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kmp.library)
 }
 
 kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-    }
-}
+    android {
+        namespace = "com.example.saxtrainer.core.learning"
+        compileSdk = 37
+        minSdk = 26
 
-dependencies {
-    // Progress is observed as a StateFlow; nothing here needs Android or a trainer.
-    api(libs.kotlinx.coroutines.core)
-    testImplementation(libs.junit)
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
+        }
+
+        withHostTest {}
+    }
+
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser {
+            // Firefox rather than Karma's Chrome default: see :core:music for why.
+            testTask { useKarma { useFirefoxHeadless() } }
+        }
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            // Progress is observed as a StateFlow; nothing here needs Android or a trainer.
+            api(libs.kotlinx.coroutines.core)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+    }
 }

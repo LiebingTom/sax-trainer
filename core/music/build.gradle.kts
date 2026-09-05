@@ -19,11 +19,6 @@ kotlin {
         withHostTest {}
     }
 
-    // Scaffolding, not a target this project wants. :core:exercise and :core:fingering are still
-    // plain kotlin-jvm modules, and a kotlin-jvm consumer asks for platform.type=jvm, which the
-    // android variant does not answer. M2 converts both of them, and this target goes with them.
-    jvm()
-
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser {

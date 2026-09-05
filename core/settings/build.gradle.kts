@@ -1,32 +1,57 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kmp.library)
 }
 
-android {
-    namespace = "com.example.saxtrainer.core.settings"
-    compileSdk {
-        version = release(37)
-    }
-
-    defaultConfig {
+kotlin {
+    android {
+        namespace = "com.example.saxtrainer.core.settings"
+        compileSdk = 37
         minSdk = 26
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
+        }
+
+        withHostTest {}
+        withDeviceTest {
+            instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        }
     }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser {
+            // Firefox rather than Karma's Chrome default: see :core:music for why.
+            testTask { useKarma { useFirefoxHeadless() } }
+        }
     }
-}
 
-dependencies {
-    api(project(":core:music"))
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.kotlinx.coroutines.android)
-    testImplementation(libs.junit)
-    // The persistence test runs on a device: SharedPreferences is the thing under test, so a fake
-    // would only prove that the fake works.
-    androidTestImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestRuntimeOnly(libs.androidx.test.runner)
+    sourceSets {
+        commonMain.dependencies {
+            api(project(":core:music"))
+            // StateFlow is in SettingsRepository's own signature, so consumers need it too.
+            api(libs.kotlinx.coroutines.core)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+        androidMain.dependencies {
+            // The edit {} builder, and nothing else.
+            implementation(libs.androidx.core.ktx)
+        }
+        wasmJsMain.dependencies {
+            implementation(libs.kotlinx.browser)
+        }
+        // The persistence test runs on a device: SharedPreferences is the thing under test, so a
+        // fake would only prove that the fake works.
+        getByName("androidDeviceTest").dependencies {
+            implementation(libs.junit)
+            implementation(libs.androidx.junit)
+            runtimeOnly(libs.androidx.test.runner)
+        }
+    }
 }

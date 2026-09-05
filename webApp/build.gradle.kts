@@ -18,8 +18,15 @@ kotlin {
             commonWebpackConfig {
                 outputFileName = "webApp.js"
             }
-            // Firefox rather than Karma's Chrome default: see :core:music for why.
-            testTask { useKarma { useFirefoxHeadless() } }
+            // Firefox rather than Karma's Chrome default: see :core:music for why. The
+            // launcher, its fake microphone and the timeouts are in gradle/karma, shared by
+            // every module rather than copied into each one.
+            testTask {
+                useKarma {
+                    useFirefoxHeadless()
+                    useConfigDirectory(rootDir.resolve("gradle/karma"))
+                }
+            }
         }
         binaries.executable()
     }
@@ -32,9 +39,8 @@ kotlin {
         }
         wasmJsTest.dependencies {
             // Boots the page's own wiring in a browser - see WebEntryPointTest.
+            implementation(project(":core:testing"))
             implementation(kotlin("test"))
-            implementation(libs.compose.ui.test)
-            implementation(libs.jetbrains.lifecycle.viewmodel.compose)
         }
     }
 }

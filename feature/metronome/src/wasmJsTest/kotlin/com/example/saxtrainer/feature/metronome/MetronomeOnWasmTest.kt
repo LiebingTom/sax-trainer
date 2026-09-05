@@ -4,24 +4,21 @@ package com.example.saxtrainer.feature.metronome
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithContentDescription
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.example.saxtrainer.core.audio.metronome.Metronome
 import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
+import com.example.saxtrainer.core.testing.BROWSER_TIMEOUT_MS
+import com.example.saxtrainer.core.testing.ScreenHost
+import com.example.saxtrainer.core.testing.labels
+import com.example.saxtrainer.core.testing.runScreenTest
+import com.example.saxtrainer.core.testing.shows
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.test.Test
@@ -39,8 +36,8 @@ import kotlin.test.assertTrue
 class MetronomeOnWasmTest {
 
     @Test
-    fun the_screen_is_drawn_from_shared_code() = runComposeUiTest {
-        setContent { Metronome(MetronomeHost(), FakeMetronome()) }
+    fun the_screen_is_drawn_from_shared_code() = runScreenTest { host ->
+        setContent { Metronome(host, FakeMetronome()) }
 
         onNodeWithText("Metronome").assertIsDisplayed()
         onNodeWithText("80").assertIsDisplayed()
@@ -51,39 +48,38 @@ class MetronomeOnWasmTest {
 
     @Test
     fun nudging_the_tempo_goes_through_the_engine_and_comes_back_to_the_screen() =
-        runComposeUiTest {
+        runScreenTest { host ->
             val engine = FakeMetronome()
-            setContent { Metronome(MetronomeHost(), engine) }
+            setContent { Metronome(host, engine) }
 
             onNodeWithText("+5").performClick()
-            waitUntil("the new tempo", TIMEOUT) { shows("85") }
+            waitUntil("the new tempo", BROWSER_TIMEOUT_MS) { shows("85") }
 
             onNodeWithText("-1").performClick()
-            waitUntil("the nudged tempo", TIMEOUT) { shows("84") }
+            waitUntil("the nudged tempo", BROWSER_TIMEOUT_MS) { shows("84") }
             assertEquals(84, engine.state.value.bpm, "the engine is what holds the tempo")
         }
 
     @Test
-    fun a_beat_the_engine_plays_reaches_the_indicator() = runComposeUiTest {
-        val engine = FakeMetronome()
-        setContent { Metronome(MetronomeHost(), engine) }
-
-        onNodeWithText("Start").performClick()
-        waitUntil("the running screen", TIMEOUT) { shows("Stop") }
-
-        engine.play(beatInBar = 2)
-
-        waitUntil("the third beat of the bar", TIMEOUT) { labels("Beat 3 of 4") }
-    }
-
-    @Test
-    fun going_to_the_background_stops_the_click() = runComposeUiTest {
-        val host = MetronomeHost()
+    fun a_beat_the_engine_plays_reaches_the_indicator() = runScreenTest { host ->
         val engine = FakeMetronome()
         setContent { Metronome(host, engine) }
 
         onNodeWithText("Start").performClick()
-        waitUntil("the running screen", TIMEOUT) { shows("Stop") }
+        waitUntil("the running screen", BROWSER_TIMEOUT_MS) { shows("Stop") }
+
+        engine.play(beatInBar = 2)
+
+        waitUntil("the third beat of the bar", BROWSER_TIMEOUT_MS) { labels("Beat 3 of 4") }
+    }
+
+    @Test
+    fun going_to_the_background_stops_the_click() = runScreenTest { host ->
+        val engine = FakeMetronome()
+        setContent { Metronome(host, engine) }
+
+        onNodeWithText("Start").performClick()
+        waitUntil("the running screen", BROWSER_TIMEOUT_MS) { shows("Stop") }
 
         host.registry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
 
@@ -91,7 +87,7 @@ class MetronomeOnWasmTest {
         // Coming back is part of the check: below STARTED the screen is not collecting state, so
         // the stopped engine only shows on return - the same on both platforms.
         host.registry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
-        waitUntil("the stopped screen", TIMEOUT) { shows("Start") }
+        waitUntil("the stopped screen", BROWSER_TIMEOUT_MS) { shows("Start") }
     }
 }
 
@@ -129,23 +125,8 @@ private class FakeMetronome : Metronome {
     }
 }
 
-private fun ComposeUiTest.shows(text: String): Boolean =
-    onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
-
-private fun ComposeUiTest.labels(contentDescription: String): Boolean =
-    onAllNodesWithContentDescription(contentDescription).fetchSemanticsNodes().isNotEmpty()
-
-/** Everything [MetronomeRoute] expects of a host: a ViewModel store and a lifecycle. */
-private class MetronomeHost : ViewModelStoreOwner, LifecycleOwner {
-    override val viewModelStore = ViewModelStore()
-    val registry = LifecycleRegistry.createUnsafe(this).apply {
-        currentState = Lifecycle.State.RESUMED
-    }
-    override val lifecycle: Lifecycle get() = registry
-}
-
 @Composable
-private fun Metronome(host: MetronomeHost, engine: Metronome) {
+private fun Metronome(host: ScreenHost, engine: Metronome) {
     CompositionLocalProvider(
         LocalViewModelStoreOwner provides host,
         LocalLifecycleOwner provides host,
@@ -155,6 +136,3 @@ private fun Metronome(host: MetronomeHost, engine: Metronome) {
         }
     }
 }
-
-/** Generous: these waits are on the browser's clock, not a virtual one. */
-private const val TIMEOUT = 10_000L

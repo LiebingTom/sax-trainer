@@ -4,23 +4,15 @@ package com.example.saxtrainer.feature.notetrainer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.v2.runComposeUiTest
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
-import com.example.saxtrainer.core.audio.metronome.Metronome
-import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
+import com.example.saxtrainer.core.audio.capture.AudioCapture
+import com.example.saxtrainer.core.audio.capture.WebAudioCapture
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.music.Note
@@ -28,11 +20,16 @@ import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.testing.FakeMicrophone
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
+import com.example.saxtrainer.core.testing.ScreenHost
+import com.example.saxtrainer.core.testing.SilentMetronome
 import com.example.saxtrainer.core.testing.awaitInRealTime
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.example.saxtrainer.core.testing.measureThroughput
+import com.example.saxtrainer.core.testing.runScreenTest
+import com.example.saxtrainer.core.testing.shows
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * The note trainer, running in a browser.
@@ -48,8 +45,8 @@ import kotlin.test.assertFalse
 class NoteTrainerOnWasmTest {
 
     @Test
-    fun the_setup_screen_is_drawn_from_shared_code() = runComposeUiTest {
-        setContent { NoteTrainer(NoteTrainerHost()) }
+    fun the_setup_screen_is_drawn_from_shared_code() = runScreenTest { host ->
+        setContent { NoteTrainer(host) }
 
         onNodeWithText("Note Trainer").assertIsDisplayed()
         onNodeWithText("Mixed order").performScrollTo().assertIsDisplayed()
@@ -58,17 +55,17 @@ class NoteTrainerOnWasmTest {
     }
 
     @Test
-    fun a_preset_arrives_as_a_ready_made_exercise() = runComposeUiTest {
-        setContent { NoteTrainer(NoteTrainerHost(), preset = twoNotes(autoStart = false)) }
+    fun a_preset_arrives_as_a_ready_made_exercise() = runScreenTest { host ->
+        setContent { NoteTrainer(host, preset = twoNotes(autoStart = false)) }
 
         onNodeWithText("Ready").assertIsDisplayed()
         assertFalse(shows("Mixed order"), "a preset offered the setup it was meant to replace")
     }
 
     @Test
-    fun a_note_played_into_the_microphone_is_heard_and_moves_the_exercise_on() = runComposeUiTest {
+    fun a_note_played_into_the_microphone_is_heard_and_moves_the_exercise_on() = runScreenTest { host ->
         val microphone = FakeMicrophone(frameDurationMs = 10)
-        setContent { NoteTrainer(NoteTrainerHost(), twoNotes(), microphone) }
+        setContent { NoteTrainer(host, twoNotes(), microphone) }
 
         awaitInRealTime("the first note") { shows("Play it") }
 
@@ -86,9 +83,9 @@ class NoteTrainerOnWasmTest {
     }
 
     @Test
-    fun a_note_that_is_not_the_one_asked_for_is_named_rather_than_accepted() = runComposeUiTest {
+    fun a_note_that_is_not_the_one_asked_for_is_named_rather_than_accepted() = runScreenTest { host ->
         val microphone = FakeMicrophone(frameDurationMs = 10)
-        setContent { NoteTrainer(NoteTrainerHost(), twoNotes(), microphone) }
+        setContent { NoteTrainer(host, twoNotes(), microphone) }
 
         awaitInRealTime("the first note") { shows("Play it") }
 
@@ -98,16 +95,33 @@ class NoteTrainerOnWasmTest {
     }
 
     @Test
-    fun leaving_the_screen_stops_the_exercise() = runComposeUiTest {
-        val host = NoteTrainerHost()
+    fun the_browsers_own_microphone_keeps_up_while_a_note_is_waited_for() = runScreenTest { host ->
+        // The real chain rather than a fake one: `getUserMedia`, the worklet, the crossing into
+        // Kotlin, the gate and YIN, with this screen redrawing on the same thread. Nothing times
+        // this trainer out, so it waits for a note it is never played and the audio keeps flowing
+        // for exactly as long as the measurement needs.
+        val microphone = WebAudioCapture()
+        setContent { NoteTrainer(host, twoNotes(), microphone) }
+
+        awaitInRealTime("the first note") { shows("Play it") }
+
+        val throughput = measureThroughput("note trainer", microphone)
+
+        assertEquals(0, throughput.dropped, "the screen starved the microphone")
+        assertEquals(0, throughput.poolMisses, "the worklet had to allocate a batch buffer")
+        assertTrue(
+            throughput.keptUp > 0.9,
+            "only ${throughput.keptUp * 100} % of the frames asked for arrived",
+        )
+    }
+
+    @Test
+    fun leaving_the_screen_stops_the_exercise() = runScreenTest { host ->
         setContent { NoteTrainer(host, preset = twoNotes()) }
 
         awaitInRealTime("the running exercise") { shows("Stop") }
 
-        host.registry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
-        // Below STARTED the screen stops collecting, so a stopped exercise only shows on return -
-        // the same on both platforms.
-        host.registry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        host.leaveAndReturn()
 
         awaitInRealTime("the stopped exercise") { shows("Stopped early") }
     }
@@ -124,23 +138,11 @@ private fun twoNotes(autoStart: Boolean = true) = NoteTrainerPreset(
 private fun sounding(written: Note): Double =
     Instrument.TENOR_SAX.transposition.concertFor(written).frequencyHz()
 
-private fun ComposeUiTest.shows(text: String): Boolean =
-    onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
-
-/** Everything [NoteTrainerRoute] expects of a host: a ViewModel store and a lifecycle. */
-private class NoteTrainerHost : ViewModelStoreOwner, LifecycleOwner {
-    override val viewModelStore = ViewModelStore()
-    val registry = LifecycleRegistry.createUnsafe(this).apply {
-        currentState = Lifecycle.State.RESUMED
-    }
-    override val lifecycle: Lifecycle get() = registry
-}
-
 @Composable
 private fun NoteTrainer(
-    host: NoteTrainerHost,
+    host: ScreenHost,
     preset: NoteTrainerPreset? = null,
-    microphone: FakeMicrophone = FakeMicrophone(frameDurationMs = 10),
+    microphone: AudioCapture = FakeMicrophone(frameDurationMs = 10),
 ) {
     CompositionLocalProvider(
         LocalViewModelStoreOwner provides host,
@@ -156,24 +158,4 @@ private fun NoteTrainer(
             )
         }
     }
-}
-
-/** A click with no sound: the count-in is counted on the clock either way. */
-private class SilentMetronome : Metronome {
-    private val _state = MutableStateFlow(MetronomeEngineState())
-    override val state: StateFlow<MetronomeEngineState> = _state
-
-    override fun setBpm(bpm: Int) {
-        _state.value = _state.value.copy(bpm = bpm)
-    }
-
-    override fun start() {
-        _state.value = _state.value.copy(isRunning = true)
-    }
-
-    override fun stop() {
-        _state.value = _state.value.copy(isRunning = false)
-    }
-
-    override fun release() = stop()
 }

@@ -247,7 +247,7 @@ class FingeringViewModel(
             // Listening only reports; the clock still runs the exercise.
             if (listening) {
                 listenJob = launch {
-                    NoteListener(audioCapture!!, config.capture, config.listening)
+                    NoteListener(audioCapture, config.capture, config.listening)
                         .listen()
                         .collect { heard.value = it }
                 }

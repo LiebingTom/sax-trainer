@@ -24,8 +24,15 @@ kotlin {
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser {
-            // Firefox rather than Karma's Chrome default: see :core:music for why.
-            testTask { useKarma { useFirefoxHeadless() } }
+            // Firefox rather than Karma's Chrome default: see :core:music for why. The
+            // launcher, its fake microphone and the timeouts are in gradle/karma, shared by
+            // every module rather than copied into each one.
+            testTask {
+                useKarma {
+                    useFirefoxHeadless()
+                    useConfigDirectory(rootDir.resolve("gradle/karma"))
+                }
+            }
         }
         // Required by the Compose UI test below: see :core:designsystem.
         binaries.executable()
@@ -55,7 +62,7 @@ kotlin {
         }
         wasmJsTest.dependencies {
             // Runs the metronome screen in a browser, over a stand-in engine.
-            implementation(libs.compose.ui.test)
+            implementation(project(":core:testing"))
         }
     }
 }

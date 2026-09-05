@@ -167,7 +167,7 @@ class SequenceViewModel(
 
         val listenJob = if (listening) {
             launch {
-                NoteListener(audioCapture!!, config.capture, config.listening)
+                NoteListener(audioCapture, config.capture, config.listening)
                     .detectedNotes()
                     .collect { heard.value = it }
             }
@@ -185,7 +185,7 @@ class SequenceViewModel(
 
             if (clicking) {
                 // The click keeps running through the exercise, so nothing stops it here.
-                metronome!!.clickCountIn(countInBeats, tempo) { beatsRemaining ->
+                metronome.clickCountIn(countInBeats, tempo) { beatsRemaining ->
                     _uiState.value = _uiState.value.copy(phase = SequencePhase.CountIn(beatsRemaining))
                 }
             } else {
@@ -226,7 +226,7 @@ class SequenceViewModel(
             throw cancellation
         } finally {
             listenJob?.cancel()
-            if (clicking) metronome?.stop()
+            if (clicking) metronome.stop()
         }
     }
 

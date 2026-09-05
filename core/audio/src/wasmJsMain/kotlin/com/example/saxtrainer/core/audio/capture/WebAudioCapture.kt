@@ -267,8 +267,17 @@ class WebAudioCapture(
     }
 
     private companion object {
-        /** Four buffers in flight was enough for zero pool misses over 67,488 quanta in M3. */
-        const val DEFAULT_POOL_SIZE = 4
+        /**
+         * Buffers the worklet keeps to hand.
+         *
+         * Four was enough for zero pool misses over 67,488 quanta when M3 measured the chain with
+         * nothing else running. M9 measured it again under each trainer's own screen and found a
+         * burst of misses while a screen starts up - six under the sequence trainer, which engraves
+         * a staff as its first frames arrive. A miss allocates on the browser's *audio* thread,
+         * which is the one place allocation can cost a glitch, so the pool starts big enough to
+         * absorb the burst instead. Eight buffers of one hop is 64 KB.
+         */
+        const val DEFAULT_POOL_SIZE = 8
 
         /**
          * The browser's refusal, as one of this module's own reasons.

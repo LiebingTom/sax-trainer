@@ -4,17 +4,11 @@ package com.example.saxtrainer.feature.learning
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.v2.runComposeUiTest
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.learning.ExerciseOutcome
@@ -25,6 +19,10 @@ import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.learning.LessonStep
 import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.core.learning.TrainerLaunch
+import com.example.saxtrainer.core.testing.BROWSER_TIMEOUT_MS
+import com.example.saxtrainer.core.testing.ScreenHost
+import com.example.saxtrainer.core.testing.runScreenTest
+import com.example.saxtrainer.core.testing.shows
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -38,8 +36,8 @@ import kotlin.test.assertEquals
 class LearningOnWasmTest {
 
     @Test
-    fun the_unit_and_its_lessons_are_drawn_from_shared_code() = runComposeUiTest {
-        setContent { Learning(LearningHost(), InMemoryLessonProgressRepository()) }
+    fun the_unit_and_its_lessons_are_drawn_from_shared_code() = runScreenTest { host ->
+        setContent { Learning(host, InMemoryLessonProgressRepository()) }
 
         onNodeWithText(UNIT.title).assertIsDisplayed()
         onNodeWithText(UNIT.description).assertIsDisplayed()
@@ -51,48 +49,37 @@ class LearningOnWasmTest {
     }
 
     @Test
-    fun tapping_an_open_lesson_reports_it() = runComposeUiTest {
+    fun tapping_an_open_lesson_reports_it() = runScreenTest { host ->
         var started: LessonId? = null
         setContent {
-            Learning(LearningHost(), InMemoryLessonProgressRepository(), onStartLesson = {
+            Learning(host, InMemoryLessonProgressRepository(), onStartLesson = {
                 started = it
             })
         }
 
         onNodeWithText("First five notes").performClick()
 
-        waitUntil("the lesson to be reported", TIMEOUT) { started != null }
+        waitUntil("the lesson to be reported", BROWSER_TIMEOUT_MS) { started != null }
         assertEquals(READING.value, started?.value, "a different lesson was reported")
     }
 
     @Test
-    fun progress_recorded_elsewhere_reaches_the_list() = runComposeUiTest {
+    fun progress_recorded_elsewhere_reaches_the_list() = runScreenTest { host ->
         val progress = InMemoryLessonProgressRepository()
-        setContent { Learning(LearningHost(), progress) }
+        setContent { Learning(host, progress) }
 
         progress.record(READING, ExerciseOutcome(completed = true, score = 0.8f))
 
-        waitUntil("the finished lesson", TIMEOUT) { shows("1 of 2 finished") }
+        waitUntil("the finished lesson", BROWSER_TIMEOUT_MS) { shows("1 of 2 finished") }
         onNodeWithText("Done").assertIsDisplayed()
         // The next lesson opens as soon as the one it needs is finished.
         onNodeWithText("Play them").assertIsDisplayed()
     }
 }
 
-private fun ComposeUiTest.shows(text: String): Boolean =
-    onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
-
-/** All [LearningRoute] needs of a host: a lifecycle for the collected progress. */
-private class LearningHost : LifecycleOwner {
-    val registry = LifecycleRegistry.createUnsafe(this).apply {
-        currentState = Lifecycle.State.RESUMED
-    }
-    override val lifecycle: Lifecycle get() = registry
-}
-
 @Composable
 private fun Learning(
-    host: LearningHost,
+    host: ScreenHost,
     progress: InMemoryLessonProgressRepository,
     onStartLesson: (LessonId) -> Unit = {},
 ) {
@@ -137,6 +124,3 @@ private val UNIT = LearningUnit(
         ),
     ),
 )
-
-/** Generous: these waits are on the browser's clock, not a virtual one. */
-private const val TIMEOUT = 10_000L

@@ -15,8 +15,6 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -42,15 +40,10 @@ dependencies {
     implementation(project(":shell"))
     implementation(project(":core:audio"))
     implementation(project(":core:settings"))
+    // setContent and enableEdgeToEdge - the whole of MainActivity. Compose itself arrives with
+    // :shell, which is where every screen is; the BOM aligns what activity-compose pulls in with it.
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.junit)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
+    // The layout inspector and the @Preview renderer, in debug builds only.
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

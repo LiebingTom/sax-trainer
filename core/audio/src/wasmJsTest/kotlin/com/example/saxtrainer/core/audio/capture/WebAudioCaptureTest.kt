@@ -218,8 +218,9 @@ class WebAudioCaptureTest {
         println("  batches / frames      ${capture.batchesReceived} / ${capture.framesEmitted}")
         println("  dropped / pool misses ${capture.droppedFrames} / ${capture.poolMisses}")
         println("  quanta                ${capture.quanta}")
-        println("  frame interval ms     mean ${arrivals.mean} max ${arrivals.max} (nominal $nominal)")
-        println("  DSP per frame ms      mean ${dsp.mean} max ${dsp.max}")
+        println("  frame interval ms     mean ${arrivals.mean} p95 ${arrivals.p95} " +
+            "max ${arrivals.max} (nominal $nominal)")
+        println("  DSP per frame ms      mean ${dsp.mean} p95 ${dsp.p95} max ${dsp.max}")
         println("  copy out of JS ms     mean $copyPerBatch")
         println("  main thread busy      $busy %")
         println("  base / output latency ${capture.baseLatencySeconds} s / ${capture.outputLatencySeconds} s")
@@ -231,6 +232,7 @@ class WebAudioCaptureTest {
         // regression guard and not a benchmark: it should catch a chain that got an order of
         // magnitude worse, and never fail because a build machine was busy.
         assertTrue(dsp.mean < nominal / 2, "DSP averaged ${dsp.mean} ms against a $nominal ms frame")
+        assertTrue(dsp.p95 < nominal, "one frame in twenty took ${dsp.p95} ms of a $nominal ms budget")
         assertTrue(busy < 50.0, "the main thread was $busy % busy")
     }
 
@@ -257,7 +259,22 @@ class WebAudioCaptureTest {
         }
 
         val mean: Double get() = if (values.isEmpty()) 0.0 else values.sum() / values.size
+
+        /**
+         * The worst frame in twenty. A mean says whether the chain keeps up on average; what
+         * decides whether a trainer feels right is how bad the occasional frame gets, and a single
+         * maximum is one sample of that and easily a garbage collection.
+         */
+        val p95: Double get() = percentile(0.95)
+
         val max: Double get() = values.maxOrNull() ?: 0.0
+
+        private fun percentile(fraction: Double): Double {
+            if (values.isEmpty()) return 0.0
+            val sorted = values.sorted()
+            val index = ((sorted.size - 1) * fraction).toInt()
+            return sorted[index]
+        }
     }
 
     private companion object {

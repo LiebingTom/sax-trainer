@@ -4,24 +4,16 @@ package com.example.saxtrainer.web
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.ComposeUiTest
-import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.v2.runComposeUiTest
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.example.saxtrainer.SaxTrainerApp
+import com.example.saxtrainer.core.testing.BROWSER_TIMEOUT_MS
+import com.example.saxtrainer.core.testing.runScreenTest
+import com.example.saxtrainer.core.testing.scrolledTo
 import kotlin.test.Test
 
 /**
@@ -36,8 +28,7 @@ import kotlin.test.Test
 class WebEntryPointTest {
 
     @Test
-    fun the_container_the_page_builds_starts_the_app() = runComposeUiTest {
-        val host = WebHost()
+    fun the_container_the_page_builds_starts_the_app() = runScreenTest { host ->
         setContent {
             CompositionLocalProvider(
                 LocalViewModelStoreOwner provides host,
@@ -52,8 +43,7 @@ class WebEntryPointTest {
     }
 
     @Test
-    fun settings_kept_in_the_browser_reach_the_screen() = runComposeUiTest {
-        val host = WebHost()
+    fun settings_kept_in_the_browser_reach_the_screen() = runScreenTest { host ->
         setContent {
             CompositionLocalProvider(
                 LocalViewModelStoreOwner provides host,
@@ -66,29 +56,8 @@ class WebEntryPointTest {
         scrolledTo("Settings").performClick()
 
         // Drawn from LocalStorageSettingsRepository, which is what the page really uses.
-        waitUntil("the settings screen", TIMEOUT) {
+        waitUntil("the settings screen", BROWSER_TIMEOUT_MS) {
             onAllNodesWithText("Note naming").fetchSemanticsNodes().isNotEmpty()
         }
     }
 }
-
-/**
- * The landing page is a lazy list, so a card further down it has not been composed yet and cannot
- * simply be scrolled to. This scrolls the list until it exists.
- */
-private fun ComposeUiTest.scrolledTo(text: String): SemanticsNodeInteraction {
-    onNode(hasScrollAction()).performScrollToNode(hasText(text))
-    return onNodeWithText(text)
-}
-
-/** What `ComposeViewport` provides in the page: a ViewModel store and a lifecycle. */
-private class WebHost : ViewModelStoreOwner, LifecycleOwner {
-    override val viewModelStore = ViewModelStore()
-    private val registry = LifecycleRegistry.createUnsafe(this).apply {
-        currentState = Lifecycle.State.RESUMED
-    }
-    override val lifecycle: Lifecycle get() = registry
-}
-
-/** Generous: these waits are on the browser's clock, not a virtual one. */
-private const val TIMEOUT = 10_000L

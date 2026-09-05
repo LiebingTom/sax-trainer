@@ -7,17 +7,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithContentDescription
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.v2.runComposeUiTest
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
@@ -25,7 +17,12 @@ import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.settings.SettingsRepository
+import com.example.saxtrainer.core.testing.BROWSER_TIMEOUT_MS
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
+import com.example.saxtrainer.core.testing.ScreenHost
+import com.example.saxtrainer.core.testing.labels
+import com.example.saxtrainer.core.testing.runScreenTest
+import com.example.saxtrainer.core.testing.shows
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -47,8 +44,8 @@ import kotlin.test.assertEquals
 class QuizOnWasmTest {
 
     @Test
-    fun the_setup_screen_is_drawn_from_shared_code() = runComposeUiTest {
-        setContent { Quiz(QuizHost()) }
+    fun the_setup_screen_is_drawn_from_shared_code() = runScreenTest { host ->
+        setContent { Quiz(host) }
 
         onNodeWithText("Note Quiz").assertIsDisplayed()
         onNodeWithText("Notes").assertIsDisplayed()
@@ -57,35 +54,35 @@ class QuizOnWasmTest {
     }
 
     @Test
-    fun a_preset_quiz_is_played_through_to_its_result() = runComposeUiTest {
+    fun a_preset_quiz_is_played_through_to_its_result() = runScreenTest { host ->
         var finished: QuizResult? = null
         setContent {
             Quiz(
-                host = QuizHost(),
+                host = host,
                 preset = QuizPreset(notes = QUIZ_NOTES, questionCount = 2),
                 onExerciseFinished = { finished = it },
             )
         }
 
         // Auto-started by the preset, so a question is on screen without anyone pressing Start.
-        waitUntil("the first question", TIMEOUT) { shows("1 / 2") }
+        waitUntil("the first question", BROWSER_TIMEOUT_MS) { shows("1 / 2") }
         onNodeWithText("Stop").assertIsDisplayed()
 
         answerAndMoveOn()
-        waitUntil("the second question", TIMEOUT) { shows("2 / 2") }
+        waitUntil("the second question", BROWSER_TIMEOUT_MS) { shows("2 / 2") }
         answerAndMoveOn()
 
-        waitUntil("the result", TIMEOUT) { shows("Quiz complete") }
+        waitUntil("the result", BROWSER_TIMEOUT_MS) { shows("Quiz complete") }
         assertEquals(2, finished?.answers?.size, "both answers reached the caller")
         onNodeWithText("Again").assertIsDisplayed()
     }
 
     @Test
-    fun a_settings_change_reaches_the_screen_through_the_collected_state() = runComposeUiTest {
+    fun a_settings_change_reaches_the_screen_through_the_collected_state() = runScreenTest { host ->
         val settings = FakeSettingsRepository()
         setContent {
             Quiz(
-                host = QuizHost(),
+                host = host,
                 settings = settings,
                 preset = QuizPreset(
                     notes = QUIZ_NOTES,
@@ -97,29 +94,24 @@ class QuizOnWasmTest {
 
         // In this mode every option is labelled with a note name, so how notes are named is
         // visible on screen - and B flat is the note the two namings disagree about.
-        waitUntil("the international names", TIMEOUT) { labels("B♭4") }
+        waitUntil("the international names", BROWSER_TIMEOUT_MS) { labels("B♭4") }
 
         settings.setNoteNaming(NoteNaming.GERMAN)
 
-        waitUntil("the German names", TIMEOUT) { labels("B4") }
+        waitUntil("the German names", BROWSER_TIMEOUT_MS) { labels("B4") }
     }
 
     @Test
-    fun going_to_the_background_stops_the_quiz() = runComposeUiTest {
-        val host = QuizHost()
+    fun going_to_the_background_stops_the_quiz() = runScreenTest { host ->
         setContent { Quiz(host, preset = QuizPreset(notes = QUIZ_NOTES, questionCount = 10)) }
 
-        waitUntil("the first question", TIMEOUT) { shows("1 / 10") }
+        waitUntil("the first question", BROWSER_TIMEOUT_MS) { shows("1 / 10") }
 
         // What LifecycleEventEffect(ON_STOP) watches for: a quiz the player cannot see must not
         // keep counting down to its next question.
-        host.registry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
-        // Coming back is part of the check rather than tidying up. Below STARTED the screen is not
-        // collecting state, so the result only becomes visible on return - the same on both
-        // platforms, and the reason this cannot be asserted while backgrounded.
-        host.registry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        host.leaveAndReturn()
 
-        waitUntil("the stopped result", TIMEOUT) { shows("Stopped early") }
+        waitUntil("the stopped result", BROWSER_TIMEOUT_MS) { shows("Stopped early") }
     }
 
     /**
@@ -135,24 +127,9 @@ class QuizOnWasmTest {
     }
 }
 
-private fun ComposeUiTest.shows(text: String): Boolean =
-    onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
-
-private fun ComposeUiTest.labels(contentDescription: String): Boolean =
-    onAllNodesWithContentDescription(contentDescription).fetchSemanticsNodes().isNotEmpty()
-
-/** Everything [QuizRoute] expects of a host: somewhere to keep a ViewModel, and a lifecycle. */
-private class QuizHost : ViewModelStoreOwner, LifecycleOwner {
-    override val viewModelStore = ViewModelStore()
-    val registry = LifecycleRegistry.createUnsafe(this).apply {
-        currentState = Lifecycle.State.RESUMED
-    }
-    override val lifecycle: Lifecycle get() = registry
-}
-
 @Composable
 private fun Quiz(
-    host: QuizHost,
+    host: ScreenHost,
     settings: SettingsRepository = FakeSettingsRepository(),
     preset: QuizPreset? = null,
     onExerciseFinished: (QuizResult) -> Unit = {},
@@ -179,6 +156,3 @@ private val QUIZ_NOTES = listOf(
     Note(NoteName.A_SHARP, 4),
     Note(NoteName.C, 5),
 )
-
-/** Generous: these waits are on the browser's clock, not a virtual one. */
-private const val TIMEOUT = 10_000L

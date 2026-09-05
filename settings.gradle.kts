@@ -81,6 +81,6 @@ include(":feature:notequiz")
 include(":feature:notetrainer")
 include(":feature:settings")
 
-// The web audio bench, a page over the production :core:audio web chain. M9 folds it into an
-// in-app diagnostics screen; deleting this line and the probe/ directory removes it.
+// The web audio bench: a developer page over the production :core:audio web chain, for putting a
+// real instrument through it. Not part of the app; see probe/build.gradle.kts.
 include(":probe")

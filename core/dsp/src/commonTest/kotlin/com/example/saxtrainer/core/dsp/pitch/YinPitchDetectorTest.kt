@@ -20,7 +20,6 @@ class YinPitchDetectorTest {
     private fun assertDetects(expectedHz: Double, samples: FloatArray, tolerancePercent: Double = 0.5) {
         val estimate = detector.detect(samples)
         assertNotNull(estimate, "no pitch detected for $expectedHz Hz")
-        estimate!!
         val error = abs(estimate.frequencyHz - expectedHz) / expectedHz * 100
         assertTrue(
             error < tolerancePercent,

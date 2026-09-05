@@ -4,32 +4,29 @@ package com.example.saxtrainer.feature.longtones
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.v2.runComposeUiTest
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
-import com.example.saxtrainer.core.audio.metronome.Metronome
-import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
+import com.example.saxtrainer.core.audio.capture.AudioCapture
+import com.example.saxtrainer.core.audio.capture.WebAudioCapture
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.testing.FakeMicrophone
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
+import com.example.saxtrainer.core.testing.ScreenHost
+import com.example.saxtrainer.core.testing.SilentMetronome
 import com.example.saxtrainer.core.testing.awaitInRealTime
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.example.saxtrainer.core.testing.measureThroughput
+import com.example.saxtrainer.core.testing.runScreenTest
+import com.example.saxtrainer.core.testing.shows
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * Long tones, running in a browser.
@@ -46,8 +43,8 @@ import kotlin.test.Test
 class LongToneOnWasmTest {
 
     @Test
-    fun the_setup_screen_is_drawn_from_shared_code() = runComposeUiTest {
-        setContent { LongTones(LongToneHost()) }
+    fun the_setup_screen_is_drawn_from_shared_code() = runScreenTest { host ->
+        setContent { LongTones(host) }
 
         onNodeWithText("Long Tones").assertIsDisplayed()
         onNodeWithText("Start").assertIsDisplayed()
@@ -55,9 +52,9 @@ class LongToneOnWasmTest {
     }
 
     @Test
-    fun a_tone_held_into_the_microphone_is_measured_while_it_sounds() = runComposeUiTest {
+    fun a_tone_held_into_the_microphone_is_measured_while_it_sounds() = runScreenTest { host ->
         val microphone = FakeMicrophone(frameDurationMs = 10)
-        setContent { LongTones(LongToneHost(), microphone) }
+        setContent { LongTones(host, microphone) }
 
         onNodeWithText("Start").performClick()
         awaitInRealTime("the count-in") { shows("Get ready") }
@@ -73,9 +70,9 @@ class LongToneOnWasmTest {
     }
 
     @Test
-    fun silence_is_not_reported_as_a_sound() = runComposeUiTest {
+    fun silence_is_not_reported_as_a_sound() = runScreenTest { host ->
         val microphone = FakeMicrophone(frameDurationMs = 10)
-        setContent { LongTones(LongToneHost(), microphone) }
+        setContent { LongTones(host, microphone) }
 
         onNodeWithText("Start").performClick()
         awaitInRealTime("the exercise") { shows("No signal - play louder") }
@@ -89,8 +86,31 @@ class LongToneOnWasmTest {
     }
 
     @Test
-    fun leaving_the_screen_stops_the_exercise() = runComposeUiTest {
-        val host = LongToneHost()
+    fun the_browsers_own_microphone_keeps_up_with_the_heaviest_trainer() = runScreenTest { host ->
+        // Not a fake: the browser's `getUserMedia`, the worklet, the crossing into Kotlin and the
+        // real spectrum and pitch analysis, all while this screen is redrawing them. `:core:audio`
+        // measures the same chain with nothing on top of it; the question here is what is left of
+        // it once the one thread Kotlin/Wasm has is also drawing.
+        val microphone = WebAudioCapture()
+        // At the trainer's own tempo a note lasts five seconds, which is long enough to average
+        // over. The hurried tempo the other cases use would end the exercise mid-measurement.
+        setContent { LongTones(host, microphone, bpm = LongToneConfig().defaultTempo.bpm) }
+
+        onNodeWithText("Start").performClick()
+        awaitInRealTime("the running exercise") { shows("Signal detected") }
+
+        val throughput = measureThroughput("long tones", microphone)
+
+        assertEquals(0, throughput.dropped, "the screen starved the microphone")
+        assertEquals(0, throughput.poolMisses, "the worklet had to allocate a batch buffer")
+        assertTrue(
+            throughput.keptUp > 0.9,
+            "only ${throughput.keptUp * 100} % of the frames asked for arrived",
+        )
+    }
+
+    @Test
+    fun leaving_the_screen_stops_the_exercise() = runScreenTest { host ->
         // At the trainer's own tempo the note lasts five seconds, which is what leaves room to
         // leave in the middle of one. Everywhere else these tests hurry the exercise along.
         setContent { LongTones(host, bpm = LongToneConfig().defaultTempo.bpm) }
@@ -98,10 +118,7 @@ class LongToneOnWasmTest {
         onNodeWithText("Start").performClick()
         awaitInRealTime("the running exercise") { shows("No signal - play louder") }
 
-        host.registry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
-        // Below STARTED the screen stops collecting, so a stopped exercise only shows on return -
-        // the same on both platforms.
-        host.registry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        host.leaveAndReturn()
 
         awaitInRealTime("the stopped exercise") { shows("Stopped early") }
     }
@@ -113,22 +130,10 @@ private const val FAST_BPM = 200
 /** Concert A, comfortably inside the range the exercise looks for a pitch in. */
 private const val A4_HZ = 440.0
 
-private fun ComposeUiTest.shows(text: String): Boolean =
-    onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
-
-/** Everything [LongToneRoute] expects of a host: a ViewModel store and a lifecycle. */
-private class LongToneHost : ViewModelStoreOwner, LifecycleOwner {
-    override val viewModelStore = ViewModelStore()
-    val registry = LifecycleRegistry.createUnsafe(this).apply {
-        currentState = Lifecycle.State.RESUMED
-    }
-    override val lifecycle: Lifecycle get() = registry
-}
-
 @Composable
 private fun LongTones(
-    host: LongToneHost,
-    microphone: FakeMicrophone = FakeMicrophone(frameDurationMs = 10),
+    host: ScreenHost,
+    microphone: AudioCapture = FakeMicrophone(frameDurationMs = 10),
     bpm: Int = FAST_BPM,
 ) {
     val settings = FakeSettingsRepository(AppSettings(countInClick = false))
@@ -154,24 +159,4 @@ private fun LongTones(
             )
         }
     }
-}
-
-/** The count-in is silent in these tests, so this is only what the ViewModel is handed. */
-private class SilentMetronome : Metronome {
-    private val _state = MutableStateFlow(MetronomeEngineState())
-    override val state: StateFlow<MetronomeEngineState> = _state
-
-    override fun setBpm(bpm: Int) {
-        _state.value = _state.value.copy(bpm = bpm)
-    }
-
-    override fun start() {
-        _state.value = _state.value.copy(isRunning = true)
-    }
-
-    override fun stop() {
-        _state.value = _state.value.copy(isRunning = false)
-    }
-
-    override fun release() = stop()
 }

@@ -24,9 +24,15 @@ kotlin {
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser {
-            // Firefox rather than Karma's Chrome default: see :core:music for why. The prefs that
-            // give the headless run a fake microphone are in karma.config.d.
-            testTask { useKarma { useFirefoxHeadless() } }
+            // Firefox rather than Karma's Chrome default: see :core:music for why. The
+            // launcher, its fake microphone and the timeouts are in gradle/karma, shared by
+            // every module rather than copied into each one.
+            testTask {
+                useKarma {
+                    useFirefoxHeadless()
+                    useConfigDirectory(rootDir.resolve("gradle/karma"))
+                }
+            }
         }
         // Required by the Compose UI test below, not by the library itself: only an executable
         // binary is bundled by webpack, and without that bundle Skiko never reaches the browser.
@@ -60,10 +66,6 @@ kotlin {
             implementation(project(":core:testing"))
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
-        }
-        wasmJsTest.dependencies {
-            // Runs the trainer in a browser: the ViewModel, its state and the screen, together.
-            implementation(libs.compose.ui.test)
         }
     }
 }

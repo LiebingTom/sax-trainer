@@ -43,7 +43,10 @@ import kotlinx.coroutines.launch
  *
  * What is deliberately *not* solved here is calibration: the click is scheduled against the context
  * clock, and the browser's own `outputLatency` between that clock and the speaker is not compensated
- * for. Making the audible click and the on-screen beat agree to the millisecond is M5 work.
+ * for. On the machine the browser tests run on that is 34 ms, and it is a constant offset rather
+ * than drift, so the click stays in time with itself and with the exercise; what it does not do is
+ * agree with the on-screen beat to the millisecond. Android does not compensate for its own output
+ * latency either, so this is the same behaviour on both platforms rather than a web shortfall.
  */
 class WebMetronome(
     private val timeSignature: TimeSignature = TimeSignature.FOUR_FOUR,

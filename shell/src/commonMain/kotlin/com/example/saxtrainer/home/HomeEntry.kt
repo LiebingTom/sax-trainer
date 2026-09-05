@@ -123,9 +123,6 @@ val practiceGroups: List<HomeGroup> = listOf(
     HomeGroup("Play in time", listOf(sequence, metronome)),
 )
 
-/** Every practice tool, flattened - for previews and for anything that wants the plain list. */
-val practiceEntries: List<HomeEntry> = practiceGroups.flatMap { it.entries }
-
 val appEntries: List<HomeEntry> = listOf(
     HomeEntry(
         id = "settings",

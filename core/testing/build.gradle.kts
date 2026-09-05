@@ -20,8 +20,15 @@ kotlin {
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser {
-            // Firefox rather than Karma's Chrome default: see :core:music for why.
-            testTask { useKarma { useFirefoxHeadless() } }
+            // Firefox rather than Karma's Chrome default: see :core:music for why. The
+            // launcher, its fake microphone and the timeouts are in gradle/karma, shared by
+            // every module rather than copied into each one.
+            testTask {
+                useKarma {
+                    useFirefoxHeadless()
+                    useConfigDirectory(rootDir.resolve("gradle/karma"))
+                }
+            }
         }
     }
 
@@ -34,10 +41,14 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
         }
         wasmJsMain.dependencies {
-            // For awaitInRealTime, which is about the browser's event loop rather than about
-            // Compose. Only the wasmJs target has the problem it solves, so only it carries the
-            // test framework - see BrowserTime.kt.
-            implementation(libs.compose.ui.test)
+            // The browser half of the fixtures: awaitInRealTime, which is about the browser's event
+            // loop rather than about Compose, and the scaffolding every screen test puts around a
+            // screen. Only the wasmJs target runs Compose UI tests, so only it carries these.
+            api(libs.compose.ui.test)
+            api(libs.jetbrains.lifecycle.viewmodel.compose)
+            // runScreenTest hands back the TestResult runComposeUiTest returns, which is
+            // kotlinx.coroutines.test's - a browser test cannot block, so it is a promise.
+            api(libs.kotlinx.coroutines.test)
             implementation(libs.kotlinx.coroutines.core)
         }
     }

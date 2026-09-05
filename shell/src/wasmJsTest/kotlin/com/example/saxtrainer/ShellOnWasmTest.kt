@@ -6,31 +6,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.v2.runComposeUiTest
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.example.saxtrainer.core.audio.metronome.Metronome
-import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
+import com.example.saxtrainer.core.testing.BROWSER_TIMEOUT_MS
 import com.example.saxtrainer.core.testing.FakeMicrophone
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
+import com.example.saxtrainer.core.testing.ScreenHost
+import com.example.saxtrainer.core.testing.SilentMetronome
 import com.example.saxtrainer.core.testing.awaitInRealTime
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.example.saxtrainer.core.testing.runScreenTest
+import com.example.saxtrainer.core.testing.scrolledTo
+import com.example.saxtrainer.core.testing.shows
 import kotlin.test.Test
 
 /**
@@ -46,8 +38,8 @@ import kotlin.test.Test
 class ShellOnWasmTest {
 
     @Test
-    fun the_landing_page_offers_the_whole_app() = runComposeUiTest {
-        setContent { App(ShellHost()) }
+    fun the_landing_page_offers_the_whole_app() = runScreenTest { host ->
+        setContent { App(host) }
 
         onNodeWithText("Sax Trainer").assertIsDisplayed()
         listOf(
@@ -67,8 +59,8 @@ class ShellOnWasmTest {
     }
 
     @Test
-    fun every_destination_can_be_reached_and_left() = runComposeUiTest {
-        setContent { App(ShellHost()) }
+    fun every_destination_can_be_reached_and_left() = runScreenTest { host ->
+        setContent { App(host) }
 
         // Each destination is recognised by something only it shows, not by its title: several
         // titles are also the text of the card that leads to them.
@@ -83,25 +75,25 @@ class ShellOnWasmTest {
     }
 
     @Test
-    fun a_lesson_starts_the_trainer_it_names() = runComposeUiTest {
-        setContent { App(ShellHost()) }
+    fun a_lesson_starts_the_trainer_it_names() = runScreenTest { host ->
+        setContent { App(host) }
 
         scrolledTo("Your first five notes").performClick()
-        waitUntil("the lesson list", TIMEOUT) { shows("Read them") }
+        waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Read them") }
 
         onNodeWithText("Read them").performClick()
 
         // The quiz, started by the lesson rather than from the Practice card, already running.
-        waitUntil("the quiz", TIMEOUT) { shows("1 / 10") }
+        waitUntil("the quiz", BROWSER_TIMEOUT_MS) { shows("1 / 10") }
         onNodeWithText("Stop").assertIsDisplayed()
     }
 
     @Test
-    fun a_lesson_that_needs_a_microphone_starts_too() = runComposeUiTest {
-        setContent { App(ShellHost()) }
+    fun a_lesson_that_needs_a_microphone_starts_too() = runScreenTest { host ->
+        setContent { App(host) }
 
         scrolledTo("Your first five notes").performClick()
-        waitUntil("the lesson list", TIMEOUT) { shows("Finger them") }
+        waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Finger them") }
 
         onNodeWithText("Finger them").performClick()
 
@@ -114,38 +106,17 @@ class ShellOnWasmTest {
 /** Taps a card on the landing page, checks where it went, and comes back. */
 private fun ComposeUiTest.openAndReturn(card: String, shownThere: String) {
     scrolledTo(card).performClick()
-    waitUntil("$card to open", TIMEOUT) { shows(shownThere) }
+    waitUntil("$card to open", BROWSER_TIMEOUT_MS) { shows(shownThere) }
 
     onNodeWithContentDescription("Back").performClick()
-    waitUntil("$card to close", TIMEOUT) { !shows(shownThere) }
+    waitUntil("$card to close", BROWSER_TIMEOUT_MS) { !shows(shownThere) }
     // The landing page keeps where it was scrolled to, so the card that led here is back on screen
     // rather than the top of the list.
     scrolledTo(card).assertIsDisplayed()
 }
 
-/**
- * The landing page is a lazy list, so a card further down it has not been composed yet and cannot
- * simply be scrolled to. This scrolls the list until it exists.
- */
-private fun ComposeUiTest.scrolledTo(text: String): SemanticsNodeInteraction {
-    onNode(hasScrollAction()).performScrollToNode(hasText(text))
-    return onNodeWithText(text)
-}
-
-private fun ComposeUiTest.shows(text: String): Boolean =
-    onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
-
-/** What an Activity or a `ComposeViewport` provides: a ViewModel store and a lifecycle. */
-private class ShellHost : ViewModelStoreOwner, LifecycleOwner {
-    override val viewModelStore = ViewModelStore()
-    val registry = LifecycleRegistry.createUnsafe(this).apply {
-        currentState = Lifecycle.State.RESUMED
-    }
-    override val lifecycle: Lifecycle get() = registry
-}
-
 @Composable
-private fun App(host: ShellHost) {
+private fun App(host: ScreenHost) {
     CompositionLocalProvider(
         LocalViewModelStoreOwner provides host,
         LocalLifecycleOwner provides host,
@@ -163,25 +134,3 @@ private fun webShapedContainer() = AppContainer(
     audioCapture = FakeMicrophone(frameDurationMs = 10),
     newMetronome = MetronomeFactory { SilentMetronome() },
 )
-
-private class SilentMetronome : Metronome {
-    private val _state = MutableStateFlow(MetronomeEngineState())
-    override val state: StateFlow<MetronomeEngineState> = _state
-
-    override fun setBpm(bpm: Int) {
-        _state.value = _state.value.copy(bpm = bpm)
-    }
-
-    override fun start() {
-        _state.value = _state.value.copy(isRunning = true)
-    }
-
-    override fun stop() {
-        _state.value = _state.value.copy(isRunning = false)
-    }
-
-    override fun release() = stop()
-}
-
-/** Generous: these waits are on the browser's clock, not a virtual one. */
-private const val TIMEOUT = 10_000L

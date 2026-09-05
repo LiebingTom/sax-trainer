@@ -33,9 +33,15 @@ kotlin {
             optIn.add("kotlin.js.ExperimentalWasmJsInterop")
         }
         browser {
-            // Firefox rather than Karma's Chrome default: see :core:music for why. The prefs that
-            // give the headless run a fake microphone are in karma.config.d.
-            testTask { useKarma { useFirefoxHeadless() } }
+            // Firefox rather than Karma's Chrome default: see :core:music for why. The
+            // launcher, its fake microphone and the timeouts are in gradle/karma, shared by
+            // every module rather than copied into each one.
+            testTask {
+                useKarma {
+                    useFirefoxHeadless()
+                    useConfigDirectory(rootDir.resolve("gradle/karma"))
+                }
+            }
         }
     }
 

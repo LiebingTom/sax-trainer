@@ -28,6 +28,8 @@ kotlin {
                     // supported WasmGC since 120, and running the shared code on a second engine is
                     // worth more than running it on the same one the app will use.
                     useFirefoxHeadless()
+                    // The launcher's prefs and the timeouts, in one place for every module.
+                    useConfigDirectory(rootDir.resolve("gradle/karma"))
                 }
             }
         }

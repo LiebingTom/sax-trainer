@@ -3,10 +3,26 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!--
+      The page follows the same setting Compose does. isSystemInDarkTheme() reads
+      prefers-color-scheme in a browser, so without this the page around the canvas - and everything
+      the browser draws itself, from scrollbars to form controls - would stay light while the app
+      went dark. Android has the same pairing in values-night/themes.xml.
+    -->
+    <meta name="color-scheme" content="light dark">
     <title>Sax Trainer</title>
     <style>
         /* The canvas fills the window, and the page itself never scrolls: Compose does its own. */
         html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+
+        /*
+          The app's own surface colours, from core/designsystem theme/Color.kt. This is what is on
+          screen while the Wasm module downloads and starts, so without it the app opens with a
+          white flash on a dark device - the very thing the Android theme sets a night window
+          background to avoid.
+        */
+        body { background: #FDF8F2; }
+        @media (prefers-color-scheme: dark) { body { background: #14120F; } }
     </style>
 </head>
 <body>

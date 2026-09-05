@@ -32,8 +32,9 @@ import org.w3c.dom.HTMLSelectElement
  * here is a page, and it exists for the one check a headless browser cannot make - a person playing
  * a real saxophone into a real microphone.
  *
- * M9 folds this into an in-app diagnostics screen; until then it is the only place the web audio
- * numbers can be read off a real instrument.
+ * The browser tests measure the same numbers on every run, against the fake microphone a headless
+ * Firefox provides. This page is the other half: the only place the web audio numbers can be read
+ * off a real instrument. It is a developer page and deliberately not part of the app.
  */
 private val scope = CoroutineScope(Dispatchers.Default)
 

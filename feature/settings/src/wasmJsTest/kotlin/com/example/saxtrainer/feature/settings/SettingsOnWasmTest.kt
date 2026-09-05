@@ -11,19 +11,16 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.v2.runComposeUiTest
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.SettingsRepository
+import com.example.saxtrainer.core.testing.BROWSER_TIMEOUT_MS
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
+import com.example.saxtrainer.core.testing.ScreenHost
+import com.example.saxtrainer.core.testing.runScreenTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -37,8 +34,8 @@ import kotlin.test.assertEquals
 class SettingsOnWasmTest {
 
     @Test
-    fun every_section_is_drawn_from_shared_code() = runComposeUiTest {
-        setContent { Settings(SettingsHost()) }
+    fun every_section_is_drawn_from_shared_code() = runScreenTest { host ->
+        setContent { Settings(host) }
 
         onNodeWithText("Settings").assertIsDisplayed()
         onNodeWithText("Instrument").assertIsDisplayed()
@@ -48,13 +45,13 @@ class SettingsOnWasmTest {
     }
 
     @Test
-    fun choosing_a_naming_is_written_through_and_read_back() = runComposeUiTest {
+    fun choosing_a_naming_is_written_through_and_read_back() = runScreenTest { host ->
         val settings = FakeSettingsRepository()
-        setContent { Settings(SettingsHost(), settings) }
+        setContent { Settings(host, settings) }
 
         onNodeWithText(NoteNaming.GERMAN.displayName).performScrollTo().performClick()
 
-        waitUntil("the stored naming", TIMEOUT) {
+        waitUntil("the stored naming", BROWSER_TIMEOUT_MS) {
             settings.settings.value.noteNaming == NoteNaming.GERMAN
         }
         onNodeWithText(NoteNaming.GERMAN.displayName).assertIsSelected()
@@ -72,28 +69,19 @@ class SettingsOnWasmTest {
     }
 
     @Test
-    fun a_count_in_length_is_chosen_through_the_shared_view_model() = runComposeUiTest {
+    fun a_count_in_length_is_chosen_through_the_shared_view_model() = runScreenTest { host ->
         val settings = FakeSettingsRepository()
-        setContent { Settings(SettingsHost(), settings) }
+        setContent { Settings(host, settings) }
 
         onNodeWithText("4 beats").performScrollTo().performClick()
 
-        waitUntil("the stored count-in", TIMEOUT) { settings.settings.value.countInBeats == 4 }
+        waitUntil("the stored count-in", BROWSER_TIMEOUT_MS) { settings.settings.value.countInBeats == 4 }
     }
-}
-
-/** Everything [SettingsRoute] expects of a host: a ViewModel store and a lifecycle. */
-private class SettingsHost : ViewModelStoreOwner, LifecycleOwner {
-    override val viewModelStore = ViewModelStore()
-    val registry = LifecycleRegistry.createUnsafe(this).apply {
-        currentState = Lifecycle.State.RESUMED
-    }
-    override val lifecycle: Lifecycle get() = registry
 }
 
 @Composable
 private fun Settings(
-    host: SettingsHost,
+    host: ScreenHost,
     settings: SettingsRepository = FakeSettingsRepository(),
 ) {
     CompositionLocalProvider(
@@ -105,6 +93,3 @@ private fun Settings(
         }
     }
 }
-
-/** Generous: these waits are on the browser's clock, not a virtual one. */
-private const val TIMEOUT = 10_000L

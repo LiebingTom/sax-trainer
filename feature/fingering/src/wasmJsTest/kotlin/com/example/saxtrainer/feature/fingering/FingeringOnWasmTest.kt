@@ -4,33 +4,26 @@ package com.example.saxtrainer.feature.fingering
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.v2.runComposeUiTest
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
-import com.example.saxtrainer.core.audio.metronome.Metronome
-import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.settings.Instrument
+import com.example.saxtrainer.core.testing.BROWSER_TIMEOUT_MS
 import com.example.saxtrainer.core.testing.FakeMicrophone
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
+import com.example.saxtrainer.core.testing.ScreenHost
+import com.example.saxtrainer.core.testing.SilentMetronome
 import com.example.saxtrainer.core.testing.awaitInRealTime
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.example.saxtrainer.core.testing.runScreenTest
+import com.example.saxtrainer.core.testing.shows
 import kotlin.test.Test
 import kotlin.test.assertFalse
 
@@ -48,8 +41,8 @@ import kotlin.test.assertFalse
 class FingeringOnWasmTest {
 
     @Test
-    fun the_setup_screen_is_drawn_from_shared_code() = runComposeUiTest {
-        setContent { Fingering(FingeringHost()) }
+    fun the_setup_screen_is_drawn_from_shared_code() = runScreenTest { host ->
+        setContent { Fingering(host) }
 
         onNodeWithText("Fingering Trainer").assertIsDisplayed()
         onNodeWithText("Beginner").performScrollTo().assertIsDisplayed()
@@ -59,13 +52,13 @@ class FingeringOnWasmTest {
     }
 
     @Test
-    fun changing_the_setup_goes_through_the_view_model_and_comes_back() = runComposeUiTest {
-        setContent { Fingering(FingeringHost()) }
+    fun changing_the_setup_goes_through_the_view_model_and_comes_back() = runScreenTest { host ->
+        setContent { Fingering(host) }
 
         onNodeWithText("Beginner plus").performScrollTo().performClick()
         // The row that reads as selected is drawn from the ViewModel's state, so seeing the wider
         // note set is the round trip rather than the click.
-        waitUntil("the wider note set", TIMEOUT) { shows("Beginner plus") }
+        waitUntil("the wider note set", BROWSER_TIMEOUT_MS) { shows("Beginner plus") }
         onNodeWithText("8 s").performScrollTo().performClick()
 
         onNodeWithText("Start").performClick()
@@ -73,8 +66,8 @@ class FingeringOnWasmTest {
     }
 
     @Test
-    fun a_preset_arrives_as_a_ready_made_exercise() = runComposeUiTest {
-        setContent { Fingering(FingeringHost(), preset = twoNotes(autoStart = false)) }
+    fun a_preset_arrives_as_a_ready_made_exercise() = runScreenTest { host ->
+        setContent { Fingering(host, preset = twoNotes(autoStart = false)) }
 
         // No setup at all: the exercise was decided elsewhere and this only says what it will ask.
         onNodeWithText("Ready").assertIsDisplayed()
@@ -83,10 +76,10 @@ class FingeringOnWasmTest {
     }
 
     @Test
-    fun the_note_played_into_the_microphone_is_the_one_the_trainer_hears() = runComposeUiTest {
+    fun the_note_played_into_the_microphone_is_the_one_the_trainer_hears() = runScreenTest { host ->
         val microphone = FakeMicrophone(frameDurationMs = 10)
         setContent {
-            Fingering(FingeringHost(), preset = twoNotes(checkPlaying = true), microphone)
+            Fingering(host, preset = twoNotes(checkPlaying = true), microphone)
         }
 
         // The exercise starts by itself and asks for a note. Everything from here is the browser's
@@ -98,16 +91,12 @@ class FingeringOnWasmTest {
     }
 
     @Test
-    fun leaving_the_screen_stops_the_exercise() = runComposeUiTest {
-        val host = FingeringHost()
+    fun leaving_the_screen_stops_the_exercise() = runScreenTest { host ->
         setContent { Fingering(host, preset = twoNotes()) }
 
         awaitInRealTime("the running exercise") { shows("Stop") }
 
-        host.registry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
-        // Below STARTED the screen stops collecting, so a stopped exercise only shows on return -
-        // the same on both platforms.
-        host.registry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        host.leaveAndReturn()
 
         awaitInRealTime("the stopped exercise") { shows("Stopped early") }
     }
@@ -130,21 +119,9 @@ private val SOUNDING_C4_HZ = Instrument.TENOR_SAX.transposition
     .concertFor(Note(NoteName.C, 4))
     .frequencyHz()
 
-private fun ComposeUiTest.shows(text: String): Boolean =
-    onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
-
-/** Everything [FingeringRoute] expects of a host: a ViewModel store and a lifecycle. */
-private class FingeringHost : ViewModelStoreOwner, LifecycleOwner {
-    override val viewModelStore = ViewModelStore()
-    val registry = LifecycleRegistry.createUnsafe(this).apply {
-        currentState = Lifecycle.State.RESUMED
-    }
-    override val lifecycle: Lifecycle get() = registry
-}
-
 @Composable
 private fun Fingering(
-    host: FingeringHost,
+    host: ScreenHost,
     preset: FingeringPreset? = null,
     microphone: FakeMicrophone = FakeMicrophone(frameDurationMs = 10),
 ) {
@@ -163,26 +140,3 @@ private fun Fingering(
         }
     }
 }
-
-/** A click with no sound: the count-in is counted on the clock either way. */
-private class SilentMetronome : Metronome {
-    private val _state = MutableStateFlow(MetronomeEngineState())
-    override val state: StateFlow<MetronomeEngineState> = _state
-
-    override fun setBpm(bpm: Int) {
-        _state.value = _state.value.copy(bpm = bpm)
-    }
-
-    override fun start() {
-        _state.value = _state.value.copy(isRunning = true)
-    }
-
-    override fun stop() {
-        _state.value = _state.value.copy(isRunning = false)
-    }
-
-    override fun release() = stop()
-}
-
-/** Generous: these waits are on the browser's clock, not a virtual one. */
-private const val TIMEOUT = 10_000L

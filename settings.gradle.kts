@@ -79,5 +79,6 @@ include(":feature:notequiz")
 include(":feature:notetrainer")
 include(":feature:settings")
 
-// M3 throwaway: the Web Audio probe. Delete this line and the probe/ directory to remove it.
+// The web audio bench, a page over the production :core:audio web chain. M9 folds it into an
+// in-app diagnostics screen; deleting this line and the probe/ directory removes it.
 include(":probe")

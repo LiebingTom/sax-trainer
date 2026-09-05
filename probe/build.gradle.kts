@@ -1,82 +1,40 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 /**
- * M3: the throwaway Web Audio probe.
+ * The web audio bench: a page that runs the production `:core:audio` web chain and shows its
+ * numbers.
  *
- * Not production code and not a step towards `:webApp`. It exists to answer one question - can a
- * browser microphone reach the shared DSP fast enough - and it should be deleted once the answer is
- * written down. It deliberately depends on `:core:dsp` and `:core:music` only: `:core:audio` is
- * still Android-only and M3 must not change that.
+ * It was M3's throwaway probe, with a capture, a worklet and a copy of the listener's decision of
+ * its own. M4 promoted all three into `:core:audio` and deleted them from here, so what is left is
+ * a page over the real thing. It stays until M9 folds the same readout into an in-app diagnostics
+ * screen, because it is the only way to put a real saxophone through the web chain: a headless
+ * browser has a fake microphone and no instrument.
  */
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
 }
 
 kotlin {
-    compilerOptions {
-        // Every line of this module talks to JavaScript; opting in once beats 40 annotations.
-        optIn.add("kotlin.js.ExperimentalWasmJsInterop")
-    }
-
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
+        compilerOptions {
+            // window.setInterval takes a JavaScript callback.
+            optIn.add("kotlin.js.ExperimentalWasmJsInterop")
+        }
         outputModuleName = "probe"
         browser {
             commonWebpackConfig {
                 outputFileName = "probe.js"
             }
-            // Firefox rather than Karma's Chrome default: see :core:music for why. The prefs that
-            // give the headless run a fake microphone are in karma.config.d.
-            testTask { useKarma { useFirefoxHeadless() } }
         }
         binaries.executable()
     }
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core:dsp"))
-            implementation(project(":core:music"))
+            implementation(project(":core:audio"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.browser)
         }
-        commonTest.dependencies {
-            implementation(kotlin("test"))
-            implementation(libs.kotlinx.coroutines.test)
-        }
     }
-}
-
-/**
- * Puts the worklet's JavaScript into a Kotlin constant as well as into the served resources.
- *
- * The page loads the file over HTTP; the headless test has no server to load it from, so it makes a
- * blob URL out of this constant instead. Generating it means both run the same worklet rather than
- * a copy that could drift away from it.
- */
-val generateWorkletSource by tasks.registering {
-    val worklet = layout.projectDirectory.file("src/wasmJsMain/resources/capture-worklet.js")
-    val output = layout.buildDirectory.dir("generated/worklet")
-    inputs.file(worklet)
-    outputs.dir(output)
-    doLast {
-        val source = worklet.asFile.readText()
-        val terminator = "\"\"\""
-        require(!source.contains(terminator)) { "the worklet cannot contain a raw string terminator" }
-        val destination = output.get().asFile.resolve("com/example/saxtrainer/probe/WorkletSource.kt")
-        destination.parentFile.mkdirs()
-        destination.writeText(
-            buildString {
-                appendLine("package com.example.saxtrainer.probe")
-                appendLine()
-                appendLine("/** Generated from src/wasmJsMain/resources/capture-worklet.js. Do not edit. */")
-                appendLine("internal const val CAPTURE_WORKLET_SOURCE: String = $terminator")
-                append(source.replace("$", "\${'$'}"))
-                appendLine(terminator)
-            },
-        )
-    }
-}
-
-kotlin.sourceSets.named("wasmJsMain") {
-    kotlin.srcDir(generateWorkletSource)
 }

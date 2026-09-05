@@ -5,10 +5,8 @@ import com.example.saxtrainer.core.learning.LearningUnit
 import com.example.saxtrainer.core.learning.Lesson
 import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.settings.NoteDisplay
-import com.example.saxtrainer.feature.fingering.FingeringPreset
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.feature.notequiz.QuizPreset
-import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
 import com.example.saxtrainer.learning.catalog.steps.fingeringStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
@@ -49,12 +47,10 @@ val firstNotesUnit = LearningUnit(
             subtitle = "C, D and E, in order",
             steps = listOf(
                 fingeringStep(
-                    FingeringPreset(
-                        notes = FIRST_THREE,
-                        order = NoteOrder.ORDERED,
-                        secondsPerNote = 8,
-                        noteDisplay = NoteDisplay.BOTH,
-                    ),
+                    notes = FIRST_THREE,
+                    order = NoteOrder.ORDERED,
+                    secondsPerNote = 8,
+                    noteDisplay = NoteDisplay.BOTH,
                 ),
             ),
         ),
@@ -64,12 +60,10 @@ val firstNotesUnit = LearningUnit(
             subtitle = "Adds F and G",
             steps = listOf(
                 fingeringStep(
-                    FingeringPreset(
-                        notes = FIRST_NOTES,
-                        order = NoteOrder.ORDERED,
-                        secondsPerNote = 5,
-                        noteDisplay = NoteDisplay.BOTH,
-                    ),
+                    notes = FIRST_NOTES,
+                    order = NoteOrder.ORDERED,
+                    secondsPerNote = 5,
+                    noteDisplay = NoteDisplay.BOTH,
                 ),
             ),
         ),
@@ -89,12 +83,10 @@ val firstNotesUnit = LearningUnit(
                     title = "Which note is this?",
                 ),
                 noteTrainerStep(
-                    NoteTrainerPreset(
-                        notes = FIRST_NOTES,
-                        order = NoteOrder.RANDOM,
-                        showFingeringHint = true,
-                        targetSeconds = 8,
-                    ),
+                    notes = FIRST_NOTES,
+                    order = NoteOrder.RANDOM,
+                    showFingeringHint = true,
+                    targetSeconds = 8,
                     title = "Play what you read",
                 ),
             ),

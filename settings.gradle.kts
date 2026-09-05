@@ -61,6 +61,8 @@ dependencyResolutionManagement {
 // "Sax Trainer" - that name lives in app/src/main/res/values/strings.xml.
 rootProject.name = "sax-trainer"
 include(":app")
+include(":shell")
+include(":webApp")
 include(":core:designsystem")
 include(":core:music")
 include(":core:dsp")

@@ -36,34 +36,27 @@ android {
 }
 
 dependencies {
-    implementation(project(":core:designsystem"))
+    // The application itself lives in :shell. What is left here is the Android entry point, and
+    // the four microphone trainers, which are Android-only until M8 and so cannot be registered
+    // from a module that also builds for the web.
+    implementation(project(":shell"))
     implementation(project(":core:audio"))
-    implementation(project(":core:settings"))
-    implementation(project(":core:music"))
-    implementation(project(":core:learning"))
-    // The lesson catalog names sequences from the library, so a typo is a compile error.
+    // The launch types a lesson step carries are written in core terms; these are them.
     implementation(project(":core:exercise"))
-    implementation(project(":feature:metronome"))
+    implementation(project(":core:learning"))
+    implementation(project(":core:music"))
+    implementation(project(":core:settings"))
     implementation(project(":feature:fingering"))
-    implementation(project(":feature:learning"))
     implementation(project(":feature:longtones"))
-    implementation(project(":feature:notequiz"))
     implementation(project(":feature:notetrainer"))
     implementation(project(":feature:sequence"))
-    implementation(project(":feature:settings"))
     implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    // Only so the lesson catalog can be checked against the real fingering chart.
-    testImplementation(project(":core:fingering"))
+    // Only so the lesson outcome mapping can be checked against the trainers' own result types.
+    testImplementation(project(":feature:notequiz"))
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

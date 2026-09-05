@@ -16,6 +16,7 @@ import com.example.saxtrainer.core.designsystem.component.FeatureCard
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
+import com.example.saxtrainer.core.learning.TrainerId
 
 /**
  * Landing page. Deliberately free of any feature implementation detail: it renders a list of
@@ -26,9 +27,9 @@ import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 @Composable
 fun HomeScreen(
     onEntryClick: (route: String) -> Unit,
+    learning: List<HomeEntry>,
+    practice: List<HomeGroup>,
     modifier: Modifier = Modifier,
-    learning: List<HomeEntry> = learningEntries,
-    practice: List<HomeGroup> = practiceGroups,
     app: List<HomeEntry> = appEntries,
 ) {
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
@@ -102,6 +103,10 @@ private fun HomeHeader() {
 @Composable
 private fun HomeScreenPreview() {
     SaxTrainerTheme {
-        HomeScreen(onEntryClick = {})
+        HomeScreen(
+            onEntryClick = {},
+            learning = emptyList(),
+            practice = practiceGroupsOf(TrainerId.entries.toSet()),
+        )
     }
 }

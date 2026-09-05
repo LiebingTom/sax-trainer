@@ -11,7 +11,8 @@ import com.example.saxtrainer.core.designsystem.icon.NoteTrainer
 import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
 import com.example.saxtrainer.core.designsystem.icon.Sequence
 import com.example.saxtrainer.core.designsystem.icon.Settings
-import com.example.saxtrainer.learning.SaxTrainerCurriculum
+import com.example.saxtrainer.core.learning.Curriculum
+import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.learning.catalog.units.ACCIDENTALS_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.FIRST_NOTES_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.OCTAVE_UNIT_ID
@@ -28,6 +29,8 @@ data class HomeEntry(
     val description: String,
     val icon: IconSource,
     val route: String,
+    /** The trainer behind the entry, where there is one. Settings and a lesson list have none. */
+    val trainerId: TrainerId? = null,
 )
 
 /** A handful of practice tools that belong together, under a heading that says why. */
@@ -37,9 +40,11 @@ data class HomeGroup(val title: String, val entries: List<HomeEntry>)
  * Guided lessons, one entry per learning unit.
  *
  * Derived from the curriculum rather than written out, so a new unit appears on the landing page
- * without this file or the home screen being edited.
+ * without this file or the home screen being edited. It takes the curriculum rather than reading
+ * the catalog directly because a platform may be running a trimmed one - see
+ * [com.example.saxtrainer.core.learning.Curriculum.runnableWith].
  */
-val learningEntries: List<HomeEntry> = SaxTrainerCurriculum.units.map { unit ->
+fun learningEntriesOf(curriculum: Curriculum): List<HomeEntry> = curriculum.units.map { unit ->
     HomeEntry(
         id = "learning-${unit.id}",
         title = unit.title,
@@ -66,6 +71,7 @@ private val noteQuiz = HomeEntry(
     description = "Match written notes to fingerings. No instrument needed.",
     icon = IconSource.Vector(SaxTrainerIcons.NoteQuiz),
     route = SaxTrainerDestination.NOTE_QUIZ,
+    trainerId = TrainerId.NOTE_QUIZ,
 )
 
 private val fingering = HomeEntry(
@@ -74,6 +80,7 @@ private val fingering = HomeEntry(
     description = "Learn which keys to press for each written note.",
     icon = IconSource.Vector(SaxTrainerIcons.Fingering),
     route = SaxTrainerDestination.FINGERING,
+    trainerId = TrainerId.FINGERING,
 )
 
 private val noteTrainer = HomeEntry(
@@ -82,6 +89,7 @@ private val noteTrainer = HomeEntry(
     description = "Read a note and play it. How quickly is up to you.",
     icon = IconSource.Vector(SaxTrainerIcons.NoteTrainer),
     route = SaxTrainerDestination.NOTE_TRAINER,
+    trainerId = TrainerId.NOTE_TRAINER,
 )
 
 private val longTones = HomeEntry(
@@ -90,6 +98,7 @@ private val longTones = HomeEntry(
     description = "Hold a note steadily with live level and spectrum feedback.",
     icon = IconSource.Vector(SaxTrainerIcons.LongTone),
     route = SaxTrainerDestination.LONG_TONES,
+    trainerId = TrainerId.LONG_TONES,
 )
 
 private val sequence = HomeEntry(
@@ -98,6 +107,7 @@ private val sequence = HomeEntry(
     description = "Play scales and patterns in time, with an optional click.",
     icon = IconSource.Vector(SaxTrainerIcons.Sequence),
     route = SaxTrainerDestination.SEQUENCE,
+    trainerId = TrainerId.SEQUENCE,
 )
 
 private val metronome = HomeEntry(
@@ -106,6 +116,7 @@ private val metronome = HomeEntry(
     description = "Steady click with accented downbeat and tap tempo.",
     icon = IconSource.Vector(SaxTrainerIcons.Metronome),
     route = SaxTrainerDestination.METRONOME,
+    trainerId = TrainerId.METRONOME,
 )
 
 /**
@@ -115,11 +126,22 @@ private val metronome = HomeEntry(
  * difference between them is the whole point: recognise the note, learn the grip, play the note,
  * play a line. The headings are what make that visible without anybody reading a description.
  */
-val practiceGroups: List<HomeGroup> = listOf(
+private val practiceGroups: List<HomeGroup> = listOf(
     HomeGroup("Know your notes", listOf(noteQuiz, fingering)),
     HomeGroup("Play your notes", listOf(noteTrainer, longTones)),
     HomeGroup("Play in time", listOf(sequence, metronome)),
 )
+
+/**
+ * The groups, less the tools this platform cannot run.
+ *
+ * A card that leads to a destination nobody registered is worse than a card that is not there, so
+ * the landing page is filtered by the same set that decides what the navigation graph contains. A
+ * group left with nothing in it goes with its cards rather than leaving a bare heading.
+ */
+fun practiceGroupsOf(trainers: Set<TrainerId>): List<HomeGroup> = practiceGroups
+    .map { group -> group.copy(entries = group.entries.filter { it.trainerId in trainers }) }
+    .filter { it.entries.isNotEmpty() }
 
 /** Every practice tool, flattened - for previews and for anything that wants the plain list. */
 val practiceEntries: List<HomeEntry> = practiceGroups.flatMap { it.entries }

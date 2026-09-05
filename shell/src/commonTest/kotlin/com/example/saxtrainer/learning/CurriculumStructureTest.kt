@@ -4,15 +4,15 @@ import com.example.saxtrainer.core.fingering.TenorSaxophoneFingerings
 import com.example.saxtrainer.core.learning.LessonProgressState
 import com.example.saxtrainer.core.learning.LessonStep
 import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.learning.catalog.steps.fingeringPresetOf
+import com.example.saxtrainer.learning.catalog.steps.fingeringLaunchOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
-import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
-import com.example.saxtrainer.learning.catalog.steps.sequencePresetOf
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import com.example.saxtrainer.learning.catalog.steps.noteTrainerLaunchOf
+import com.example.saxtrainer.learning.catalog.steps.sequenceLaunchOf
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * The shape of the whole curriculum.
@@ -30,16 +30,16 @@ class CurriculumStructureTest {
     /** Every way a step can be read, so a step read by two of them would be caught. */
     private val readers: List<Pair<String, (LessonStep) -> Any?>> = listOf(
         "note quiz" to ::noteQuizPresetOf,
-        "fingering" to ::fingeringPresetOf,
-        "note trainer" to ::noteTrainerPresetOf,
-        "sequence" to ::sequencePresetOf,
+        "fingering" to ::fingeringLaunchOf,
+        "note trainer" to ::noteTrainerLaunchOf,
+        "sequence" to ::sequenceLaunchOf,
     )
 
     /** The notes a step practises, whichever trainer it belongs to. */
     private fun notesOf(step: LessonStep): List<Note> = listOfNotNull(
         noteQuizPresetOf(step)?.notes,
-        fingeringPresetOf(step)?.notes,
-        noteTrainerPresetOf(step)?.notes,
+        fingeringLaunchOf(step)?.notes,
+        noteTrainerLaunchOf(step)?.notes,
     ).flatten()
 
     @Test
@@ -58,9 +58,9 @@ class CurriculumStructureTest {
             val recognised = readers.filter { (_, read) -> read(step) != null }
 
             assertEquals(
-                "a ${step.trainerId} step was read by ${recognised.joinToString { it.first }}",
                 1,
                 recognised.size,
+                "a ${step.trainerId} step was read by ${recognised.joinToString { it.first }}",
             )
         }
     }
@@ -70,14 +70,14 @@ class CurriculumStructureTest {
         steps.forEach { step ->
             val preset = when (step.trainerId) {
                 com.example.saxtrainer.core.learning.TrainerId.NOTE_QUIZ -> noteQuizPresetOf(step)
-                com.example.saxtrainer.core.learning.TrainerId.FINGERING -> fingeringPresetOf(step)
+                com.example.saxtrainer.core.learning.TrainerId.FINGERING -> fingeringLaunchOf(step)
                 com.example.saxtrainer.core.learning.TrainerId.NOTE_TRAINER ->
-                    noteTrainerPresetOf(step)
+                    noteTrainerLaunchOf(step)
 
-                com.example.saxtrainer.core.learning.TrainerId.SEQUENCE -> sequencePresetOf(step)
+                com.example.saxtrainer.core.learning.TrainerId.SEQUENCE -> sequenceLaunchOf(step)
                 else -> null
             }
-            assertNotNull("a ${step.trainerId} step carries no ${step.trainerId} preset", preset)
+            assertNotNull(preset, "a ${step.trainerId} step carries no ${step.trainerId} preset")
         }
     }
 
@@ -86,8 +86,8 @@ class CurriculumStructureTest {
         steps.forEach { step ->
             notesOf(step).forEach { note ->
                 assertTrue(
-                    "${step.trainerId} asks for ${note.label}, which has no fingering",
                     TenorSaxophoneFingerings.supports(note),
+                    "${step.trainerId} asks for ${note.label}, which has no fingering",
                 )
             }
         }
@@ -98,7 +98,7 @@ class CurriculumStructureTest {
         steps.forEach { step ->
             val notes = notesOf(step)
             if (notes.isNotEmpty()) {
-                assertEquals("${step.trainerId} repeats a note", notes.distinct().size, notes.size)
+                assertEquals(notes.distinct().size, notes.size, "${step.trainerId} repeats a note")
             }
         }
     }
@@ -112,7 +112,7 @@ class CurriculumStructureTest {
         }
 
         notesPerUnit.zipWithNext().forEach { (earlier, later) ->
-            assertTrue("a unit dropped notes an earlier one taught", later.containsAll(earlier))
+            assertTrue(later.containsAll(earlier), "a unit dropped notes an earlier one taught")
         }
     }
 
@@ -121,7 +121,7 @@ class CurriculumStructureTest {
         val nothingDone = LessonProgressState()
 
         lessons.forEach { lesson ->
-            assertNull("${lesson.title} is gated", lesson.requires)
+            assertNull(lesson.requires, "${lesson.title} is gated")
             assertTrue(SaxTrainerCurriculum.isUnlocked(lesson.id, nothingDone))
         }
     }
@@ -131,8 +131,8 @@ class CurriculumStructureTest {
         lessons.forEach { lesson ->
             assertEquals(lesson, SaxTrainerCurriculum.lessonOf(lesson.id))
             assertNotNull(
-                "${lesson.title} belongs to no unit",
                 SaxTrainerCurriculum.unitOfLesson(lesson.id),
+                "${lesson.title} belongs to no unit",
             )
         }
     }

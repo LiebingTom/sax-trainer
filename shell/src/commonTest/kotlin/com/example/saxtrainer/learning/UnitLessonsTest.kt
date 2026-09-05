@@ -2,17 +2,17 @@ package com.example.saxtrainer.learning
 
 import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.learning.TrainerId
+import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
-import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
+import com.example.saxtrainer.learning.catalog.steps.noteTrainerLaunchOf
 import com.example.saxtrainer.learning.catalog.units.ACCIDENTALS_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.FIRST_NOTES_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.OCTAVE_UNIT_ID
-import com.example.saxtrainer.feature.notequiz.QuizMode
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /** What each unit teaches, and in what order. */
 class UnitLessonsTest {
@@ -47,7 +47,7 @@ class UnitLessonsTest {
         // Name the grips first, then play what you read: the order is the teaching.
         assertEquals(TrainerId.NOTE_QUIZ, lesson.stepAt(0)!!.trainerId)
         assertEquals(TrainerId.NOTE_TRAINER, lesson.stepAt(1)!!.trainerId)
-        assertTrue("a step of a multi-step lesson should say what it is", lesson.stepAt(0)!!.title.isNotBlank())
+        assertTrue(lesson.stepAt(0)!!.title.isNotBlank(), "a step of a multi-step lesson should say what it is")
     }
 
     @Test
@@ -61,16 +61,16 @@ class UnitLessonsTest {
 
     @Test
     fun `the hint is given while the notes are new and taken away later`() {
-        val early = noteTrainerPresetOf(
+        val early = noteTrainerLaunchOf(
             SaxTrainerCurriculum.lessonOf(LessonId("first-notes-play"))!!.stepAt(1)!!,
         )!!
-        val later = noteTrainerPresetOf(
+        val later = noteTrainerLaunchOf(
             SaxTrainerCurriculum.lessonOf(LessonId("octave-play"))!!.firstStep,
         )!!
 
-        assertTrue("the first five notes are new enough to be shown", early.showFingeringHint)
-        assertFalse("by the octave the grip is yours to remember", later.showFingeringHint)
-        assertTrue("and there is less time to think about it", later.targetSeconds < early.targetSeconds)
+        assertTrue(early.showFingeringHint, "the first five notes are new enough to be shown")
+        assertFalse(later.showFingeringHint, "by the octave the grip is yours to remember")
+        assertTrue(later.targetSeconds < early.targetSeconds, "and there is less time to think about it")
     }
 
     @Test
@@ -83,8 +83,8 @@ class UnitLessonsTest {
     @Test
     fun `every lesson says what it is`() {
         SaxTrainerCurriculum.lessons.forEach { lesson ->
-            assertTrue("a lesson needs a title", lesson.title.isNotBlank())
-            assertTrue("${lesson.title} needs a subtitle", lesson.subtitle.isNotBlank())
+            assertTrue(lesson.title.isNotBlank(), "a lesson needs a title")
+            assertTrue(lesson.subtitle.isNotBlank(), "${lesson.title} needs a subtitle")
             assertNotNull(lesson.firstStep)
         }
     }

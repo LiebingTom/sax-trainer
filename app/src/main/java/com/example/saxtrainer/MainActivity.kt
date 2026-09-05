@@ -4,8 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
-import com.example.saxtrainer.navigation.SaxTrainerNavHost
+import com.example.saxtrainer.navigation.AndroidTrainers
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -13,9 +12,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val container = (application as SaxTrainerApplication).container
         setContent {
-            SaxTrainerTheme {
-                SaxTrainerNavHost(container = container)
-            }
+            SaxTrainerApp(container = container, platform = AndroidTrainers)
         }
     }
 }

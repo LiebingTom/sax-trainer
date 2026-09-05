@@ -11,11 +11,15 @@ class CurriculumTest {
 
     private object Launch : TrainerLaunch
 
-    private fun lesson(id: String, requires: String? = null) = Lesson(
+    private fun lesson(
+        id: String,
+        requires: String? = null,
+        vararg trainers: TrainerId = arrayOf(TrainerId.FINGERING),
+    ) = Lesson(
         id = LessonId(id),
         title = id,
         subtitle = "",
-        steps = listOf(LessonStep(TrainerId.FINGERING, Launch)),
+        steps = trainers.map { LessonStep(it, Launch) },
         requires = requires?.let(::LessonId),
     )
 
@@ -94,5 +98,50 @@ class CurriculumTest {
         val curriculum = Curriculum(listOf(unit("p", lesson("l1"))))
 
         assertTrue(curriculum.isUnlocked(LessonId("nope"), LessonProgressState()))
+    }
+
+    @Test
+    fun `a curriculum keeps only what the trainers at hand can teach`() {
+        val curriculum = Curriculum(
+            listOf(
+                unit(
+                    "notes",
+                    lesson("read", trainers = arrayOf(TrainerId.NOTE_QUIZ)),
+                    lesson("finger", trainers = arrayOf(TrainerId.FINGERING)),
+                    // Two trainers in one sitting, and only one of them is here.
+                    lesson("both", trainers = arrayOf(TrainerId.NOTE_QUIZ, TrainerId.FINGERING)),
+                ),
+                unit("playing", lesson("play", trainers = arrayOf(TrainerId.NOTE_TRAINER))),
+            ),
+        )
+
+        val quizOnly = curriculum.runnableWith(setOf(TrainerId.NOTE_QUIZ))
+
+        assertEquals(listOf("read"), quizOnly.lessons.map { it.id.value })
+        // The unit left with nothing to teach goes with its lessons.
+        assertEquals(listOf("notes"), quizOnly.units.map { it.id })
+    }
+
+    @Test
+    fun `a lesson whose prerequisite was dropped goes too`() {
+        val curriculum = Curriculum(
+            listOf(
+                unit(
+                    "notes",
+                    lesson("finger", trainers = arrayOf(TrainerId.FINGERING)),
+                    // Reachable trainer, unreachable prerequisite: it could never be unlocked.
+                    lesson("read", requires = "finger", trainers = arrayOf(TrainerId.NOTE_QUIZ)),
+                ),
+            ),
+        )
+
+        assertTrue(curriculum.runnableWith(setOf(TrainerId.NOTE_QUIZ)).units.isEmpty())
+    }
+
+    @Test
+    fun `every trainer at hand leaves the curriculum as it was`() {
+        val curriculum = Curriculum(listOf(unit("notes", lesson("finger"), lesson("more"))))
+
+        assertEquals(curriculum, curriculum.runnableWith(TrainerId.entries.toSet()))
     }
 }

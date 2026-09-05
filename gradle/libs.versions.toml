@@ -21,6 +21,10 @@ composeMultiplatformMaterial3 = "1.9.0"
 # On Android it delegates to androidx.lifecycle of the same number, so this also sets the version
 # the app resolves to.
 jetbrainsLifecycle = "2.11.0"
+# The JetBrains multiplatform fork of androidx.navigation, same package names and same API.
+# 2.9.2 is the newest stable; it asks for lifecycle 2.9.6 and compose 1.9.3 at least, both of
+# which the versions above satisfy.
+jetbrainsNavigation = "2.9.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -53,6 +57,7 @@ compose-ui-test = { group = "org.jetbrains.compose.ui", name = "ui-test", versio
 compose-material3 = { group = "org.jetbrains.compose.material3", name = "material3", version.ref = "composeMultiplatformMaterial3" }
 jetbrains-lifecycle-viewmodel-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "jetbrainsLifecycle" }
 jetbrains-lifecycle-runtime-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "jetbrainsLifecycle" }
+jetbrains-navigation-compose = { group = "org.jetbrains.androidx.navigation", name = "navigation-compose", version.ref = "jetbrainsNavigation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

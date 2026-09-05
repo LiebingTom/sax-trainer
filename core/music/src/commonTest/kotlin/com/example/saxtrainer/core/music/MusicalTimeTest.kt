@@ -1,9 +1,9 @@
 package com.example.saxtrainer.core.music
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class MusicalTimeTest {
 
@@ -30,7 +30,7 @@ class MusicalTimeTest {
 
     @Test
     fun `tempo must be positive`() {
-        assertThrows(IllegalArgumentException::class.java) { Tempo(0) }
+        assertFailsWith<IllegalArgumentException> { Tempo(0) }
     }
 
     @Test
@@ -42,7 +42,7 @@ class MusicalTimeTest {
 
     @Test
     fun `negative durations are rejected`() {
-        assertThrows(IllegalArgumentException::class.java) { Beats(-1.0) }
+        assertFailsWith<IllegalArgumentException> { Beats(-1.0) }
     }
 
     @Test

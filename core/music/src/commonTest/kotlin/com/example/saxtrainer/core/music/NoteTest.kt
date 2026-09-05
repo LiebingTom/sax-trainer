@@ -1,7 +1,7 @@
 package com.example.saxtrainer.core.music
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class NoteTest {
 
@@ -100,9 +100,9 @@ class NoteTest {
         val written = Note(NoteName.G, 4)
         Transposition.entries.forEach { transposition ->
             assertEquals(
-                transposition.displayName,
                 written,
                 transposition.writtenFor(transposition.concertFor(written)),
+                transposition.displayName,
             )
         }
     }

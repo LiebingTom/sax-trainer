@@ -1,9 +1,9 @@
 package com.example.saxtrainer.core.music
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertSame
-import org.junit.Assert.assertThrows
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 
 /** Making more practice out of one piece of material. */
 class SequenceShapingTest {
@@ -90,8 +90,8 @@ class SequenceShapingTest {
 
     @Test
     fun `a sequence is played at least once`() {
-        assertThrows(IllegalArgumentException::class.java) { upThree.repeated(0) }
-        assertThrows(IllegalArgumentException::class.java) { upThree.repeated(-1) }
+        assertFailsWith<IllegalArgumentException> { upThree.repeated(0) }
+        assertFailsWith<IllegalArgumentException> { upThree.repeated(-1) }
     }
 
     @Test

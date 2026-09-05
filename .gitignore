@@ -18,3 +18,5 @@ local.properties
 build/
 
 additional/
+# The Kotlin Gradle plugin writes per-project caches here.
+.kotlin/

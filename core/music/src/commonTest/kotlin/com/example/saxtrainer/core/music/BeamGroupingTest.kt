@@ -1,8 +1,8 @@
 package com.example.saxtrainer.core.music
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * Which notes are beamed together.
@@ -75,7 +75,7 @@ class BeamGroupingTest {
         ).beamGroups()
 
         groups.zipWithNext { earlier, later ->
-            assertTrue("$earlier then $later", earlier.last < later.first)
+            assertTrue(earlier.last < later.first, "$earlier then $later")
         }
     }
 

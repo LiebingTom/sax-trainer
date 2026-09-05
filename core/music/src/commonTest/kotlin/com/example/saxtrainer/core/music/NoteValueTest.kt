@@ -1,11 +1,11 @@
 package com.example.saxtrainer.core.music
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * How a duration is written down.
@@ -42,7 +42,7 @@ class NoteValueTest {
         NoteValue.entries.forEach { value ->
             (0..NotatedDuration.MAX_DOTS).forEach { dots ->
                 val written = NotatedDuration(value, dots)
-                assertEquals(written.toString(), written, NotatedDuration.of(written.beats()))
+                assertEquals(written, NotatedDuration.of(written.beats()), written.toString())
             }
         }
     }
@@ -70,11 +70,11 @@ class NoteValueTest {
 
     @Test
     fun `heads, stems and flags follow the value`() {
-        assertFalse("a whole note is hollow", NoteValue.WHOLE.isFilledHead)
-        assertFalse("a half note is hollow", NoteValue.HALF.isFilledHead)
+        assertFalse(NoteValue.WHOLE.isFilledHead, "a whole note is hollow")
+        assertFalse(NoteValue.HALF.isFilledHead, "a half note is hollow")
         assertTrue(NoteValue.QUARTER.isFilledHead)
 
-        assertFalse("a whole note has no stem", NoteValue.WHOLE.hasStem)
+        assertFalse(NoteValue.WHOLE.hasStem, "a whole note has no stem")
         assertTrue(NoteValue.HALF.hasStem)
 
         assertEquals(0, NoteValue.QUARTER.beamCount)
@@ -84,7 +84,7 @@ class NoteValueTest {
 
     @Test
     fun `more dots than the notation draws is rejected`() {
-        assertThrows(IllegalArgumentException::class.java) {
+        assertFailsWith<IllegalArgumentException> {
             NotatedDuration(NoteValue.QUARTER, dots = 3)
         }
     }

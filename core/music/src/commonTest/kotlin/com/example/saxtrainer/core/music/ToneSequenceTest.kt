@@ -1,8 +1,8 @@
 package com.example.saxtrainer.core.music
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class ToneSequenceTest {
 
@@ -65,18 +65,18 @@ class ToneSequenceTest {
 
     @Test
     fun `an empty sequence is rejected`() {
-        assertThrows(IllegalArgumentException::class.java) { ToneSequence(emptyList()) }
+        assertFailsWith<IllegalArgumentException> { ToneSequence(emptyList()) }
     }
 
     @Test
     fun `a note of no length is rejected`() {
-        assertThrows(IllegalArgumentException::class.java) {
+        assertFailsWith<IllegalArgumentException> {
             ToneStep(Note(NoteName.A, 4), Beats.ZERO)
         }
     }
 
     @Test
     fun `asking for a note outside the sequence fails`() {
-        assertThrows(IllegalArgumentException::class.java) { sequence.startBeatOf(3) }
+        assertFailsWith<IllegalArgumentException> { sequence.startBeatOf(3) }
     }
 }

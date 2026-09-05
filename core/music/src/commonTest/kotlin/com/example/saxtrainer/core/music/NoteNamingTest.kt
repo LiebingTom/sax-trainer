@@ -1,7 +1,7 @@
 package com.example.saxtrainer.core.music
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /**
  * What the note letters are called.
@@ -74,7 +74,7 @@ class NoteNamingTest {
     @Test
     fun `the conventional spelling is sharps, except for the B flat`() {
         NoteName.entries.filter { it != NoteName.A_SHARP }.forEach {
-            assertEquals(it.name, AccidentalStyle.SHARPS, note(it).conventionalStyle())
+            assertEquals(AccidentalStyle.SHARPS, note(it).conventionalStyle(), it.name)
         }
         assertEquals(AccidentalStyle.FLATS, note(NoteName.A_SHARP).conventionalStyle())
     }

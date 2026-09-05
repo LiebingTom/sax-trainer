@@ -1,5 +1,6 @@
 package com.example.saxtrainer.core.music
 
+import kotlin.jvm.JvmInline
 import kotlin.math.floor
 
 /**

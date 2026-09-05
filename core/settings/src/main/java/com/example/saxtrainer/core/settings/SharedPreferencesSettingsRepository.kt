@@ -102,7 +102,11 @@ class SharedPreferencesSettingsRepository(
         return Instrument.entries.firstOrNull { it.name == stored } ?: AppSettings().instrument
     }
 
-    private companion object {
+    internal companion object {
+        /**
+         * Internal rather than private so the instrumented test can clear the very file the app
+         * writes, instead of a copy of the name that could quietly drift away from this one.
+         */
         const val PREFERENCES_NAME = "sax_trainer_settings"
         const val KEY_INSTRUMENT = "instrument"
         const val KEY_NOTE_NAMING = "note_naming"

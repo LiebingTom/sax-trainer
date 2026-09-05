@@ -15,8 +15,14 @@ plugins {
  *
  * The one composable here is `rememberMicrophoneAccess`, which is Android's way of asking for a
  * permission and lives in `androidMain`. Left to itself the plugin also processes the Wasm
- * compilation and then fails it for having no Compose runtime on the class path - which is correct,
- * because there is no Compose on the web until M5.
+ * compilation and then fails it for having no Compose runtime on the class path.
+ *
+ * Revisited in M5, when Compose Multiplatform arrived: the restriction stays, because it is a
+ * statement about *this* module rather than about the project. Nothing in `commonMain` or
+ * `wasmJsMain` here draws, and lifting the restriction would mean putting Compose on the web
+ * audio class path to satisfy a compiler pass over code that has no composables in it. It comes
+ * off when the permission abstraction becomes an `expect @Composable` and the module genuinely has
+ * shared Compose code - see [com.example.saxtrainer.core.audio.capture.MicrophoneAccess].
  */
 composeCompiler {
     targetKotlinPlatforms.set(setOf(KotlinPlatformType.androidJvm))

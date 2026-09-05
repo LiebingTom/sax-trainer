@@ -2,11 +2,11 @@ package com.example.saxtrainer.core.designsystem.component
 
 import com.example.saxtrainer.core.fingering.SaxKey
 import com.example.saxtrainer.core.fingering.TenorSaxophoneFingerings
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -35,7 +35,7 @@ class SaxophoneKeyLayoutTest {
             .toSet()
 
         val missing = used - SaxophoneKeyLayout.drawnKeys
-        assertEquals("keys the diagram would silently swallow", emptySet<SaxKey>(), missing)
+        assertEquals(emptySet<SaxKey>(), missing, "keys the diagram would silently swallow")
     }
 
     @Test
@@ -46,9 +46,9 @@ class SaxophoneKeyLayoutTest {
     @Test
     fun `every placement sits inside the panel`() {
         layout.forEach { placement ->
-            assertTrue("${placement.key} x=${placement.x}", placement.x in 0.05f..0.95f)
-            assertTrue("${placement.key} y=${placement.y}", placement.y in 0.02f..0.98f)
-            assertTrue("${placement.key} size=${placement.size}", placement.size > 0f)
+            assertTrue(placement.x in 0.05f..0.95f, "${placement.key} x=${placement.x}")
+            assertTrue(placement.y in 0.02f..0.98f, "${placement.key} y=${placement.y}")
+            assertTrue(placement.size > 0f, "${placement.key} size=${placement.size}")
         }
     }
 
@@ -65,8 +65,8 @@ class SaxophoneKeyLayoutTest {
         resolved.forEachIndexed { index, first ->
             resolved.drop(index + 1).forEach { second ->
                 assertFalse(
-                    "${first.key} overlaps ${second.key}",
                     overlap(first.geometry, second.geometry),
+                    "${first.key} overlaps ${second.key}",
                 )
             }
         }
@@ -79,10 +79,10 @@ class SaxophoneKeyLayoutTest {
 
         SaxophoneDiagramMetrics.resolve(width, height).forEach { resolved ->
             val (left, top, right, bottom) = bounds(resolved.geometry)
-            assertTrue("${resolved.key} left", left >= 0f)
-            assertTrue("${resolved.key} top", top >= 0f)
-            assertTrue("${resolved.key} right", right <= width)
-            assertTrue("${resolved.key} bottom", bottom <= height)
+            assertTrue(left >= 0f, "${resolved.key} left")
+            assertTrue(top >= 0f, "${resolved.key} top")
+            assertTrue(right <= width, "${resolved.key} right")
+            assertTrue(bottom <= height, "${resolved.key} bottom")
         }
     }
 
@@ -135,8 +135,8 @@ class SaxophoneKeyLayoutTest {
 
         column.forEach { key ->
             val placement = SaxophoneKeyLayout.placementOf(key)!!
-            assertEquals(key.name, SaxophoneKeyLayout.MAIN_COLUMN_X, placement.x, 1e-6f)
-            assertEquals(key.name, KeyShape.Circle, placement.shape)
+            assertEquals(SaxophoneKeyLayout.MAIN_COLUMN_X, placement.x, 1e-6f, key.name)
+            assertEquals(KeyShape.Circle, placement.shape, key.name)
         }
     }
 
@@ -146,10 +146,12 @@ class SaxophoneKeyLayoutTest {
         val rightHand = listOf(SaxKey.RH1, SaxKey.RH2, SaxKey.RH3)
 
         leftHand.forEach { key ->
-            assertTrue(key.name, SaxophoneKeyLayout.placementOf(key)!!.y < SaxophoneKeyLayout.HAND_DIVIDER_Y)
+            val y = SaxophoneKeyLayout.placementOf(key)!!.y
+            assertTrue(y < SaxophoneKeyLayout.HAND_DIVIDER_Y, key.name)
         }
         rightHand.forEach { key ->
-            assertTrue(key.name, SaxophoneKeyLayout.placementOf(key)!!.y > SaxophoneKeyLayout.HAND_DIVIDER_Y)
+            val y = SaxophoneKeyLayout.placementOf(key)!!.y
+            assertTrue(y > SaxophoneKeyLayout.HAND_DIVIDER_Y, key.name)
         }
     }
 
@@ -166,9 +168,9 @@ class SaxophoneKeyLayoutTest {
         listOf(SaxKey.PALM_D, SaxKey.PALM_EB, SaxKey.PALM_F).forEach { key ->
             val placement = SaxophoneKeyLayout.placementOf(key)!!
             assertEquals(KeyGroup.PALM, placement.group)
-            assertTrue(key.name, placement.x > SaxophoneKeyLayout.MAIN_COLUMN_X)
-            assertTrue(key.name, placement.y < SaxophoneKeyLayout.HAND_DIVIDER_Y)
-            assertTrue("palm keys are bars", placement.shape is KeyShape.RoundedRect)
+            assertTrue(placement.x > SaxophoneKeyLayout.MAIN_COLUMN_X, key.name)
+            assertTrue(placement.y < SaxophoneKeyLayout.HAND_DIVIDER_Y, key.name)
+            assertTrue(placement.shape is KeyShape.RoundedRect, "palm keys are bars")
         }
     }
 
@@ -179,14 +181,14 @@ class SaxophoneKeyLayoutTest {
         cluster.forEach { key ->
             val placement = SaxophoneKeyLayout.placementOf(key)!!
             assertEquals(KeyGroup.LEFT_PINKY, placement.group)
-            assertTrue("cluster keys are bars", placement.shape is KeyShape.RoundedRect)
-            assertTrue(key.name, placement.x > SaxophoneKeyLayout.MAIN_COLUMN_X)
+            assertTrue(placement.shape is KeyShape.RoundedRect, "cluster keys are bars")
+            assertTrue(placement.x > SaxophoneKeyLayout.MAIN_COLUMN_X, key.name)
         }
         // Below the third finger, above the hand divider.
         val lh3 = SaxophoneKeyLayout.placementOf(SaxKey.LH3)!!
         cluster.forEach { key ->
             val y = SaxophoneKeyLayout.placementOf(key)!!.y
-            assertTrue(key.name, y > lh3.y - 0.06f && y < SaxophoneKeyLayout.HAND_DIVIDER_Y)
+            assertTrue(y > lh3.y - 0.06f && y < SaxophoneKeyLayout.HAND_DIVIDER_Y, key.name)
         }
     }
 
@@ -201,9 +203,9 @@ class SaxophoneKeyLayoutTest {
         ).forEach { key ->
             val placement = SaxophoneKeyLayout.placementOf(key)!!
             assertEquals(KeyGroup.SIDE, placement.group)
-            assertTrue(key.name, placement.x < SaxophoneKeyLayout.MAIN_COLUMN_X)
-            assertTrue(key.name, placement.y > SaxophoneKeyLayout.HAND_DIVIDER_Y)
-            assertTrue("side keys are bars", placement.shape is KeyShape.RoundedRect)
+            assertTrue(placement.x < SaxophoneKeyLayout.MAIN_COLUMN_X, key.name)
+            assertTrue(placement.y > SaxophoneKeyLayout.HAND_DIVIDER_Y, key.name)
+            assertTrue(placement.shape is KeyShape.RoundedRect, "side keys are bars")
         }
     }
 
@@ -216,8 +218,8 @@ class SaxophoneKeyLayoutTest {
 
         sideShapes.forEach { side ->
             toneHoles.forEach { hole ->
-                assertTrue("shape differs", side.shape != hole.shape)
-                assertTrue("position differs", abs(side.x - hole.x) > 0.1f)
+                assertTrue(side.shape != hole.shape, "shape differs")
+                assertTrue(abs(side.x - hole.x) > 0.1f, "position differs")
             }
         }
     }
@@ -227,7 +229,7 @@ class SaxophoneKeyLayoutTest {
         listOf(SaxKey.RH_C, SaxKey.RH_EB).forEach { key ->
             val placement = SaxophoneKeyLayout.placementOf(key)!!
             assertEquals(KeyGroup.RIGHT_PINKY, placement.group)
-            assertTrue(key.name, placement.y > SaxophoneKeyLayout.placementOf(SaxKey.RH3)!!.y)
+            assertTrue(placement.y > SaxophoneKeyLayout.placementOf(SaxKey.RH3)!!.y, key.name)
         }
     }
 
@@ -252,10 +254,10 @@ class SaxophoneKeyLayoutTest {
             assertTrue(placement.x > sideBFlat.x)
             assertTrue(placement.x < SaxophoneKeyLayout.MAIN_COLUMN_X)
             assertTrue(placement.y > SaxophoneKeyLayout.HAND_DIVIDER_Y)
-            assertTrue("distinct from a tone hole", placement.shape is KeyShape.RoundedRect)
+            assertTrue(placement.shape is KeyShape.RoundedRect, "distinct from a tone hole")
         }
-        assertEquals("the two share a column", highFSharp.x, sideFSharp.x, 1e-6f)
-        assertTrue("high F sharp sits above F sharp", highFSharp.y < sideFSharp.y)
+        assertEquals(highFSharp.x, sideFSharp.x, 1e-6f, "the two share a column")
+        assertTrue(highFSharp.y < sideFSharp.y, "high F sharp sits above F sharp")
 
         // High F sharp is the long bar: its top lines up with side B flat.
         val width = 120f
@@ -264,8 +266,8 @@ class SaxophoneKeyLayoutTest {
             .associateBy { it.key }
         val highBar = resolved[SaxKey.HIGH_F_SHARP]!!.geometry as KeyGeometry.Bar
         val bFlatBar = resolved[SaxKey.SIDE_BB]!!.geometry as KeyGeometry.Bar
-        assertEquals("tops line up", bFlatBar.top, highBar.top, 1.0f)
-        assertTrue("and it is the longer bar", highBar.height > bFlatBar.height)
+        assertEquals(bFlatBar.top, highBar.top, 1.0f, "tops line up")
+        assertTrue(highBar.height > bFlatBar.height, "and it is the longer bar")
     }
 
     @Test
@@ -277,7 +279,7 @@ class SaxophoneKeyLayoutTest {
 
         assertEquals(e.x, bFlat.x, 1e-6f)
         assertEquals(e.x, c.x, 1e-6f)
-        assertTrue("high E, then side C, then side B flat", e.y < c.y && c.y < bFlat.y)
+        assertTrue(e.y < c.y && c.y < bFlat.y, "high E, then side C, then side B flat")
         assertEquals(e.shape, bFlat.shape)
         assertEquals(e.shape, c.shape)
     }
@@ -300,7 +302,7 @@ class SaxophoneKeyLayoutTest {
         assertTrue(notesWithAlternates.isNotEmpty())
         notesWithAlternates.flatMap { it.alternates }.forEach { alternate ->
             val missing = alternate.pressedKeys - SaxophoneKeyLayout.drawnKeys
-            assertEquals(alternate.label, emptySet<SaxKey>(), missing)
+            assertEquals(emptySet<SaxKey>(), missing, alternate.label)
         }
     }
 }

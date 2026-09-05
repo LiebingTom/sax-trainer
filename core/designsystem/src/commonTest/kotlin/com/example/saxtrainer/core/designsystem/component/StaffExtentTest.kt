@@ -3,10 +3,10 @@ package com.example.saxtrainer.core.designsystem.component
 import androidx.compose.ui.unit.dp
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 /**
  * The sizing a screen reserves for a note.
@@ -23,7 +23,7 @@ class StaffExtentTest {
         // A4 sits inside the staff, so the drawing is the staff plus room for the stem.
         val range = staffStepRange(listOf(note(NoteName.A, 4)))
 
-        assertTrue("the staff must fit", range.first <= 0 && range.last >= 8)
+        assertTrue(range.first <= 0 && range.last >= 8, "the staff must fit")
     }
 
     @Test
@@ -39,8 +39,8 @@ class StaffExtentTest {
         notes.forEach { single ->
             val alone = staffStepRange(listOf(single))
             assertTrue(
-                "${single.label} needs $alone, which does not fit in $together",
                 together.first <= alone.first && together.last >= alone.last,
+                "${single.label} needs $alone, which does not fit in $together",
             )
         }
     }
@@ -50,7 +50,7 @@ class StaffExtentTest {
         val inside = staffStepRange(listOf(note(NoteName.A, 4)))
         val ledger = staffStepRange(listOf(note(NoteName.C, 4)))
 
-        assertTrue("C4 hangs below the staff on a ledger line", ledger.first < inside.first)
+        assertTrue(ledger.first < inside.first, "C4 hangs below the staff on a ledger line")
     }
 
     @Test
@@ -70,7 +70,7 @@ class StaffExtentTest {
 
     @Test
     fun `no notes means nothing to make room for`() {
-        assertThrows(IllegalArgumentException::class.java) { staffStepRange(emptyList()) }
+        assertFailsWith<IllegalArgumentException> { staffStepRange(emptyList()) }
     }
 
     @Test

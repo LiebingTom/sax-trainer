@@ -8,11 +8,11 @@ import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.NoteValue
 import com.example.saxtrainer.core.music.ToneSequence
 import com.example.saxtrainer.core.music.ToneStep
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Where the notes of a sequence end up.
@@ -51,7 +51,10 @@ class StaffLayoutTest {
         layout.notes.zipWithNext { earlier, later ->
             assertTrue(earlier.headXSpaces < later.headXSpaces)
         }
-        assertTrue("nothing sits past the edge", layout.notes.last().headXSpaces < layout.widthSpaces)
+        assertTrue(
+            layout.notes.last().headXSpaces < layout.widthSpaces,
+            "nothing sits past the edge",
+        )
     }
 
     @Test
@@ -66,8 +69,8 @@ class StaffLayoutTest {
         )
         val gaps = layout.notes.zipWithNext { a, b -> b.headXSpaces - a.headXSpaces }
 
-        assertTrue("two eighths are close together", gaps[0] < gaps[1])
-        assertTrue("a half note is given room", gaps[2] > gaps[0])
+        assertTrue(gaps[0] < gaps[1], "two eighths are close together")
+        assertTrue(gaps[2] > gaps[0], "a half note is given room")
     }
 
     @Test
@@ -88,7 +91,7 @@ class StaffLayoutTest {
         )
 
         assertEquals(1, layout.notes.size)
-        assertNull("nothing is invented for it", layout.notes.single().notated)
+        assertNull(layout.notes.single().notated, "nothing is invented for it")
     }
 
     @Test
@@ -118,8 +121,8 @@ class StaffLayoutTest {
             altered.notes.first().placement.accidental,
         )
         assertTrue(
-            "the sharp pushes everything right",
             altered.notes.first().headXSpaces > plain.notes.first().headXSpaces,
+            "the sharp pushes everything right",
         )
     }
 
@@ -133,9 +136,9 @@ class StaffLayoutTest {
         assertEquals(Accidental.FLAT, flats.notes.single().placement.accidental)
         assertEquals(Accidental.SHARP, sharps.notes.single().placement.accidental)
         assertTrue(
-            "a B flat sits a step above an A sharp",
             flats.notes.single().placement.stepsFromBottomLine >
                 sharps.notes.single().placement.stepsFromBottomLine,
+            "a B flat sits a step above an A sharp",
         )
     }
 
@@ -151,7 +154,7 @@ class StaffLayoutTest {
 
         assertEquals(listOf(0..1), layout.beamGroups)
         assertNotNull(layout.beamGroupOf(0))
-        assertNull("a quarter is never in a group", layout.beamGroupOf(2))
+        assertNull(layout.beamGroupOf(2), "a quarter is never in a group")
     }
 
     @Test

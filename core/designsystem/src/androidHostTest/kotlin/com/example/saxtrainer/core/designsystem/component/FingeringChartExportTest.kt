@@ -3,20 +3,22 @@ package com.example.saxtrainer.core.designsystem.component
 import com.example.saxtrainer.core.fingering.Fingering
 import com.example.saxtrainer.core.fingering.FingeringKind
 import com.example.saxtrainer.core.fingering.TenorSaxophoneFingerings
-import org.junit.Assert.assertTrue
-import org.junit.Test
 import java.io.File
 import java.util.Locale
+import kotlin.test.Test
+import kotlin.test.assertTrue
 
 /**
  * Writes the whole fingering chart to disk as SVG so the diagram can be checked against a printed
  * chart without building or running the app.
  *
  * It is a test only because that is the cheapest way to run JVM code with the module's classpath;
- * it asserts little and exists to produce files. Run it on its own:
+ * it asserts little and exists to produce files. It lives in the Android host source set rather than
+ * in `commonTest` because it writes files: `java.io.File` has no counterpart in a browser, and a
+ * chart the developer prints is not something the Wasm target needs. Run it on its own:
  *
  * ```
- * gradlew.bat :core:designsystem:testDebugUnitTest --tests "*FingeringChartExportTest*"
+ * gradlew.bat :core:designsystem:testAndroidHostTest --tests "*FingeringChartExportTest*"
  * ```
  *
  * Output lands in `additional/fingering-chart/` unless `-Dfingering.chart.dir=...` says otherwise:
@@ -67,7 +69,7 @@ class FingeringChartExportTest {
 
         File(outputDir, "index.html").writeText(indexHtml(cards))
 
-        assertTrue("nothing was written", cards.size >= TenorSaxophoneFingerings.supportedNotes.size)
+        assertTrue(cards.size >= TenorSaxophoneFingerings.supportedNotes.size, "nothing was written")
         println("Fingering chart written to ${outputDir.canonicalPath} (${cards.size} diagrams)")
     }
 

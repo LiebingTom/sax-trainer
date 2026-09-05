@@ -1,7 +1,7 @@
 package com.example.saxtrainer.core.designsystem.text
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class NumbersTest {
 

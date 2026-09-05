@@ -1,0 +1,110 @@
+@file:OptIn(ExperimentalTestApi::class)
+
+package com.example.saxtrainer.feature.settings
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
+import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.settings.Instrument
+import com.example.saxtrainer.core.settings.SettingsRepository
+import com.example.saxtrainer.core.testing.FakeSettingsRepository
+import kotlin.test.Test
+import kotlin.test.assertEquals
+
+/**
+ * The settings screen in a browser, over the shared ViewModel and the shared repository interface.
+ *
+ * Where the settings are actually kept is `:core:settings`' business - `localStorage` here,
+ * SharedPreferences on Android - and is tested there. What this checks is that a tap reaches the
+ * repository and the repository's answer comes back to the screen.
+ */
+class SettingsOnWasmTest {
+
+    @Test
+    fun every_section_is_drawn_from_shared_code() = runComposeUiTest {
+        setContent { Settings(SettingsHost()) }
+
+        onNodeWithText("Settings").assertIsDisplayed()
+        onNodeWithText("Instrument").assertIsDisplayed()
+        onNodeWithText("Note naming").performScrollTo().assertIsDisplayed()
+        onNodeWithText("Count-in").performScrollTo().assertIsDisplayed()
+        onNodeWithText("Note display").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun choosing_a_naming_is_written_through_and_read_back() = runComposeUiTest {
+        val settings = FakeSettingsRepository()
+        setContent { Settings(SettingsHost(), settings) }
+
+        onNodeWithText(NoteNaming.GERMAN.displayName).performScrollTo().performClick()
+
+        waitUntil("the stored naming", TIMEOUT) {
+            settings.settings.value.noteNaming == NoteNaming.GERMAN
+        }
+        onNodeWithText(NoteNaming.GERMAN.displayName).assertIsSelected()
+        onNodeWithText(NoteNaming.INTERNATIONAL.displayName).assertIsNotSelected()
+
+        // And the other way round: a change made anywhere else shows up on the screen.
+        settings.setInstrument(Instrument.ALTO_SAX)
+        waitForIdle()
+        onNodeWithText(Instrument.ALTO_SAX.displayName).performScrollTo().assertIsSelected()
+        assertEquals(
+            NoteNaming.GERMAN,
+            settings.settings.value.noteNaming,
+            "the naming survived the second change",
+        )
+    }
+
+    @Test
+    fun a_count_in_length_is_chosen_through_the_shared_view_model() = runComposeUiTest {
+        val settings = FakeSettingsRepository()
+        setContent { Settings(SettingsHost(), settings) }
+
+        onNodeWithText("4 beats").performScrollTo().performClick()
+
+        waitUntil("the stored count-in", TIMEOUT) { settings.settings.value.countInBeats == 4 }
+    }
+}
+
+/** Everything [SettingsRoute] expects of a host: a ViewModel store and a lifecycle. */
+private class SettingsHost : ViewModelStoreOwner, LifecycleOwner {
+    override val viewModelStore = ViewModelStore()
+    val registry = LifecycleRegistry.createUnsafe(this).apply {
+        currentState = Lifecycle.State.RESUMED
+    }
+    override val lifecycle: Lifecycle get() = registry
+}
+
+@Composable
+private fun Settings(
+    host: SettingsHost,
+    settings: SettingsRepository = FakeSettingsRepository(),
+) {
+    CompositionLocalProvider(
+        LocalViewModelStoreOwner provides host,
+        LocalLifecycleOwner provides host,
+    ) {
+        SaxTrainerTheme(darkTheme = false) {
+            SettingsRoute(settingsRepository = settings, onBack = {})
+        }
+    }
+}
+
+/** Generous: these waits are on the browser's clock, not a virtual one. */
+private const val TIMEOUT = 10_000L

@@ -16,6 +16,11 @@ kotlinxBrowser = "0.5.0"
 # 1.9.0 is what the 1.12.0 tooling itself pins, and the newest material3 published is an alpha.
 composeMultiplatform = "1.12.0"
 composeMultiplatformMaterial3 = "1.9.0"
+# The JetBrains multiplatform fork of androidx.lifecycle. Same package names, same API; it is what
+# supplies ViewModel, viewModel {}, collectAsStateWithLifecycle and LifecycleEventEffect to wasmJs.
+# On Android it delegates to androidx.lifecycle of the same number, so this also sets the version
+# the app resolves to.
+jetbrainsLifecycle = "2.11.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -46,6 +51,8 @@ compose-ui = { group = "org.jetbrains.compose.ui", name = "ui", version.ref = "c
 compose-ui-tooling-preview = { group = "org.jetbrains.compose.ui", name = "ui-tooling-preview", version.ref = "composeMultiplatform" }
 compose-ui-test = { group = "org.jetbrains.compose.ui", name = "ui-test", version.ref = "composeMultiplatform" }
 compose-material3 = { group = "org.jetbrains.compose.material3", name = "material3", version.ref = "composeMultiplatformMaterial3" }
+jetbrains-lifecycle-viewmodel-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "jetbrainsLifecycle" }
+jetbrains-lifecycle-runtime-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "jetbrainsLifecycle" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

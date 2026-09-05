@@ -1,26 +1,37 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kmp.library)
 }
 
-android {
-    namespace = "com.example.saxtrainer.core.testing"
-    compileSdk {
-        version = release(37)
-    }
-
-    defaultConfig {
+kotlin {
+    android {
+        namespace = "com.example.saxtrainer.core.testing"
+        compileSdk = 37
         minSdk = 26
+
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
+        }
     }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser {
+            // Firefox rather than Karma's Chrome default: see :core:music for why.
+            testTask { useKarma { useFirefoxHeadless() } }
+        }
     }
-}
 
-dependencies {
-    // Fakes stand in for these, so anyone taking a fake needs the real thing on the classpath too.
-    api(project(":core:audio"))
-    api(project(":core:settings"))
-    implementation(libs.kotlinx.coroutines.core)
+    sourceSets {
+        commonMain.dependencies {
+            // Fakes stand in for these, so anyone taking a fake needs the real thing on the
+            // classpath too.
+            api(project(":core:audio"))
+            api(project(":core:settings"))
+            implementation(libs.kotlinx.coroutines.core)
+        }
+    }
 }

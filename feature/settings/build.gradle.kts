@@ -1,39 +1,55 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kmp.library)
+    alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
 }
 
-android {
-    namespace = "com.example.saxtrainer.feature.settings"
-    compileSdk {
-        version = release(37)
-    }
-
-    defaultConfig {
+kotlin {
+    android {
+        namespace = "com.example.saxtrainer.feature.settings"
+        compileSdk = 37
         minSdk = 26
+
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
+        }
+
+        withHostTest {}
     }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser {
+            // Firefox rather than Karma's Chrome default: see :core:music for why.
+            testTask { useKarma { useFirefoxHeadless() } }
+        }
+        // Required by the Compose UI test below: see :core:designsystem.
+        binaries.executable()
     }
 
-    buildFeatures {
-        compose = true
-    }
-}
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core:designsystem"))
+            implementation(project(":core:settings"))
+            implementation(project(":core:music"))
 
-dependencies {
-    implementation(project(":core:designsystem"))
-    implementation(project(":core:settings"))
-    implementation(project(":core:music"))
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.lifecycle.runtime.compose)
-    testImplementation(libs.junit)
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.material3)
+            implementation(libs.compose.ui)
+            implementation(libs.compose.ui.tooling.preview)
+
+            implementation(libs.jetbrains.lifecycle.viewmodel.compose)
+            implementation(libs.jetbrains.lifecycle.runtime.compose)
+        }
+        wasmJsTest.dependencies {
+            implementation(project(":core:testing"))
+            implementation(kotlin("test"))
+            implementation(libs.compose.ui.test)
+        }
+    }
 }

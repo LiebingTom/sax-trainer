@@ -1,31 +1,14 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kmp.library)
-    // Only for rememberMicrophoneAccess in androidMain: asking for permission is something a screen
-    // does, and on Android the ask goes through a Compose-scoped launcher. Nothing here draws.
+    // Only for rememberMicrophoneAccess: asking for permission is something a screen does, and on
+    // Android the ask goes through a Compose-scoped launcher, so it has to be a composable. Nothing
+    // in this module draws.
+    alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
-}
-
-/**
- * The Compose compiler runs on the Android target only.
- *
- * The one composable here is `rememberMicrophoneAccess`, which is Android's way of asking for a
- * permission and lives in `androidMain`. Left to itself the plugin also processes the Wasm
- * compilation and then fails it for having no Compose runtime on the class path.
- *
- * Revisited in M5, when Compose Multiplatform arrived: the restriction stays, because it is a
- * statement about *this* module rather than about the project. Nothing in `commonMain` or
- * `wasmJsMain` here draws, and lifting the restriction would mean putting Compose on the web
- * audio class path to satisfy a compiler pass over code that has no composables in it. It comes
- * off when the permission abstraction becomes an `expect @Composable` and the module genuinely has
- * shared Compose code - see [com.example.saxtrainer.core.audio.capture.MicrophoneAccess].
- */
-composeCompiler {
-    targetKotlinPlatforms.set(setOf(KotlinPlatformType.androidJvm))
 }
 
 kotlin {
@@ -63,6 +46,10 @@ kotlin {
             api(project(":core:music"))
             api(project(":core:dsp"))
             api(libs.kotlinx.coroutines.core)
+
+            // For rememberMicrophoneAccess and nothing else. The runtime is the whole of it: there
+            // is no drawing here, so neither foundation nor material3 is on this class path.
+            implementation(libs.compose.runtime)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -71,8 +58,8 @@ kotlin {
         androidMain.dependencies {
             // ContextCompat.checkSelfPermission, and nothing else.
             implementation(libs.androidx.core.ktx)
-            implementation(dependencies.platform(libs.androidx.compose.bom))
-            implementation(libs.androidx.compose.ui)
+            // LocalContext, and the permission launcher the prompt is delivered to.
+            implementation(libs.compose.ui)
             implementation(libs.androidx.activity.compose)
         }
         wasmJsMain.dependencies {

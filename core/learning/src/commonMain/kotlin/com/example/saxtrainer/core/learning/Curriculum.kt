@@ -47,30 +47,4 @@ data class Curriculum(val units: List<LearningUnit>) {
         val required = lessonOf(id)?.requires ?: return true
         return progress.isCompleted(required)
     }
-
-    /**
-     * The part of this curriculum that somewhere with only [trainers] can actually teach.
-     *
-     * A lesson survives when every one of its steps has a trainer here, and when whatever it
-     * requires survived too - a lesson kept behind a prerequisite that was dropped could never be
-     * unlocked. A unit left with no lessons goes with them, so nothing empty reaches a screen.
-     *
-     * This exists because a platform may have fewer trainers than the catalog was written for -
-     * the web has no microphone trainers yet - and showing a lesson that cannot be started is
-     * worse than not showing it at all. Where every trainer is present the result is this same
-     * curriculum.
-     */
-    fun runnableWith(trainers: Set<TrainerId>): Curriculum {
-        val kept = mutableSetOf<LessonId>()
-        val units = units.mapNotNull { unit ->
-            val lessons = unit.lessons.filter { lesson ->
-                val runnable = lesson.steps.all { it.trainerId in trainers } &&
-                    (lesson.requires == null || lesson.requires in kept)
-                if (runnable) kept += lesson.id
-                runnable
-            }
-            if (lessons.isEmpty()) null else unit.copy(lessons = lessons)
-        }
-        return Curriculum(units)
-    }
 }

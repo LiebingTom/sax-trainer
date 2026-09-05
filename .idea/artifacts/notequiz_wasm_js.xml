@@ -1,0 +1,6 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="notequiz-wasm-js">
+    <output-path>$PROJECT_DIR$/feature/notequiz/build/libs</output-path>
+    <root id="archive" name="notequiz-wasm-js.jar" />
+  </artifact>
+</component>

@@ -12,10 +12,9 @@ import com.example.saxtrainer.core.settings.LocalStorageSettingsRepository
 /**
  * The web app.
  *
- * The same shell, the same navigation and the same screens as Android; only the three things a
- * platform has to answer for differ. No trainers are added, so the browser gets the destinations
- * `:shell` carries and the lessons that can be taught with them - the microphone trainers arrive
- * in M8.
+ * The same shell, the same navigation, the same screens and the same trainers as Android; only the
+ * three things a platform has to answer for differ, and each of those is an implementation of an
+ * interface `:shell` never looks behind.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {

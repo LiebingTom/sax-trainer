@@ -4,7 +4,7 @@ import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
-import com.example.saxtrainer.learning.catalog.steps.noteTrainerLaunchOf
+import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
 import com.example.saxtrainer.learning.catalog.units.ACCIDENTALS_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.FIRST_NOTES_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.OCTAVE_UNIT_ID
@@ -61,10 +61,10 @@ class UnitLessonsTest {
 
     @Test
     fun `the hint is given while the notes are new and taken away later`() {
-        val early = noteTrainerLaunchOf(
+        val early = noteTrainerPresetOf(
             SaxTrainerCurriculum.lessonOf(LessonId("first-notes-play"))!!.stepAt(1)!!,
         )!!
-        val later = noteTrainerLaunchOf(
+        val later = noteTrainerPresetOf(
             SaxTrainerCurriculum.lessonOf(LessonId("octave-play"))!!.firstStep,
         )!!
 

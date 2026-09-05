@@ -16,9 +16,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 
-/** The [MicrophoneAccess] for this screen. Safe to call whether or not the screen needs audio. */
 @Composable
-fun rememberMicrophoneAccess(): MicrophoneAccess {
+actual fun rememberMicrophoneAccess(): MicrophoneAccess {
     val context = LocalContext.current
 
     // The system delivers its answer to the launcher, not to whoever asked, so the caller's callback

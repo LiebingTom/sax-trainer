@@ -7,6 +7,8 @@ import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.feature.notequiz.QuizPreset
+import com.example.saxtrainer.feature.fingering.FingeringPreset
+import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
 import com.example.saxtrainer.learning.catalog.steps.fingeringStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
@@ -42,14 +44,16 @@ val accidentalsUnit = LearningUnit(
             subtitle = "Read it either way: name or notation, at random",
             steps = listOf(
                 fingeringStep(
-                    notes = ACCIDENTAL_NOTES,
-                    order = NoteOrder.RANDOM,
-                    secondsPerNote = 5,
-                    rounds = 2,
-                    checkPlaying = true,
-                    // Each note comes up as its letter or on the staff, decided as the exercise
-                    // is built: the point of the lesson is that neither can be relied on.
-                    noteDisplay = NoteDisplay.RANDOM,
+                    FingeringPreset(
+                        notes = ACCIDENTAL_NOTES,
+                        order = NoteOrder.RANDOM,
+                        secondsPerNote = 5,
+                        rounds = 2,
+                        checkPlaying = true,
+                        // Each note comes up as its letter or on the staff, decided as the exercise
+                        // is built: the point of the lesson is that neither can be relied on.
+                        noteDisplay = NoteDisplay.RANDOM,
+                    ),
                 ),
             ),
         ),
@@ -59,11 +63,13 @@ val accidentalsUnit = LearningUnit(
             subtitle = "Twice through, no hint",
             steps = listOf(
                 noteTrainerStep(
-                    notes = ACCIDENTAL_NOTES,
-                    order = NoteOrder.RANDOM,
-                    rounds = 2,
-                    showFingeringHint = false,
-                    targetSeconds = 4,
+                    NoteTrainerPreset(
+                        notes = ACCIDENTAL_NOTES,
+                        order = NoteOrder.RANDOM,
+                        rounds = 2,
+                        showFingeringHint = false,
+                        targetSeconds = 4,
+                    ),
                 ),
             ),
         ),

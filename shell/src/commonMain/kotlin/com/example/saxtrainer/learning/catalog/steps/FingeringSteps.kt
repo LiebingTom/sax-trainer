@@ -1,56 +1,33 @@
 package com.example.saxtrainer.learning.catalog.steps
 
-import com.example.saxtrainer.core.exercise.NoteOrder
+import com.example.saxtrainer.core.learning.ExerciseOutcome
 import com.example.saxtrainer.core.learning.LessonStep
 import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.core.learning.TrainerLaunch
-import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.core.settings.NoteDisplay
+import com.example.saxtrainer.feature.fingering.FingeringPreset
+import com.example.saxtrainer.feature.fingering.FingeringResult
+
+/** How a fingering exercise becomes a lesson step, and how its result becomes progress. */
+
+/** Carries a fingering configuration through the Learning layer, which never looks inside it. */
+private data class FingeringLaunch(val preset: FingeringPreset) : TrainerLaunch
+
+fun fingeringStep(preset: FingeringPreset, title: String = "") =
+    LessonStep(TrainerId.FINGERING, FingeringLaunch(preset), title)
+
+fun fingeringPresetOf(step: LessonStep): FingeringPreset? =
+    (step.launch as? FingeringLaunch)?.preset
 
 /**
- * How a fingering exercise becomes a lesson step.
- *
- * The configuration is written out here rather than being a `FingeringPreset`, because
- * `:feature:fingering` is Android-only until M8 and this catalog is shared. The fields are the
- * trainer's own, one for one; `:app` turns a [FingeringLaunch] back into a preset where it
- * registers the destination, which is the only place that can see both. When the trainer becomes
- * multiplatform this can carry the preset again, as [NoteQuizSteps] already does.
+ * Reaching the last note is what completes a fingering lesson: with listening switched off the
+ * trainer judges nothing, so there would otherwise be no way to finish one in a quiet room. The
+ * score is only meaningful when the microphone was actually listening.
  */
-data class FingeringLaunch(
-    val notes: List<Note>,
-    val order: NoteOrder = NoteOrder.RANDOM,
-    val secondsPerNote: Int = 5,
-    val rounds: Int = 1,
-    /** Whether the player has to sound each note, or only read its fingering. */
-    val checkPlaying: Boolean = false,
-    /** null leaves the player's own note-display preference alone. */
-    val noteDisplay: NoteDisplay? = null,
-    /** Whether the exercise begins by itself rather than waiting for Start. */
-    val autoStart: Boolean = true,
-) : TrainerLaunch
-
-fun fingeringStep(
-    notes: List<Note>,
-    order: NoteOrder = NoteOrder.RANDOM,
-    secondsPerNote: Int = 5,
-    rounds: Int = 1,
-    checkPlaying: Boolean = false,
-    noteDisplay: NoteDisplay? = null,
-    autoStart: Boolean = true,
-    title: String = "",
-) = LessonStep(
-    trainerId = TrainerId.FINGERING,
-    launch = FingeringLaunch(
-        notes = notes,
-        order = order,
-        secondsPerNote = secondsPerNote,
-        rounds = rounds,
-        checkPlaying = checkPlaying,
-        noteDisplay = noteDisplay,
-        autoStart = autoStart,
-    ),
-    title = title,
+fun fingeringOutcomeOf(result: FingeringResult): ExerciseOutcome = ExerciseOutcome(
+    completed = result.completed,
+    score = if (result.checked && result.plannedNoteCount > 0) {
+        result.correctCount.toFloat() / result.plannedNoteCount
+    } else {
+        null
+    },
 )
-
-/** The configuration a step carries, or null when the step belongs to a different trainer. */
-fun fingeringLaunchOf(step: LessonStep): FingeringLaunch? = step.launch as? FingeringLaunch

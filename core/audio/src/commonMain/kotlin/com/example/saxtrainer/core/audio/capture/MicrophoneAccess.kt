@@ -1,5 +1,7 @@
 package com.example.saxtrainer.core.audio.capture
 
+import androidx.compose.runtime.Composable
+
 /**
  * Whether this app may record, and how to ask.
  *
@@ -11,9 +13,7 @@ package com.example.saxtrainer.core.audio.capture
  * Four trainers used to repeat the same launcher, the same granted-check and, in one case, the same
  * hand-built intent to the app's settings page. This is that, once.
  *
- * How a screen gets one is still platform-specific: Android has `rememberMicrophoneAccess()`, the
- * web has `WebMicrophoneAccess`. They become one `expect @Composable` in M5, when Compose
- * Multiplatform arrives and `commonMain` can hold a composable at all.
+ * How a screen gets one is [rememberMicrophoneAccess], which every platform answers its own way.
  */
 interface MicrophoneAccess {
     /**
@@ -37,3 +37,13 @@ interface MicrophoneAccess {
      */
     fun openSettings()
 }
+
+/**
+ * The [MicrophoneAccess] for this screen. Safe to call whether or not the screen needs audio:
+ * nothing is prompted for and no device is opened until [MicrophoneAccess.request] is called.
+ *
+ * A composable rather than a plain factory because Android's prompt is delivered to a
+ * Compose-scoped result launcher, which can only be registered from a composition.
+ */
+@Composable
+expect fun rememberMicrophoneAccess(): MicrophoneAccess

@@ -1,10 +1,19 @@
 package com.example.saxtrainer.core.audio.capture
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.example.saxtrainer.core.audio.web.errorNameOf
 import com.example.saxtrainer.core.audio.web.queryMicrophonePermission
 import com.example.saxtrainer.core.audio.web.requestMicrophone
 import com.example.saxtrainer.core.audio.web.stopTracks
 import com.example.saxtrainer.core.audio.web.streamOf
+
+/**
+ * One per screen, like Android's - though the browser needs no launcher to register, so this is
+ * only a `remember`.
+ */
+@Composable
+actual fun rememberMicrophoneAccess(): MicrophoneAccess = remember { WebMicrophoneAccess() }
 
 /**
  * [MicrophoneAccess] for the browser.

@@ -12,11 +12,9 @@ plugins {
  * The application itself, minus its entry point: the landing page, the navigation graph, the
  * lesson catalog and the container that holds the app's few singletons.
  *
- * This is the one module allowed to depend on features. `:app` and `:webApp` add a `main` and the
- * platform's own implementations of the interfaces in `AppContainer`, and nothing else.
- *
- * The microphone trainers are deliberately absent: they are Android-only until M8, so `:app`
- * registers them itself through `PlatformTrainers`.
+ * This is the one module allowed to depend on features, and since M8 it depends on all of them.
+ * `:app` and `:webApp` add a `main` and the platform's own implementations of the interfaces in
+ * `AppContainer`, and nothing else.
  */
 kotlin {
     android {
@@ -47,11 +45,17 @@ kotlin {
             api(project(":core:audio"))
             api(project(":core:learning"))
             api(project(":core:settings"))
-            api(project(":feature:notequiz"))
-
             implementation(project(":core:designsystem"))
             implementation(project(":core:exercise"))
             implementation(project(":core:music"))
+
+            // The trainers, all of which the catalog configures by name: a lesson step carries the
+            // trainer's own preset type, so these are part of this module's surface.
+            api(project(":feature:fingering"))
+            api(project(":feature:longtones"))
+            api(project(":feature:notequiz"))
+            api(project(":feature:notetrainer"))
+            api(project(":feature:sequence"))
             implementation(project(":feature:learning"))
             implementation(project(":feature:metronome"))
             implementation(project(":feature:settings"))
@@ -62,9 +66,7 @@ kotlin {
             implementation(libs.compose.ui)
             implementation(libs.compose.ui.tooling.preview)
 
-            // `api`: PlatformTrainers hands a NavGraphBuilder and a NavHostController to whoever
-            // registers the destinations this module does not have.
-            api(libs.jetbrains.navigation.compose)
+            implementation(libs.jetbrains.navigation.compose)
             implementation(libs.jetbrains.lifecycle.runtime.compose)
         }
         commonTest.dependencies {

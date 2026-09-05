@@ -1,0 +1,6 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="probe-wasm-js">
+    <output-path>$PROJECT_DIR$/probe/build/libs</output-path>
+    <root id="archive" name="probe-wasm-js.jar" />
+  </artifact>
+</component>

@@ -1,0 +1,6 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="metronome">
+    <output-path>$PROJECT_DIR$/feature/metronome/build/libs</output-path>
+    <root id="archive" name="metronome.jar" />
+  </artifact>
+</component>

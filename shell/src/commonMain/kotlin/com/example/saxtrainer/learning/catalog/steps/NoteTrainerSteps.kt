@@ -1,43 +1,32 @@
 package com.example.saxtrainer.learning.catalog.steps
 
-import com.example.saxtrainer.core.exercise.NoteOrder
+import com.example.saxtrainer.core.learning.ExerciseOutcome
 import com.example.saxtrainer.core.learning.LessonStep
 import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.core.learning.TrainerLaunch
-import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
+import com.example.saxtrainer.feature.notetrainer.NoteTrainerResult
 
-/** How a note trainer exercise becomes a lesson step. See [FingeringLaunch] for why it is data. */
-data class NoteTrainerLaunch(
-    val notes: List<Note>,
-    val order: NoteOrder = NoteOrder.RANDOM,
-    val rounds: Int = 1,
-    /** Whether the fingering is offered while the note is being asked for. */
-    val showFingeringHint: Boolean = false,
-    /** What counts as a quick answer at this level. Scoring only; nothing times out. */
-    val targetSeconds: Int = 4,
-    /** Whether the exercise begins by itself rather than waiting for Start. */
-    val autoStart: Boolean = true,
-) : TrainerLaunch
+/** How a note trainer exercise becomes a lesson step, and how its result becomes progress. */
 
-fun noteTrainerStep(
-    notes: List<Note>,
-    order: NoteOrder = NoteOrder.RANDOM,
-    rounds: Int = 1,
-    showFingeringHint: Boolean = false,
-    targetSeconds: Int = 4,
-    autoStart: Boolean = true,
-    title: String = "",
-) = LessonStep(
-    trainerId = TrainerId.NOTE_TRAINER,
-    launch = NoteTrainerLaunch(
-        notes = notes,
-        order = order,
-        rounds = rounds,
-        showFingeringHint = showFingeringHint,
-        targetSeconds = targetSeconds,
-        autoStart = autoStart,
-    ),
-    title = title,
+/** Carries a note trainer configuration through the Learning layer, which never looks inside it. */
+private data class NoteTrainerLaunch(val preset: NoteTrainerPreset) : TrainerLaunch
+
+fun noteTrainerStep(preset: NoteTrainerPreset, title: String = "") =
+    LessonStep(TrainerId.NOTE_TRAINER, NoteTrainerLaunch(preset), title)
+
+fun noteTrainerPresetOf(step: LessonStep): NoteTrainerPreset? =
+    (step.launch as? NoteTrainerLaunch)?.preset
+
+/**
+ * Notes that were played are what count. A skipped note is the only thing that costs score, which
+ * is the honest reading of "did you play it" - how long it took is the player's business.
+ */
+fun noteTrainerOutcomeOf(result: NoteTrainerResult): ExerciseOutcome = ExerciseOutcome(
+    completed = result.completed,
+    score = if (result.plannedNoteCount > 0) {
+        result.correctCount.toFloat() / result.plannedNoteCount
+    } else {
+        null
+    },
 )
-
-fun noteTrainerLaunchOf(step: LessonStep): NoteTrainerLaunch? = step.launch as? NoteTrainerLaunch

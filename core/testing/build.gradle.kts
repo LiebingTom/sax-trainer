@@ -33,5 +33,12 @@ kotlin {
             api(project(":core:settings"))
             implementation(libs.kotlinx.coroutines.core)
         }
+        wasmJsMain.dependencies {
+            // For awaitInRealTime, which is about the browser's event loop rather than about
+            // Compose. Only the wasmJs target has the problem it solves, so only it carries the
+            // test framework - see BrowserTime.kt.
+            implementation(libs.compose.ui.test)
+            implementation(libs.kotlinx.coroutines.core)
+        }
     }
 }

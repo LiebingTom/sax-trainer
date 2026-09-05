@@ -9,6 +9,9 @@ import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.feature.notequiz.QuizPreset
+import com.example.saxtrainer.feature.fingering.FingeringPreset
+import com.example.saxtrainer.feature.sequence.SequencePreset
+import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
 import com.example.saxtrainer.learning.catalog.steps.fingeringStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
@@ -47,12 +50,14 @@ val octaveUnit = LearningUnit(
             subtitle = "All eight notes, mixed up, played as you go",
             steps = listOf(
                 fingeringStep(
-                    notes = OCTAVE_NOTES,
-                    order = NoteOrder.RANDOM,
-                    secondsPerNote = 5,
-                    rounds = 2,
-                    checkPlaying = true,
-                    noteDisplay = NoteDisplay.BOTH,
+                    FingeringPreset(
+                        notes = OCTAVE_NOTES,
+                        order = NoteOrder.RANDOM,
+                        secondsPerNote = 5,
+                        rounds = 2,
+                        checkPlaying = true,
+                        noteDisplay = NoteDisplay.BOTH,
+                    ),
                 ),
             ),
         ),
@@ -62,10 +67,12 @@ val octaveUnit = LearningUnit(
             subtitle = "No hint this time: the grip is yours to remember",
             steps = listOf(
                 noteTrainerStep(
-                    notes = OCTAVE_NOTES,
-                    order = NoteOrder.RANDOM,
-                    showFingeringHint = false,
-                    targetSeconds = 4,
+                    NoteTrainerPreset(
+                        notes = OCTAVE_NOTES,
+                        order = NoteOrder.RANDOM,
+                        showFingeringHint = false,
+                        targetSeconds = 4,
+                    ),
                 ),
             ),
         ),
@@ -75,14 +82,16 @@ val octaveUnit = LearningUnit(
             subtitle = "Up and down, five times, slowly, with a click",
             steps = listOf(
                 sequenceStep(
-                    sequenceId = SequenceLibrary.cMajorUp.id,
-                    tempo = Tempo(70),
-                    addInverse = true,
-                    repeats = 5,
-                    metronome = true,
-                    checkPitch = true,
-                    // Timing is not checked yet - one thing at a time.
-                    checkTiming = false,
+                    SequencePreset(
+                        sequenceId = SequenceLibrary.cMajorUp.id,
+                        tempo = Tempo(70),
+                        addInverse = true,
+                        repeats = 5,
+                        metronome = true,
+                        checkPitch = true,
+                        // Timing is not checked yet - one thing at a time.
+                        checkTiming = false,
+                    ),
                 ),
             ),
         ),

@@ -4,11 +4,15 @@ package com.example.saxtrainer.web
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.ComposeUiTest
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -44,7 +48,7 @@ class WebEntryPointTest {
         }
 
         onNodeWithText("Sax Trainer").assertIsDisplayed()
-        onNodeWithText("Note Quiz").performScrollTo().assertIsDisplayed()
+        scrolledTo("Note Quiz").assertIsDisplayed()
     }
 
     @Test
@@ -59,13 +63,22 @@ class WebEntryPointTest {
             }
         }
 
-        onNodeWithText("Settings").performScrollTo().performClick()
+        scrolledTo("Settings").performClick()
 
         // Drawn from LocalStorageSettingsRepository, which is what the page really uses.
         waitUntil("the settings screen", TIMEOUT) {
             onAllNodesWithText("Note naming").fetchSemanticsNodes().isNotEmpty()
         }
     }
+}
+
+/**
+ * The landing page is a lazy list, so a card further down it has not been composed yet and cannot
+ * simply be scrolled to. This scrolls the list until it exists.
+ */
+private fun ComposeUiTest.scrolledTo(text: String): SemanticsNodeInteraction {
+    onNode(hasScrollAction()).performScrollToNode(hasText(text))
+    return onNodeWithText(text)
 }
 
 /** What `ComposeViewport` provides in the page: a ViewModel store and a lifecycle. */

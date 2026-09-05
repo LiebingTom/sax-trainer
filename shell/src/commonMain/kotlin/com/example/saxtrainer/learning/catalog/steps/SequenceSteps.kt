@@ -1,49 +1,28 @@
 package com.example.saxtrainer.learning.catalog.steps
 
+import com.example.saxtrainer.core.learning.ExerciseOutcome
 import com.example.saxtrainer.core.learning.LessonStep
 import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.core.learning.TrainerLaunch
-import com.example.saxtrainer.core.music.Tempo
+import com.example.saxtrainer.feature.sequence.SequencePreset
+import com.example.saxtrainer.feature.sequence.SequenceResult
 
-/** How a sequence exercise becomes a lesson step. See [FingeringLaunch] for why it is data. */
-data class SequenceLaunch(
-    /** Id of a sequence in the trainer's library. An unknown id leaves the default selected. */
-    val sequenceId: String,
-    val tempo: Tempo,
-    /** Plays the notes back down to where they started before repeating. */
-    val addInverse: Boolean = false,
-    /** How many times through. Five is a practice session rather than a single read-through. */
-    val repeats: Int = 5,
-    val metronome: Boolean = true,
-    val checkPitch: Boolean = false,
-    val checkTiming: Boolean = false,
-    /** Whether the exercise begins by itself rather than waiting for Start. */
-    val autoStart: Boolean = true,
-) : TrainerLaunch
+/** How a sequence exercise becomes a lesson step, and how its result becomes progress. */
 
-fun sequenceStep(
-    sequenceId: String,
-    tempo: Tempo,
-    addInverse: Boolean = false,
-    repeats: Int = 5,
-    metronome: Boolean = true,
-    checkPitch: Boolean = false,
-    checkTiming: Boolean = false,
-    autoStart: Boolean = true,
-    title: String = "",
-) = LessonStep(
-    trainerId = TrainerId.SEQUENCE,
-    launch = SequenceLaunch(
-        sequenceId = sequenceId,
-        tempo = tempo,
-        addInverse = addInverse,
-        repeats = repeats,
-        metronome = metronome,
-        checkPitch = checkPitch,
-        checkTiming = checkTiming,
-        autoStart = autoStart,
-    ),
-    title = title,
+/** Carries a sequence configuration through the Learning layer, which never looks inside it. */
+private data class SequenceLaunch(val preset: SequencePreset) : TrainerLaunch
+
+fun sequenceStep(preset: SequencePreset, title: String = "") =
+    LessonStep(TrainerId.SEQUENCE, SequenceLaunch(preset), title)
+
+fun sequencePresetOf(step: LessonStep): SequencePreset? =
+    (step.launch as? SequenceLaunch)?.preset
+
+fun sequenceOutcomeOf(result: SequenceResult): ExerciseOutcome = ExerciseOutcome(
+    completed = result.completed,
+    score = if (result.checkedPitch && result.plannedNoteCount > 0) {
+        result.correctCount.toFloat() / result.plannedNoteCount
+    } else {
+        null
+    },
 )
-
-fun sequenceLaunchOf(step: LessonStep): SequenceLaunch? = step.launch as? SequenceLaunch

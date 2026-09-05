@@ -1,7 +1,6 @@
 package com.example.saxtrainer.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -16,15 +15,24 @@ import com.example.saxtrainer.core.learning.ExerciseOutcome
 import com.example.saxtrainer.core.learning.Lesson
 import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.learning.TrainerId
+import com.example.saxtrainer.feature.fingering.FingeringRoute
 import com.example.saxtrainer.feature.learning.LearningRoute
+import com.example.saxtrainer.feature.longtones.LongToneRoute
 import com.example.saxtrainer.feature.metronome.MetronomeRoute
 import com.example.saxtrainer.feature.notequiz.QuizRoute
+import com.example.saxtrainer.feature.notetrainer.NoteTrainerRoute
+import com.example.saxtrainer.feature.sequence.SequenceRoute
 import com.example.saxtrainer.feature.settings.SettingsRoute
 import com.example.saxtrainer.home.HomeScreen
 import com.example.saxtrainer.home.learningEntriesOf
-import com.example.saxtrainer.home.practiceGroupsOf
+import com.example.saxtrainer.learning.catalog.steps.fingeringOutcomeOf
+import com.example.saxtrainer.learning.catalog.steps.fingeringPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
+import com.example.saxtrainer.learning.catalog.steps.noteTrainerOutcomeOf
+import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
+import com.example.saxtrainer.learning.catalog.steps.sequenceOutcomeOf
+import com.example.saxtrainer.learning.catalog.steps.sequencePresetOf
 
 /**
  * Central navigation graph, and the only place that knows both the destinations and the
@@ -36,20 +44,17 @@ import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
  * and turns the trainer's own result back into lesson progress. Neither side knows the other
  * exists, which is what lets one lesson run several trainers in turn.
  *
- * What is registered here is what every platform has. [platform] adds the rest - today the
- * microphone trainers, which only Android can build - and the landing page and the catalog are
- * trimmed to match, so nothing on screen leads anywhere that does not exist.
+ * Every destination the app has is here, and every platform gets all of them. The microphone
+ * trainers used to be registered by `:app` alone, because only Android could build them; since M8
+ * they are shared like the rest, and what a browser does about a microphone is
+ * [com.example.saxtrainer.core.audio.capture.AudioCapture]'s business rather than navigation's.
  */
 @Composable
 fun SaxTrainerNavHost(
     container: AppContainer,
-    platform: PlatformTrainers = PlatformTrainers.None,
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
 ) {
-    val trainers = remember(platform) { SHELL_TRAINERS + platform.ids }
-    val curriculum = remember(container, trainers) { container.curriculum.runnableWith(trainers) }
-
     NavHost(
         navController = navController,
         startDestination = SaxTrainerDestination.HOME,
@@ -58,13 +63,20 @@ fun SaxTrainerNavHost(
         composable(SaxTrainerDestination.HOME) {
             HomeScreen(
                 onEntryClick = { route -> navController.navigate(route) },
-                learning = learningEntriesOf(curriculum),
-                practice = practiceGroupsOf(trainers),
+                learning = learningEntriesOf(container.curriculum),
             )
         }
         composable(SaxTrainerDestination.METRONOME) {
             MetronomeRoute(
                 newMetronome = container.newMetronome,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(SaxTrainerDestination.LONG_TONES) {
+            LongToneRoute(
+                audioCapture = container.audioCapture,
+                newMetronome = container.newMetronome,
+                settingsRepository = container.settingsRepository,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -80,13 +92,57 @@ fun SaxTrainerNavHost(
                 onBack = { navController.popBackStack() },
             )
         }
+        lessonStep(
+            pattern = SaxTrainerDestination.FINGERING_PATTERN,
+            container = container,
+            navController = navController,
+        ) { lesson, stepIndex, finish ->
+            // No lesson argument is the freely configurable Practice entry, which is what every
+            // default in FingeringRoute describes.
+            FingeringRoute(
+                settingsRepository = container.settingsRepository,
+                audioCapture = container.audioCapture,
+                newMetronome = container.newMetronome,
+                preset = lesson?.stepAt(stepIndex)?.let(::fingeringPresetOf),
+                onExerciseFinished = { result -> finish(fingeringOutcomeOf(result)) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        lessonStep(
+            pattern = SaxTrainerDestination.NOTE_TRAINER_PATTERN,
+            container = container,
+            navController = navController,
+        ) { lesson, stepIndex, finish ->
+            NoteTrainerRoute(
+                settingsRepository = container.settingsRepository,
+                audioCapture = container.audioCapture,
+                newMetronome = container.newMetronome,
+                preset = lesson?.stepAt(stepIndex)?.let(::noteTrainerPresetOf),
+                onExerciseFinished = { result -> finish(noteTrainerOutcomeOf(result)) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        lessonStep(
+            pattern = SaxTrainerDestination.SEQUENCE_PATTERN,
+            container = container,
+            navController = navController,
+        ) { lesson, stepIndex, finish ->
+            SequenceRoute(
+                settingsRepository = container.settingsRepository,
+                audioCapture = container.audioCapture,
+                newMetronome = container.newMetronome,
+                preset = lesson?.stepAt(stepIndex)?.let(::sequencePresetOf),
+                onExerciseFinished = { result -> finish(sequenceOutcomeOf(result)) },
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(
             route = SaxTrainerDestination.LEARNING_UNIT,
             arguments = listOf(navArgument(UNIT_ID_ARG) { type = NavType.StringType }),
         ) { entry ->
             val unit = entry.arguments
                 ?.read { getStringOrNull(UNIT_ID_ARG) }
-                ?.let(curriculum::unitOf)
+                ?.let(container.curriculum::unitOf)
             if (unit == null) {
                 navController.popBackStack()
             } else {
@@ -94,10 +150,13 @@ fun SaxTrainerNavHost(
                     unit = unit,
                     progressRepository = container.lessonProgress,
                     isUnlocked = { lesson ->
-                        curriculum.isUnlocked(lesson.id, container.lessonProgress.progress.value)
+                        container.curriculum.isUnlocked(
+                            lesson.id,
+                            container.lessonProgress.progress.value,
+                        )
                     },
                     onStartLesson = { id ->
-                        curriculum.lessonOf(id)?.let { lesson ->
+                        container.curriculum.lessonOf(id)?.let { lesson ->
                             // Starting a lesson starts it from the top: what a half-finished
                             // attempt had scored is not worth carrying into a new one.
                             container.lessonRuns.clear(id)
@@ -114,23 +173,17 @@ fun SaxTrainerNavHost(
                 onBack = { navController.popBackStack() },
             )
         }
-
-        platform.destinations(this, navController, container)
     }
 }
-
-/** The trainers this module carries itself, wherever it runs. */
-private val SHELL_TRAINERS = setOf(TrainerId.NOTE_QUIZ, TrainerId.METRONOME)
 
 /**
  * One trainer destination that may be running a lesson step.
  *
  * Every preset-carrying trainer is registered the same way, so the rule for ending a step - keep
  * what it scored, then either run the next one or write the lesson's combined outcome - lives in
- * exactly one place instead of being copied into each of them. Public because the trainers a
- * platform adds for itself have to be registered on the same terms as the ones here.
+ * exactly one place instead of being copied into each of them.
  */
-fun NavGraphBuilder.lessonStep(
+private fun NavGraphBuilder.lessonStep(
     pattern: String,
     container: AppContainer,
     navController: NavHostController,
@@ -209,8 +262,6 @@ private fun NavHostController.finishStep(
  *
  * The single point at which a trainer is registered with the Learning layer: the branches are
  * exhaustive over [TrainerId], so a new trainer cannot be added without being given a home here.
- * A route for a trainer the platform does not have is unreachable rather than wrong: the catalog
- * is trimmed to what can be run before any lesson is offered.
  */
 private fun routeForStep(lesson: Lesson, stepIndex: Int): String? =
     when (lesson.stepAt(stepIndex)?.trainerId) {

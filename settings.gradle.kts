@@ -40,6 +40,19 @@ dependencyResolutionManagement {
             }
             filter { includeModule("com.yarnpkg", "yarn") }
         }
+        // Only the optimised (production) Wasm build needs this one.
+        exclusiveContent {
+            forRepository {
+                ivy("https://github.com/WebAssembly/binaryen/releases/download") {
+                    name = "Binaryen distributions"
+                    patternLayout {
+                        artifact("version_[revision]/[artifact]-version_[revision]-[classifier].[ext]")
+                    }
+                    metadataSources { artifact() }
+                }
+            }
+            filter { includeModule("com.github.webassembly", "binaryen") }
+        }
     }
 }
 
@@ -65,3 +78,6 @@ include(":feature:sequence")
 include(":feature:notequiz")
 include(":feature:notetrainer")
 include(":feature:settings")
+
+// M3 throwaway: the Web Audio probe. Delete this line and the probe/ directory to remove it.
+include(":probe")

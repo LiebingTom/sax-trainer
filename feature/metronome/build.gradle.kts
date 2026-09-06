@@ -45,6 +45,8 @@ kotlin {
             // Only for the shared monotonic reading the tap-tempo estimator measures against.
             implementation(project(":core:exercise"))
             implementation(project(":core:music"))
+            // Only for the store that remembers the tempo the metronome was last started at.
+            implementation(project(":core:settings"))
 
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)

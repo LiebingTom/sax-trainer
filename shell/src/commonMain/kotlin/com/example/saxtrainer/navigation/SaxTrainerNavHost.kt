@@ -69,6 +69,7 @@ fun SaxTrainerNavHost(
         composable(SaxTrainerDestination.METRONOME) {
             MetronomeRoute(
                 newMetronome = container.newMetronome,
+                exerciseSetups = container.exerciseSetups,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -77,6 +78,7 @@ fun SaxTrainerNavHost(
                 audioCapture = container.audioCapture,
                 newMetronome = container.newMetronome,
                 settingsRepository = container.settingsRepository,
+                exerciseSetups = container.exerciseSetups,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -87,6 +89,7 @@ fun SaxTrainerNavHost(
         ) { lesson, stepIndex, finish ->
             QuizRoute(
                 settingsRepository = container.settingsRepository,
+                exerciseSetups = container.exerciseSetups,
                 preset = lesson?.stepAt(stepIndex)?.let(::noteQuizPresetOf),
                 onExerciseFinished = { result -> finish(noteQuizOutcomeOf(result)) },
                 onBack = { navController.popBackStack() },
@@ -101,6 +104,7 @@ fun SaxTrainerNavHost(
             // default in FingeringRoute describes.
             FingeringRoute(
                 settingsRepository = container.settingsRepository,
+                exerciseSetups = container.exerciseSetups,
                 audioCapture = container.audioCapture,
                 newMetronome = container.newMetronome,
                 preset = lesson?.stepAt(stepIndex)?.let(::fingeringPresetOf),
@@ -115,6 +119,7 @@ fun SaxTrainerNavHost(
         ) { lesson, stepIndex, finish ->
             NoteTrainerRoute(
                 settingsRepository = container.settingsRepository,
+                exerciseSetups = container.exerciseSetups,
                 audioCapture = container.audioCapture,
                 newMetronome = container.newMetronome,
                 preset = lesson?.stepAt(stepIndex)?.let(::noteTrainerPresetOf),
@@ -129,6 +134,7 @@ fun SaxTrainerNavHost(
         ) { lesson, stepIndex, finish ->
             SequenceRoute(
                 settingsRepository = container.settingsRepository,
+                exerciseSetups = container.exerciseSetups,
                 audioCapture = container.audioCapture,
                 newMetronome = container.newMetronome,
                 preset = lesson?.stepAt(stepIndex)?.let(::sequencePresetOf),

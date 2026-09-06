@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.settings.Exercise
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
 import kotlin.random.Random
 import kotlinx.coroutines.CoroutineDispatcher
@@ -28,6 +31,11 @@ import kotlinx.coroutines.launch
  */
 class QuizViewModel(
     private val settingsRepository: SettingsRepository,
+    /**
+     * What this quiz was last started with. Defaulted so a quiz without one still runs; it simply
+     * opens on the plain defaults every time.
+     */
+    private val exerciseSetups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
     private val preset: QuizPreset? = null,
     private val config: QuizConfig = QuizConfig(),
     private val random: Random = Random.Default,
@@ -75,6 +83,22 @@ class QuizViewModel(
 
     fun selectQuestionCount(count: Int) = updateSetup { it.copy(questionCount = count) }
 
+    fun selectSuccessDelaySeconds(seconds: Double) = updateSetup {
+        it.copy(successDelaySeconds = seconds.coerceAtLeast(0.0))
+    }
+
+    /**
+     * Cuts the wait after a right answer short and goes straight to the next question.
+     *
+     * Only heard while a right answer is on screen, so a tap can never stand in for an answer: what
+     * a question is answered with is an option, never the panel around it. A wrong answer keeps its
+     * own wait, because there is something to read in it.
+     */
+    fun skipSuccessDelay() {
+        val phase = _uiState.value.phase
+        if (phase is QuizPhase.Answered && phase.correct) continueFrom(phase)
+    }
+
     /** Whether the screen should start without being asked, answered true only once. */
     fun consumeAutoStart(): Boolean {
         if (!autoStartPending) return false
@@ -86,34 +110,69 @@ class QuizViewModel(
         val state = _uiState.value
         if (state.isRunning || !state.canStart) return
 
+        // What the player started with becomes what they are offered next time. A ready-made run
+        // is somebody else's decision and is deliberately not remembered as theirs.
+        if (!state.isPreconfigured) {
+            exerciseSetups.remember(Exercise.NOTE_QUIZ, state.toSetup())
+        }
+
         revealJob?.cancel()
         answers.clear()
         ask(index = 0)
     }
 
+    /** Takes an answer to the first slot, which is the only one most modes have. */
+    fun answer(index: Int) = answer(slot = 0, option = index)
+
     /**
-     * Takes the answer at [index] and shows how it went.
+     * Takes [option] as the answer in [slot] and shows how it went.
      *
-     * Answering while an answer is already on screen skips the rest of the wait instead of counting
-     * twice - the one thing that must never make a quick session slow is being made to watch it.
+     * A slot is answered once: what was chosen stands, right or wrong, and further taps on it are
+     * ignored. The question itself is over only when every slot has been answered, so a mode that
+     * asks two things waits for both before anything is judged, recorded or timed.
+     *
+     * Answering while a settled question is already on screen skips the rest of the wait instead of
+     * counting twice - the one thing that must never make a quick session slow is being made to
+     * watch it.
      */
-    fun answer(index: Int) {
+    fun answer(slot: Int, option: Int) {
         when (val phase = _uiState.value.phase) {
             is QuizPhase.Answered -> continueFrom(phase)
 
             is QuizPhase.Asking -> {
-                if (index !in 0 until phase.question.optionCount) return
-                val answered = QuizPhase.Answered(phase.question, phase.index, index)
-                answers += AnsweredQuestion(phase.question.note, answered.correct)
-                _uiState.value = _uiState.value.copy(phase = answered)
+                val options = phase.question.answers.getOrNull(slot) ?: return
+                if (option !in 0 until options.optionCount) return
+                if (phase.chosen[slot] != null) return
 
-                revealJob = viewModelScope.launch(processingDispatcher) {
-                    delay(revealMillisOf(answered))
-                    continueFrom(answered)
-                }
+                val taken = phase.taking(slot, option)
+                _uiState.value = _uiState.value.copy(phase = taken)
+                if (taken.isSettled) settle(taken)
             }
 
             else -> Unit
+        }
+    }
+
+    /** The last slot is in: the question is judged, kept, and left up for its moment. */
+    private fun settle(taken: QuizPhase.Asking) {
+        val answered = QuizPhase.Answered(
+            question = taken.question,
+            index = taken.index,
+            chosen = taken.chosen.map { it!! },
+        )
+        answers += AnsweredQuestion(answered.question.note, answered.correct)
+        _uiState.value = _uiState.value.copy(phase = answered)
+
+        // Asked for no wait at all: the next question rather than a frame of the answer.
+        val millis = revealMillisOf(answered)
+        if (millis <= 0) {
+            continueFrom(answered)
+            return
+        }
+
+        revealJob = viewModelScope.launch(processingDispatcher) {
+            delay(millis)
+            continueFrom(answered)
         }
     }
 
@@ -155,7 +214,6 @@ class QuizViewModel(
                     mode = state.mode,
                     chart = config.chart,
                     random = random,
-                    optionCount = config.optionCount,
                 ),
                 index = index,
             ),
@@ -174,8 +232,11 @@ class QuizViewModel(
     }
 
     private fun revealMillisOf(answered: QuizPhase.Answered): Long {
-        val seconds =
-            if (answered.correct) config.revealCorrectSeconds else config.revealWrongSeconds
+        val seconds = if (answered.correct) {
+            _uiState.value.successDelaySeconds
+        } else {
+            config.revealWrongSeconds
+        }
         return (seconds * MILLIS_PER_SECOND).toLong()
     }
 
@@ -197,6 +258,7 @@ class QuizViewModel(
         activeNotes = preset.notes.filter(config.chart::supports),
         mode = preset.mode,
         questionCount = preset.questionCount,
+        successDelaySeconds = preset.successDelaySeconds,
         isPreconfigured = true,
     )
 
@@ -209,9 +271,17 @@ class QuizViewModel(
             activeNotes = NoteSets.notesOf(NoteSet.BEGINNER, config.chart, notes.toSet()),
             questionCount = config.defaultQuestionCount,
             questionCounts = config.questionCounts,
+            successDelaySeconds = config.defaultSuccessDelaySeconds,
+            successDelayOptions = config.successDelayOptions,
             noteNaming = settingsRepository.settings.value.noteNaming,
         )
-        return if (preset == null) state else state.withPreset(preset)
+        // A preset decides everything the setup screen would have asked, so a remembered setup has
+        // nothing left to say about it.
+        return if (preset != null) {
+            state.withPreset(preset)
+        } else {
+            state.withSetup(exerciseSetups.setupOf(Exercise.NOTE_QUIZ), config.chart)
+        }
     }
 
     private companion object {

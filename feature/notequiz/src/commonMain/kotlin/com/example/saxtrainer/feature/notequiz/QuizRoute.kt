@@ -9,6 +9,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
 
 /**
@@ -23,6 +24,7 @@ import com.example.saxtrainer.core.settings.SettingsRepository
 @Composable
 fun QuizRoute(
     settingsRepository: SettingsRepository,
+    exerciseSetups: ExerciseSetupRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     preset: QuizPreset? = null,
@@ -61,7 +63,9 @@ fun QuizRoute(
         onCancelCustomNotes = viewModel::cancelCustomNotes,
         onSelectMode = viewModel::selectMode,
         onSelectQuestionCount = viewModel::selectQuestionCount,
-        onAnswer = viewModel::answer,
+        onSelectSuccessDelay = viewModel::selectSuccessDelaySeconds,
+        onAnswer = { slot, option -> viewModel.answer(slot, option) },
+        onSkipSuccessDelay = viewModel::skipSuccessDelay,
         onStart = viewModel::start,
         onStop = viewModel::stop,
         onReset = viewModel::reset,

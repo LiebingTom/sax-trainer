@@ -14,6 +14,8 @@ data class QuizPreset(
     val notes: List<Note>,
     val mode: QuizMode = QuizMode.NOTE_TO_FINGERING,
     val questionCount: Int = 10,
+    /** How long a right answer stays up before the next question; zero moves on at once. */
+    val successDelaySeconds: Double = 1.0,
     /** Whether the quiz begins by itself rather than waiting for Start. */
     val autoStart: Boolean = true,
 ) {
@@ -22,5 +24,6 @@ data class QuizPreset(
             "a quiz needs at least ${QuizQuestionGenerator.MIN_OPTIONS} notes to choose between"
         }
         require(questionCount >= 1) { "a quiz needs at least one question" }
+        require(successDelaySeconds >= 0.0) { "a wait cannot be negative" }
     }
 }

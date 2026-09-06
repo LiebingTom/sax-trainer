@@ -21,48 +21,98 @@ import kotlin.random.Random
 object QuizQuestionGenerator {
 
     /**
-     * A question about one of [pool], with [optionCount] answers.
+     * A question about one of [pool], with as many answers per slot as the mode asks for.
      *
-     * [optionCount] is trimmed to what the pool can supply without repeating an option, so a small
-     * selection asks an easier question rather than showing the same answer twice.
+     * How many answers suit a question is a property of the mode and nobody else's to set. The pool
+     * is a separate matter and is normally far larger - it is trimmed to only when it cannot fill a
+     * slot without repeating an option, so a small selection asks an easier question rather than
+     * showing the same answer twice.
+     *
+     * A slot draws its own options, so the ten names and the four grips of a combined question are
+     * two independent draws around the same target rather than two views of one list.
      */
     fun generate(
         pool: List<Note>,
         mode: QuizMode,
         chart: FingeringChart,
         random: Random = Random.Default,
-        optionCount: Int = DEFAULT_OPTION_COUNT,
     ): QuizQuestion {
         val notes = pool.distinct().filter(chart::supports)
         require(notes.size >= MIN_OPTIONS) { "a question needs at least $MIN_OPTIONS notes to choose between" }
 
+        val asked = askedAs(mode, random)
         val target = notes.random(random)
-        val options = optionCount.coerceIn(MIN_OPTIONS, notes.size)
-        val answers = (listOf(target) + distractorsFor(target, notes, options - 1, random))
-            .shuffled(random)
 
-        return when (askedAs(mode, random)) {
-            QuizMode.NOTE_TO_FINGERING -> NoteToFingering(
-                note = target,
-                options = answers.map { chart.fingeringsFor(it)!!.standard },
-                correctIndex = answers.indexOf(target),
-            )
+        fun optionsFor(slot: Int): List<Note> =
+            candidatesFor(target, notes, asked.slots[slot].optionCount, random)
 
-            else -> FingeringToNote(
-                note = target,
-                fingering = chart.fingeringsFor(target)!!.standard,
-                options = answers,
-                correctIndex = answers.indexOf(target),
-            )
+        return when (asked) {
+            QuizMode.NOTE_AND_FINGERING -> {
+                val names = optionsFor(0)
+                val grips = optionsFor(1)
+                NoteAndFingering(
+                    note = target,
+                    names = NameAnswers(names, names.indexOf(target)),
+                    fingerings = FingeringAnswers(
+                        options = grips.map { chart.fingeringsFor(it)!!.standard },
+                        correctIndex = grips.indexOf(target),
+                    ),
+                )
+            }
+
+            QuizMode.NOTE_TO_FINGERING -> optionsFor(0).let { answers ->
+                NoteToFingering(
+                    note = target,
+                    options = answers.map { chart.fingeringsFor(it)!!.standard },
+                    correctIndex = answers.indexOf(target),
+                )
+            }
+
+            QuizMode.NOTE_TO_NAME -> optionsFor(0).let { answers ->
+                NoteToName(
+                    note = target,
+                    options = answers,
+                    correctIndex = answers.indexOf(target),
+                )
+            }
+
+            else -> optionsFor(0).let { answers ->
+                FingeringToNote(
+                    note = target,
+                    fingering = chart.fingeringsFor(target)!!.standard,
+                    options = answers,
+                    correctIndex = answers.indexOf(target),
+                )
+            }
         }
     }
 
-    /** MIXED decides per question, so a run of them covers both directions. */
+    /**
+     * MIXED decides per question, so a run of them covers both directions. Decided before anything
+     * else is drawn, because what a question asks for depends on which way round it is.
+     */
     private fun askedAs(mode: QuizMode, random: Random): QuizMode = when (mode) {
         QuizMode.MIXED ->
             if (random.nextBoolean()) QuizMode.NOTE_TO_FINGERING else QuizMode.FINGERING_TO_NOTE
 
         else -> mode
+    }
+
+
+    /**
+     * One slot's worth of options: the target and its nearest neighbours, in no telling order.
+     *
+     * [wanted] is trimmed to what the pool can supply, so ten names are ten distinct names whenever
+     * there are ten notes to draw them from, and fewer only when there are fewer.
+     */
+    private fun candidatesFor(
+        target: Note,
+        notes: List<Note>,
+        wanted: Int,
+        random: Random,
+    ): List<Note> {
+        val count = wanted.coerceIn(MIN_OPTIONS, notes.size)
+        return (listOf(target) + distractorsFor(target, notes, count - 1, random)).shuffled(random)
     }
 
     /**
@@ -82,7 +132,6 @@ object QuizQuestionGenerator {
         .shuffled(random)
         .take(count)
 
-    const val DEFAULT_OPTION_COUNT = 4
     const val MIN_OPTIONS = 2
 
     /** How many candidates are considered for every distractor actually shown. */

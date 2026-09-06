@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.capture.rememberMicrophoneAccess
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
 
 /**
@@ -25,6 +26,7 @@ import com.example.saxtrainer.core.settings.SettingsRepository
 @Composable
 fun SequenceRoute(
     settingsRepository: SettingsRepository,
+    exerciseSetups: ExerciseSetupRepository,
     audioCapture: AudioCapture,
     newMetronome: MetronomeFactory,
     onBack: () -> Unit,
@@ -34,6 +36,7 @@ fun SequenceRoute(
     viewModel: SequenceViewModel = viewModel {
         SequenceViewModel(
             settingsRepository = settingsRepository,
+            exerciseSetups = exerciseSetups,
             audioCapture = audioCapture,
             metronome = newMetronome.create(),
             preset = preset,

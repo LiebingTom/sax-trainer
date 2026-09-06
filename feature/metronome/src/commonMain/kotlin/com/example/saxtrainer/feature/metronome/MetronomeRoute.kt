@@ -8,18 +8,22 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 
 /**
  * Stateful entry point of the metronome feature. The app module navigates here and supplies only
- * [newMetronome] and [onBack], so the feature stays independent of both the navigation
- * implementation and of how a click is produced.
+ * [newMetronome], [exerciseSetups] and [onBack], so the feature stays independent of both the
+ * navigation implementation and of how a click is produced.
  */
 @Composable
 fun MetronomeRoute(
     newMetronome: MetronomeFactory,
+    exerciseSetups: ExerciseSetupRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: MetronomeViewModel = viewModel { MetronomeViewModel(newMetronome.create()) },
+    viewModel: MetronomeViewModel = viewModel {
+        MetronomeViewModel(engine = newMetronome.create(), exerciseSetups = exerciseSetups)
+    },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 

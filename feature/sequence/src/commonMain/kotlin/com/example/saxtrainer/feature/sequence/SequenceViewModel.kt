@@ -19,6 +19,9 @@ import com.example.saxtrainer.core.exercise.expectedSecondsOf
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.ToneSequence
+import com.example.saxtrainer.core.settings.Exercise
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -45,6 +48,11 @@ import kotlin.math.abs
  */
 class SequenceViewModel(
     private val settingsRepository: SettingsRepository,
+    /**
+     * What this trainer was last started with. Defaulted so a trainer without one still runs; it
+     * simply opens on the plain defaults every time.
+     */
+    private val exerciseSetups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
     private val audioCapture: AudioCapture? = null,
     private val metronome: Metronome? = null,
     private val preset: SequencePreset? = null,
@@ -130,7 +138,15 @@ class SequenceViewModel(
 
     fun start() {
         if (exerciseJob?.isActive == true) return
-        if (!_uiState.value.canStart) return
+        val state = _uiState.value
+        if (!state.canStart) return
+
+        // What the player started with becomes what they are offered next time. A ready-made
+        // exercise is somebody else's decision and is deliberately not remembered as theirs.
+        if (!state.isPreconfigured) {
+            exerciseSetups.remember(Exercise.SEQUENCE, state.toSetup())
+        }
+
         exerciseJob = viewModelScope.launch(processingDispatcher) { runExercise() }
     }
 
@@ -373,7 +389,16 @@ class SequenceViewModel(
             instrumentName = settings.instrument.displayName,
             noteNaming = settings.noteNaming,
         )
-        return if (preset == null) state else state.withPreset(preset)
+        // A preset decides everything the setup screen would have asked, so a remembered setup has
+        // nothing left to say about it.
+        return if (preset != null) {
+            state.withPreset(preset)
+        } else {
+            state.withSetup(
+                setup = exerciseSetups.setupOf(Exercise.SEQUENCE),
+                canCheck = audioCapture != null,
+            ).withMaterial()
+        }
     }
 
     private companion object {

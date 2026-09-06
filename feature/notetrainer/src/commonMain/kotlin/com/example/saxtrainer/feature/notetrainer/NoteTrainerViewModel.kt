@@ -21,6 +21,9 @@ import com.example.saxtrainer.core.exercise.practiceOrder
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.settings.Exercise
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
 import kotlin.random.Random
 import kotlinx.coroutines.CancellationException
@@ -49,7 +52,13 @@ import kotlinx.coroutines.launch
  * nobody can find never traps the session.
  *
  * A wrong note is reported and changes nothing else. A sound with no pitch in it - a breath, a
- * squeak, an unsettled attack - is neither right nor wrong and is never counted as a wrong try.
+ * squeak, an unsettled attack - is neither right nor wrong and is never counted as a wrong try, and
+ * so does not break a hold either.
+ *
+ * How long the right note has to be kept is the player's to set. With no hold asked for, a note is
+ * confirmed and gone; with one, it has to keep sounding for that long, and a note that stops or
+ * turns into another one starts its hold again from nothing. Either way the reaction time is taken
+ * from the first correct frame, so a longer hold never makes the player look slower.
  *
  * The count-in is the one every practice shares, counted at [NoteTrainerConfig.tempo] because this
  * trainer has no tempo of its own. It matters here for a second reason: the microphone is opened
@@ -57,6 +66,11 @@ import kotlinx.coroutines.launch
  */
 class NoteTrainerViewModel(
     private val settingsRepository: SettingsRepository,
+    /**
+     * What this trainer was last started with. Defaulted so a trainer without one still runs; it
+     * simply opens on the plain defaults every time.
+     */
+    private val exerciseSetups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
     private val audioCapture: AudioCapture? = null,
     /** Only ever used to click the count-in; this trainer has no click of its own to keep. */
     private val metronome: Metronome? = null,
@@ -130,6 +144,11 @@ class NoteTrainerViewModel(
 
     fun setTargetSeconds(seconds: Int) = updateSetup { it.copy(targetSeconds = seconds) }
 
+    /** Zero asks for no hold at all: the note counts as soon as it is right. */
+    fun setHoldSeconds(seconds: Double) = updateSetup {
+        it.copy(holdSeconds = seconds.coerceAtLeast(0.0))
+    }
+
     /** Called by the screen when the microphone was asked for and refused. */
     fun onMicrophoneUnavailable() {
         _uiState.value = _uiState.value.copy(microphoneUnavailable = true)
@@ -153,6 +172,12 @@ class NoteTrainerViewModel(
         if (!state.canStart || audioCapture == null) return
 
         val notes = practiceOrder(state.activeNotes, state.order, state.rounds, random)
+
+        // What the player started with becomes what they are offered next time. A ready-made
+        // exercise is somebody else's decision and is deliberately not remembered as theirs.
+        if (!state.isPreconfigured) {
+            exerciseSetups.remember(Exercise.NOTE_TRAINER, state.toSetup())
+        }
 
         pause.resume()
         skipRequested = false
@@ -257,6 +282,10 @@ class NoteTrainerViewModel(
         heard: SharedFlow<Hearing>,
     ): NoteAttempt {
         val expected = _uiState.value.soundingNoteOf(note)
+        val holdSeconds = _uiState.value.holdSeconds
+        // The confirming wait is a floor rather than an alternative: a note passed through on the
+        // way to another must not count, whether or not the player asked for a hold on top.
+        val requiredSeconds = maxOf(config.requiredCorrectSeconds, holdSeconds)
         skipRequested = false
 
         var presentedAt: Double? = seconds()
@@ -327,7 +356,11 @@ class NoteTrainerViewModel(
             }
             lastSounding = sounding
 
-            played = correctSince?.let { now - it >= config.requiredCorrectSeconds } == true
+            // Kept since the note last became right, and back to nothing the moment it stopped
+            // being right - which is what makes a hold have to be started again rather than
+            // continued.
+            val heldSeconds = correctSince?.let { now - it }
+            played = heldSeconds != null && heldSeconds >= requiredSeconds
 
             publish(
                 note = note,
@@ -342,6 +375,8 @@ class NoteTrainerViewModel(
                 detected = sounding,
                 wrongTries = wrongTries,
                 reactionSeconds = if (played) reactionOf(presentedAt, firstCorrectAt) else null,
+                holdFraction = holdFractionOf(heldSeconds, holdSeconds),
+                landed = played,
             )
 
             emit(Unit)
@@ -363,6 +398,19 @@ class NoteTrainerViewModel(
             skipped = false,
         )
     }
+
+    /**
+     * How far through the hold the note is, or null when there is no hold to be through.
+     *
+     * Null while nothing right is sounding, and null throughout when the exercise advances as soon
+     * as the note is right: there is nothing to keep, so there is nothing to show being kept.
+     */
+    private fun holdFractionOf(heldSeconds: Double?, holdSeconds: Double): Float? =
+        if (heldSeconds == null || holdSeconds <= 0.0) {
+            null
+        } else {
+            (heldSeconds / holdSeconds).coerceIn(0.0, 1.0).toFloat()
+        }
 
     /** Measured to the *first* correct frame, so waiting to be sure never inflates it. */
     private fun reactionOf(presentedAt: Double?, firstCorrectAt: Double?): Double? =
@@ -419,6 +467,8 @@ class NoteTrainerViewModel(
         detected: Note?,
         wrongTries: Int,
         reactionSeconds: Double? = null,
+        holdFraction: Float? = null,
+        landed: Boolean = false,
     ) {
         val state = _uiState.value
         _uiState.value = state.copy(
@@ -431,6 +481,8 @@ class NoteTrainerViewModel(
                 detectedNote = detected?.let(state::writtenNoteOf),
                 wrongTries = wrongTries,
                 lastReactionSeconds = reactionSeconds,
+                holdFraction = holdFraction,
+                landed = landed,
             ),
         )
     }
@@ -471,6 +523,7 @@ class NoteTrainerViewModel(
         rounds = preset.rounds,
         showFingeringHint = preset.showFingeringHint,
         targetSeconds = preset.targetSeconds,
+        holdSeconds = preset.holdSeconds,
         isPreconfigured = true,
     )
 
@@ -486,13 +539,21 @@ class NoteTrainerViewModel(
             rounds = config.defaultRounds,
             targetSeconds = config.defaultTargetSeconds,
             targetOptions = config.targetOptions,
+            holdSeconds = config.defaultHoldSeconds,
+            holdOptions = config.holdOptions,
             transposition = settings.instrument.transposition,
             instrumentName = settings.instrument.displayName,
             noteNaming = settings.noteNaming,
             countInBeats = settings.countInBeats,
             countInClick = settings.countInClick,
         )
-        return if (preset == null) state else state.withPreset(preset)
+        // A preset decides everything the setup screen would have asked, so a remembered setup has
+        // nothing left to say about it.
+        return if (preset != null) {
+            state.withPreset(preset)
+        } else {
+            state.withSetup(exerciseSetups.setupOf(Exercise.NOTE_TRAINER), config.chart)
+        }
     }
 
     private companion object {

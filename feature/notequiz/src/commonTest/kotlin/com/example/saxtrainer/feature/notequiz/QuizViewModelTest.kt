@@ -19,6 +19,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Running a quiz: a question, an answer, the next question. */
@@ -58,12 +59,21 @@ class QuizViewModelTest {
     }
 
     private fun answerCorrectly(viewModel: QuizViewModel) {
-        viewModel.answer(asking(viewModel).question.correctIndex)
+        asking(viewModel).question.answers.forEachIndexed { slot, answers ->
+            viewModel.answer(slot, answers.correctIndex)
+        }
     }
 
+    /** The first slot wrong and the rest right: a question is wrong if any part of it is. */
     private fun answerWrongly(viewModel: QuizViewModel) {
-        val question = asking(viewModel).question
-        viewModel.answer((question.correctIndex + 1) % question.optionCount)
+        asking(viewModel).question.answers.forEachIndexed { slot, answers ->
+            val option = if (slot == 0) {
+                (answers.correctIndex + 1) % answers.optionCount
+            } else {
+                answers.correctIndex
+            }
+            viewModel.answer(slot, option)
+        }
     }
 
     private fun result(viewModel: QuizViewModel): QuizResult {
@@ -80,7 +90,7 @@ class QuizViewModelTest {
 
         assertEquals(NoteSet.BEGINNER, state.noteSet)
         assertEquals(8, state.activeNotes.size)
-        assertEquals(QuizMode.NOTE_TO_FINGERING, state.mode)
+        assertEquals(QuizMode.NOTE_AND_FINGERING, state.mode)
         assertEquals(config.defaultQuestionCount, state.questionCount)
         assertTrue(state.canStart)
     }
@@ -108,7 +118,7 @@ class QuizViewModelTest {
         viewModel.selectMode(QuizMode.FINGERING_TO_NOTE)
         viewModel.selectQuestionCount(30)
 
-        assertEquals(QuizMode.NOTE_TO_FINGERING, viewModel.uiState.value.mode)
+        assertEquals(QuizMode.NOTE_AND_FINGERING, viewModel.uiState.value.mode)
         assertEquals(10, viewModel.uiState.value.questionCount)
     }
 
@@ -153,7 +163,7 @@ class QuizViewModelTest {
         val slow = viewModel()
         slow.start()
         answerWrongly(slow)
-        advanceTimeBy((config.revealCorrectSeconds * 1_000).toLong() + 100)
+        advanceTimeBy((config.defaultSuccessDelaySeconds * 1_000).toLong() + 100)
 
         assertTrue(
             slow.uiState.value.phase is QuizPhase.Answered,
@@ -186,10 +196,118 @@ class QuizViewModelTest {
         viewModel.start()
         val question = asking(viewModel).question
 
-        viewModel.answer(question.optionCount)
+        viewModel.answer(question.answers.first().optionCount)
         viewModel.answer(-1)
 
         assertTrue(viewModel.uiState.value.phase is QuizPhase.Asking)
+    }
+
+    // --- both halves of a note ------------------------------------------------------------------
+
+    /** The option that is not the right one, so a slot can be got deliberately wrong. */
+    private fun wrongOptionFor(answers: QuizAnswers): Int =
+        (answers.correctIndex + 1) % answers.optionCount
+
+    @Test
+    fun `a combined question is not over until both halves are answered`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.start()
+        val question = asking(viewModel).question
+        assertEquals(2, question.answers.size, "the default mode asks two things")
+
+        viewModel.answer(slot = 0, option = question.answers[0].correctIndex)
+
+        val half = asking(viewModel)
+        assertFalse(half.isSettled, "one half answered is not an answered question")
+        assertEquals(question.answers[0].correctIndex, half.chosen[0])
+        assertNull(half.chosen[1], "the other half is still being asked")
+
+        viewModel.answer(slot = 1, option = question.answers[1].correctIndex)
+
+        val answered = viewModel.uiState.value.phase as QuizPhase.Answered
+        assertTrue(answered.correct)
+    }
+
+    @Test
+    fun `a half that has been answered keeps the answer it was given`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.start()
+        val question = asking(viewModel).question
+        val names = question.answers[0]
+
+        viewModel.answer(slot = 0, option = names.correctIndex)
+        viewModel.answer(slot = 0, option = wrongOptionFor(names))
+
+        assertEquals(names.correctIndex, asking(viewModel).chosen[0], "what was chosen stands")
+
+        viewModel.answer(slot = 1, option = question.answers[1].correctIndex)
+
+        val answered = viewModel.uiState.value.phase as QuizPhase.Answered
+        assertTrue(answered.correct, "the second tap on the first half changed nothing")
+    }
+
+    @Test
+    fun `getting one half wrong still asks the other`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.start()
+        val question = asking(viewModel).question
+
+        viewModel.answer(slot = 0, option = wrongOptionFor(question.answers[0]))
+
+        assertFalse(asking(viewModel).isSettled, "the grip is still worth asking for")
+
+        viewModel.answer(slot = 1, option = question.answers[1].correctIndex)
+
+        val answered = viewModel.uiState.value.phase as QuizPhase.Answered
+        assertFalse(answered.correct, "half a note known is not the note known")
+
+        advanceUntilIdle()
+        viewModel.stop()
+
+        assertEquals(listOf(question.note), result(viewModel).missedNotes)
+    }
+
+    @Test
+    fun `the wait begins with the second half, not the first`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.selectSuccessDelaySeconds(2.0)
+        viewModel.start()
+        val question = asking(viewModel).question
+
+        viewModel.answer(slot = 0, option = question.answers[0].correctIndex)
+        advanceTimeBy(3_000)
+
+        assertTrue(
+            viewModel.uiState.value.phase is QuizPhase.Asking,
+            "a half-answered question waits for the player, not for the clock",
+        )
+        assertEquals(0, asking(viewModel).index, "and it is still the same question")
+
+        viewModel.answer(slot = 1, option = question.answers[1].correctIndex)
+
+        assertTrue(viewModel.uiState.value.phase is QuizPhase.Answered)
+
+        advanceTimeBy(2_100)
+
+        assertEquals(1, asking(viewModel).index, "the wait began when the last half went in")
+    }
+
+    @Test
+    fun `the wait can only be cut short once the whole question is right`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.selectSuccessDelaySeconds(2.0)
+        viewModel.start()
+        val question = asking(viewModel).question
+
+        viewModel.answer(slot = 0, option = question.answers[0].correctIndex)
+        viewModel.skipSuccessDelay()
+
+        assertEquals(0, asking(viewModel).index, "there is no wait yet to skip")
+
+        viewModel.answer(slot = 1, option = question.answers[1].correctIndex)
+        viewModel.skipSuccessDelay()
+
+        assertEquals(1, asking(viewModel).index, "the rest of the wait was given up")
     }
 
     // --- a whole run --------------------------------------------------------------------------

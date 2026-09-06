@@ -7,6 +7,7 @@ import com.example.saxtrainer.core.learning.InMemoryLessonProgressRepository
 import com.example.saxtrainer.core.learning.InMemoryLessonRunRepository
 import com.example.saxtrainer.core.learning.LessonProgressRepository
 import com.example.saxtrainer.core.learning.LessonRunRepository
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.learning.SaxTrainerCurriculum
 
@@ -15,12 +16,14 @@ import com.example.saxtrainer.learning.SaxTrainerCurriculum
  * here is clearer than adding a dependency injection framework; feature modules receive what they
  * need as parameters and never look dependencies up themselves.
  *
- * The three things a platform has to supply are the three that cannot be written once: where
- * settings are kept, where sound comes from, and where a click comes from. Everything else is
- * built here and is the same on Android and on the web.
+ * What a platform has to supply is what cannot be written once: where settings are kept, where
+ * the setups exercises were last started with are kept, where sound comes from, and where a click
+ * comes from. Everything else is built here and is the same on Android and on the web.
  */
 class AppContainer(
     val settingsRepository: SettingsRepository,
+    /** What each exercise was last started with, offered back as its defaults next time. */
+    val exerciseSetups: ExerciseSetupRepository,
     val audioCapture: AudioCapture,
     /** A new click per practice: two exercises must never share one. */
     val newMetronome: MetronomeFactory,

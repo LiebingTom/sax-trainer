@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -67,6 +68,7 @@ fun NoteTrainerScreen(
     onShowFingeringHintChange: (Boolean) -> Unit,
     onShowNoteNameChange: (Boolean) -> Unit,
     onTargetChange: (Int) -> Unit,
+    onHoldChange: (Double) -> Unit,
     onStart: () -> Unit,
     onTogglePause: () -> Unit,
     onSkip: () -> Unit,
@@ -105,6 +107,7 @@ fun NoteTrainerScreen(
                     onShowFingeringHintChange = onShowFingeringHintChange,
                     onShowNoteNameChange = onShowNoteNameChange,
                     onTargetChange = onTargetChange,
+                    onHoldChange = onHoldChange,
                 )
             }
 
@@ -138,6 +141,7 @@ private fun Setup(
     onShowFingeringHintChange: (Boolean) -> Unit,
     onShowNoteNameChange: (Boolean) -> Unit,
     onTargetChange: (Int) -> Unit,
+    onHoldChange: (Double) -> Unit,
 ) {
     SectionHeader("Notes")
     state.noteSets.forEach { set ->
@@ -196,6 +200,24 @@ private fun Setup(
     }
     Text(
         text = "Only for the score. A note waits as long as you need it to.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    Spacer(Modifier.height(Dimens.spaceSm))
+    SectionHeader("Hold the note")
+    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+        state.holdOptions.forEach { seconds ->
+            FilterChip(
+                selected = seconds == state.holdSeconds,
+                onClick = { onHoldChange(seconds) },
+                label = { Text(holdLabelOf(seconds)) },
+            )
+        }
+    }
+    Text(
+        text = "Until correct moves on as soon as you find the note. A hold asks you to keep it " +
+            "sounding, and starts again if you lose it.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -297,22 +319,7 @@ private fun RunningPanel(state: NoteTrainerUiState) {
         }
 
         Text(
-            text = when {
-                state.isPaused -> "Paused"
-                progress.listening == Listening.CORRECT ->
-                    progress.lastReactionSeconds
-                        ?.let { "Yes - ${it.toFixed(1)} s" }
-                        ?: "Yes"
-
-                progress.listening == Listening.WRONG_PITCH -> progress.detectedNote
-                    ?.let { "That is ${state.nameOf(it)}" }
-                    ?: "Not that one"
-
-                // Something was played but no pitch could be read from it, which is not the same as
-                // playing the wrong note and is not treated like one.
-                progress.listening == Listening.UNCLEAR -> "Keep the tone going"
-                else -> "Play it"
-            },
+            text = feedbackOf(state, progress),
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
             color = when (progress.listening) {
@@ -321,8 +328,55 @@ private fun RunningPanel(state: NoteTrainerUiState) {
                 else -> MaterialTheme.colorScheme.onSurfaceVariant
             },
         )
+
+        // Only while there is a hold to keep: it says how much of it is left, which is the one
+        // thing the words cannot.
+        if (progress.isHolding && !state.isPaused) {
+            LinearProgressIndicator(
+                progress = { progress.holdFraction ?: 0f },
+                modifier = Modifier.fillMaxWidth().height(HoldBarHeight),
+                color = correctColor,
+            )
+        }
     }
 }
+
+/**
+ * What the screen says about what it is hearing, always naming the note it heard.
+ *
+ * The note being asked for is on the staff above; this says what is actually coming out of the
+ * horn, so that a wrong note is something the player can recognise rather than merely be told
+ * about. [SuccessTick] marks the moment it landed, and stays up for as long as the note does.
+ */
+private fun feedbackOf(state: NoteTrainerUiState, progress: NoteTrainerProgress): String {
+    if (state.isPaused) return "Paused"
+
+    val heard = progress.detectedNote?.let(state::nameOf)
+    return when {
+        progress.landed -> {
+            val landed = "$SuccessTick Correct, this is ${state.nameOf(progress.currentNote)}"
+            progress.lastReactionSeconds?.let { "$landed - ${it.toFixed(1)} s" } ?: landed
+        }
+
+        // Right, but not yet kept for as long as was asked. With no hold to keep, the note is
+        // already on its way out and there is nothing to ask the player to do.
+        progress.listening == Listening.CORRECT ->
+            heard?.let { if (state.holdsUntilCorrect) "This is $it" else "This is $it - hold it" }
+                ?: "Hold it"
+
+        progress.listening == Listening.WRONG_PITCH ->
+            heard?.let { "This is $it - keep on" } ?: "Not that one"
+
+        // Something was played but no pitch could be read from it, which is not the same as
+        // playing the wrong note and is not treated like one.
+        progress.listening == Listening.UNCLEAR -> "Keep the tone going"
+        else -> "Play it"
+    }
+}
+
+/** How a hold reads on the setup screen; zero is no hold at all. */
+private fun holdLabelOf(seconds: Double): String =
+    if (seconds <= 0.0) "Until correct" else "${seconds.toFixed(0)} s"
 
 /** What a ready-made exercise is about to ask for. It was decided elsewhere; nothing to change. */
 @Composable
@@ -455,6 +509,10 @@ private fun RowScope.PauseButton(state: NoteTrainerUiState, onTogglePause: () ->
 
 private val NoteStaffSpacing = 22.dp
 private val HintFingeringWidth = 96.dp
+private val HoldBarHeight = 6.dp
+
+/** What says the note landed. A mark rather than a word, so it reads before it is read. */
+private const val SuccessTick = "✓"
 
 @Preview(showBackground = true)
 @Composable
@@ -464,6 +522,7 @@ private fun NoteTrainerSetupPreview() {
             state = NoteTrainerUiState(
                 activeNotes = listOf(Note(NoteName.C, 4), Note(NoteName.D, 4)),
                 targetOptions = listOf(2, 4, 8),
+                holdOptions = listOf(0.0, 1.0, 2.0, 3.0),
             ),
             onSelectNoteSet = {},
             onEditCustomNotes = {},
@@ -477,6 +536,7 @@ private fun NoteTrainerSetupPreview() {
             onShowFingeringHintChange = {},
             onShowNoteNameChange = {},
             onTargetChange = {},
+            onHoldChange = {},
             onStart = {},
             onTogglePause = {},
             onSkip = {},

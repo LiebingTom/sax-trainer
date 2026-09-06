@@ -84,10 +84,18 @@ data class FingeringProgress(
     val heard: Heard = Heard.NOTHING,
     /** What the microphone hears, as the player would write it; null when nothing is heard. */
     val detectedNote: Note? = null,
+    /**
+     * True once the note has been played right and the trainer is only waiting before moving on.
+     *
+     * The wait is the player's to cut short: while this holds, the exercise panel is a button that
+     * goes straight to the next note. What was heard afterwards no longer matters, so the correct
+     * feedback stays up whether or not the note is still sounding.
+     */
+    val landed: Boolean = false,
 ) {
     val displayPosition: Int get() = noteIndex + 1
 
-    val isCorrect: Boolean get() = heard == Heard.CORRECT
+    val isCorrect: Boolean get() = heard == Heard.CORRECT || landed
 
     /** How much of the current note has elapsed, for the progress bar. */
     val noteFraction: Float
@@ -114,6 +122,9 @@ data class FingeringUiState(
     val activeNotes: List<Note> = emptyList(),
     val order: NoteOrder = NoteOrder.RANDOM,
     val secondsPerNote: Int = 5,
+    /** How long a correctly played note is left on screen before the next one, zero for no wait. */
+    val successDelaySeconds: Float = 1f,
+    val successDelayOptions: List<Float> = emptyList(),
     /** How often the notes are worked through. */
     val rounds: Int = 1,
     val secondsOptions: List<Int> = emptyList(),

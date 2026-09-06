@@ -6,6 +6,9 @@ import com.example.saxtrainer.core.audio.metronome.Metronome
 import com.example.saxtrainer.core.exercise.monotonicNanos
 import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
 import com.example.saxtrainer.core.audio.metronome.MetronomeError
+import com.example.saxtrainer.core.settings.Exercise
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -32,9 +35,21 @@ data class MetronomeUiState(
  */
 class MetronomeViewModel(
     private val engine: Metronome,
+    /**
+     * What the metronome was last started at. Defaulted so a metronome without one still runs; it
+     * simply opens at the standard tempo every time.
+     */
+    private val exerciseSetups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
     private val tapTempo: TapTempo = TapTempo(),
     private val nanoTime: () -> Long = monotonicNanos,
 ) : ViewModel() {
+
+    init {
+        // Before the state flow below reads the engine, so the screen opens on the remembered
+        // tempo rather than on the default and then a correction.
+        val remembered = exerciseSetups.setupOf(Exercise.METRONOME)
+        engine.setBpm(remembered.rememberedBpm(engine.state.value.bpm))
+    }
 
     val uiState: StateFlow<MetronomeUiState> = engine.state
         .map(::toUiState)
@@ -45,7 +60,13 @@ class MetronomeViewModel(
         )
 
     fun toggleRunning() {
-        if (engine.state.value.isRunning) engine.stop() else engine.start()
+        if (engine.state.value.isRunning) {
+            engine.stop()
+        } else {
+            // The tempo it was started at becomes the tempo it opens at next time.
+            exerciseSetups.remember(Exercise.METRONOME, metronomeSetup(engine.state.value.bpm))
+            engine.start()
+        }
     }
 
     /** Called when the screen is no longer visible; practising should not continue in the background. */

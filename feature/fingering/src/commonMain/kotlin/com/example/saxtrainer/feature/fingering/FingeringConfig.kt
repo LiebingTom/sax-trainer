@@ -32,8 +32,19 @@ data class FingeringConfig(
      * the way to another, not long enough to ask anybody to hold it.
      */
     val requiredCorrectSeconds: Float = 0.3f,
-    /** How long the fingering stays up as the answer before the next note. */
+    /**
+     * How long the fingering stays up as the answer when the note was *not* played in time.
+     *
+     * A note the player did get is held by their own [FingeringUiState.successDelaySeconds]
+     * instead; this is only the consolation look at a grip that could not be recalled.
+     */
     val revealSeconds: Float = 1.2f,
+    /**
+     * Waits the setup screen offers after a note has been played right, in seconds. Zero moves on
+     * at once.
+     */
+    val successDelayOptions: List<Float> = listOf(0f, 1f, 2f, 3f),
+    val defaultSuccessDelaySeconds: Float = 1f,
     val capture: AudioCaptureConfig = AudioCaptureConfig(),
     val listening: NoteListener.ListeningSettings = NoteListener.ListeningSettings(),
 )

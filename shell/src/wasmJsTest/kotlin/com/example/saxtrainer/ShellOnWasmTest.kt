@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.example.saxtrainer.core.audio.metronome.Metronome
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.testing.BROWSER_TIMEOUT_MS
 import com.example.saxtrainer.core.testing.FakeMicrophone
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
@@ -126,11 +127,13 @@ private fun App(host: ScreenHost) {
 }
 
 /**
- * The container `:webApp` builds, with the two things a headless browser cannot give us swapped
- * for fakes: a microphone that plays a tone on demand, and a click with no sound.
+ * The container `:webApp` builds, with the things a headless browser cannot give us swapped for
+ * fakes: a microphone that plays a tone on demand, a click with no sound, and stores that keep
+ * nothing past the test.
  */
 private fun webShapedContainer() = AppContainer(
     settingsRepository = FakeSettingsRepository(),
+    exerciseSetups = InMemoryExerciseSetupRepository(),
     audioCapture = FakeMicrophone(frameDurationMs = 10),
     newMetronome = MetronomeFactory { SilentMetronome() },
 )

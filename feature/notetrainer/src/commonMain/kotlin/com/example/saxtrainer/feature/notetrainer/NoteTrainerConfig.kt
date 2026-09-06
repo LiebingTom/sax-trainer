@@ -21,13 +21,22 @@ data class NoteTrainerConfig(
     /** How often the selected notes are worked through, unless a preset says otherwise. */
     val defaultRounds: Int = 1,
     /**
-     * How long the right note has to keep sounding before it counts.
+     * How long the right note has to keep sounding before it counts, when the player has not asked
+     * for a hold of their own.
      *
      * Long enough that a note passed through on the way to another does not count, short enough
      * that nobody is being asked to hold it. The reaction time is still taken from the *first*
-     * moment the note was heard, so this wait never inflates it.
+     * moment the note was heard, so this wait never inflates it, and neither does a longer hold.
      */
     val requiredCorrectSeconds: Double = 0.25,
+    /**
+     * Holds the setup screen offers, in seconds; zero is "until it is right", with no hold at all.
+     *
+     * A hold turns the exercise from finding a note into finding it and keeping it, which is a
+     * different practice and the reason it is the player's to choose rather than a constant.
+     */
+    val holdOptions: List<Double> = listOf(0.0, 1.0, 2.0, 3.0),
+    val defaultHoldSeconds: Double = 0.0,
     /** How long a wrong note has to sound before it is called one, rather than an unsettled attack. */
     val wrongPitchSeconds: Double = 0.15,
     /** How long the note stays up as correct before the next one. */

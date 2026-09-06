@@ -9,21 +9,41 @@ import com.example.saxtrainer.core.music.NoteNaming
 sealed interface QuizPhase {
     data object Idle : QuizPhase
 
-    /** A question on screen, waiting for an answer. */
-    data class Asking(val question: QuizQuestion, val index: Int) : QuizPhase
+    /**
+     * A question on screen, with at least one of its slots still open.
+     *
+     * [chosen] holds one entry per slot: the option taken, or null while that slot is still being
+     * asked. A slot is locked as soon as it is answered, so the list only ever fills up - which is
+     * what lets one half of a combined question be judged while the other is still open.
+     */
+    data class Asking(
+        val question: QuizQuestion,
+        val index: Int,
+        val chosen: List<Int?> = List(question.answers.size) { null },
+    ) : QuizPhase {
+        /** True once every slot has been answered and the question is over, right or wrong. */
+        val isSettled: Boolean get() = chosen.all { it != null }
+
+        /** The same question with one more slot taken. */
+        fun taking(slot: Int, option: Int): Asking =
+            copy(chosen = chosen.mapIndexed { at, taken -> if (at == slot) option else taken })
+    }
 
     /**
-     * The answer that was given, next to the right one.
+     * The answers that were given, next to the right ones.
      *
      * A phase of its own rather than a flag on [Asking]: the screen draws it differently and the
-     * quiz deliberately waits here for a moment before moving on.
+     * quiz deliberately waits here for a moment before moving on. It is reached only once every
+     * slot has been answered, so the wait begins with the last of them and never before.
      */
     data class Answered(
         val question: QuizQuestion,
         val index: Int,
-        val chosen: Int,
+        val chosen: List<Int>,
     ) : QuizPhase {
-        val correct: Boolean get() = chosen == question.correctIndex
+        /** Right only if every slot is right: half a note known is not the note known. */
+        val correct: Boolean
+            get() = chosen.indices.all { chosen[it] == question.answers[it].correctIndex }
     }
 
     data class Finished(val result: QuizResult) : QuizPhase
@@ -60,10 +80,13 @@ data class QuizUiState(
     /** Non-null while the note dialog is open; edits stay here until they are applied. */
     val customNotesDraft: Set<Note>? = null,
     val activeNotes: List<Note> = emptyList(),
-    val mode: QuizMode = QuizMode.NOTE_TO_FINGERING,
+    val mode: QuizMode = QuizMode.NOTE_AND_FINGERING,
     val modes: List<QuizMode> = QuizMode.entries,
     val questionCount: Int = 10,
     val questionCounts: List<Int> = emptyList(),
+    /** How long a right answer is left on screen before the next question, zero for no wait. */
+    val successDelaySeconds: Double = 1.0,
+    val successDelayOptions: List<Double> = emptyList(),
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
     /** True when a lesson handed the quiz a ready-made run, so there is no setup to show. */
     val isPreconfigured: Boolean = false,

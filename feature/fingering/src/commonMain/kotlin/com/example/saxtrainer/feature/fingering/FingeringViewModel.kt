@@ -20,11 +20,15 @@ import com.example.saxtrainer.core.exercise.pausedBy
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.settings.Exercise
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.settings.TrainingTool
 import com.example.saxtrainer.core.settings.displayAt
 import com.example.saxtrainer.core.settings.noteDisplaySchedule
+import kotlin.concurrent.Volatile
 import kotlin.random.Random
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -65,6 +69,11 @@ import kotlinx.coroutines.launch
  */
 class FingeringViewModel(
     private val settingsRepository: SettingsRepository,
+    /**
+     * What this trainer was last started with. Defaulted so a trainer without one still runs; it
+     * simply opens on the plain defaults every time.
+     */
+    private val exerciseSetups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
     private val audioCapture: AudioCapture? = null,
     /** Only ever used to click the count-in; this trainer has no click of its own to keep. */
     private val metronome: Metronome? = null,
@@ -86,6 +95,10 @@ class FingeringViewModel(
 
     /** A preset that asked to start does so once, not again on every recomposition or rotation. */
     private var autoStartPending = preset?.autoStart == true
+
+    /** Set by [skipSuccessDelay] and cleared as soon as the note it belongs to is over. */
+    @Volatile
+    private var skipRequested = false
 
     init {
         viewModelScope.launch {
@@ -138,6 +151,20 @@ class FingeringViewModel(
         it.copy(checkPlaying = enabled, checkUnavailable = false)
     }
 
+    fun setSuccessDelaySeconds(seconds: Float) = updateSetup {
+        it.copy(successDelaySeconds = seconds.coerceAtLeast(0f))
+    }
+
+    /**
+     * Cuts the wait after a note played right short and goes straight to the next one.
+     *
+     * Only heard while the trainer is waiting, so a tap can never stand in for playing a note: what
+     * ends a note that is still being asked for is the microphone or the clock, never the screen.
+     */
+    fun skipSuccessDelay() {
+        if (_uiState.value.progress?.landed == true) skipRequested = true
+    }
+
     /** Changes how this tool shows notes; the shared default is left alone. */
     fun setNoteDisplay(noteDisplay: NoteDisplay) {
         settingsRepository.setNoteDisplayFor(TrainingTool.FINGERING, noteDisplay)
@@ -168,6 +195,12 @@ class FingeringViewModel(
         val state = _uiState.value
         if (!state.canStart) return
 
+        // What the player started with becomes what they are offered next time. A ready-made
+        // exercise is somebody else's decision and is deliberately not remembered as theirs.
+        if (!state.isPreconfigured) {
+            exerciseSetups.remember(Exercise.FINGERING, state.toSetup())
+        }
+
         val sequence = FingeringExerciseGenerator.generate(
             notes = state.activeNotes,
             order = state.order,
@@ -178,6 +211,7 @@ class FingeringViewModel(
         )
 
         pause.resume()
+        skipRequested = false
         _uiState.value = _uiState.value.copy(isPaused = false)
         exerciseJob = viewModelScope.launch(processingDispatcher) {
             runExercise(SequenceRunner(sequence))
@@ -230,6 +264,8 @@ class FingeringViewModel(
         // being read, and so the preview of the next note is honest.
         val displays = noteDisplaySchedule(_uiState.value.noteDisplay, noteCount, random)
         val listening = _uiState.value.checkPlaying && audioCapture != null
+        // Fixed for the run, like everything else the setup screen decided.
+        val successDelaySeconds = _uiState.value.successDelaySeconds
         val heard = MutableStateFlow<Hearing>(Hearing.Silent)
         var listenJob: Job? = null
 
@@ -294,7 +330,16 @@ class FingeringViewModel(
                     }
 
                     val over = if (listening) {
-                        revealedSeconds?.let { elapsedInNote - it >= config.revealSeconds } == true
+                        revealedSeconds?.let { shownSince ->
+                            val shownFor = elapsedInNote - shownSince
+                            if (playedCorrectly) {
+                                // The player got it, so the wait is theirs: it lasts as long as they
+                                // asked for, or until they tap the panel to go on.
+                                skipRequested || shownFor >= successDelaySeconds
+                            } else {
+                                shownFor >= config.revealSeconds
+                            }
+                        } == true
                     } else {
                         elapsedInNote >= noteSeconds
                     }
@@ -308,6 +353,7 @@ class FingeringViewModel(
                             revealed = revealedSeconds != null,
                             hearing = hearing,
                             correct = correct,
+                            landed = playedCorrectly,
                         )
                         null
                     } else {
@@ -317,6 +363,7 @@ class FingeringViewModel(
                         revealedSeconds = null
                         correctSinceSeconds = null
                         playedCorrectly = false
+                        skipRequested = false
                         if (runner.advance()) {
                             publishProgress(runner, displays, elapsedInNote = 0f, listening = listening)
                             null
@@ -408,6 +455,7 @@ class FingeringViewModel(
         revealed: Boolean = false,
         hearing: Hearing = Hearing.Silent,
         correct: Boolean = false,
+        landed: Boolean = false,
     ) {
         val note = runner.currentStep.note
         val noteSeconds = noteSecondsOf(runner)
@@ -433,6 +481,7 @@ class FingeringViewModel(
                     else -> Heard.NOTHING
                 },
                 detectedNote = sounding?.let(state::writtenNoteOf),
+                landed = landed,
             ),
         )
     }
@@ -461,6 +510,7 @@ class FingeringViewModel(
         secondsPerNote = preset.secondsPerNote,
         rounds = preset.rounds,
         checkPlaying = preset.checkPlaying && audioCapture != null,
+        successDelaySeconds = preset.successDelaySeconds,
         noteDisplay = preset.noteDisplay ?: noteDisplay,
         isPreconfigured = true,
     )
@@ -478,6 +528,8 @@ class FingeringViewModel(
             rounds = config.defaultRounds,
             secondsOptions = config.secondsOptions,
             checkPlaying = config.checkPlayingByDefault && audioCapture != null,
+            successDelaySeconds = config.defaultSuccessDelaySeconds,
+            successDelayOptions = config.successDelayOptions,
             transposition = settings.instrument.transposition,
             instrumentName = settings.instrument.displayName,
             noteNaming = settings.noteNaming,
@@ -485,7 +537,17 @@ class FingeringViewModel(
             countInBeats = settings.countInBeats,
             countInClick = settings.countInClick,
         )
-        return if (preset == null) state else state.withPreset(preset)
+        // A preset decides everything the setup screen would have asked, so a remembered setup has
+        // nothing left to say about it.
+        return if (preset != null) {
+            state.withPreset(preset)
+        } else {
+            state.withSetup(
+                setup = exerciseSetups.setupOf(Exercise.FINGERING),
+                chart = config.chart,
+                canCheck = audioCapture != null,
+            )
+        }
     }
 
     private companion object {

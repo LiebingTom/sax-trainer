@@ -95,10 +95,20 @@ data class NoteTrainerProgress(
     val wrongTries: Int = 0,
     /** Filled while the note is being shown as played, so the screen can say how quick it was. */
     val lastReactionSeconds: Double? = null,
+    /**
+     * How far through the hold the note being sounded is, or null when there is no hold to be
+     * through: nothing right is sounding, or the exercise advances as soon as the note is right.
+     */
+    val holdFraction: Float? = null,
+    /** True while the note is being shown as done, between the hold finishing and the next note. */
+    val landed: Boolean = false,
 ) {
     val displayPosition: Int get() = noteIndex + 1
 
     val isCorrect: Boolean get() = listening == Listening.CORRECT
+
+    /** The right note is sounding but the hold is not finished: the moment to keep it going. */
+    val isHolding: Boolean get() = isCorrect && !landed && holdFraction != null
 }
 
 /**
@@ -128,6 +138,15 @@ data class NoteTrainerUiState(
     /** What counts as a quick answer. Scoring only - a slow note is never a failed one. */
     val targetSeconds: Int = 4,
     val targetOptions: List<Int> = emptyList(),
+    /**
+     * How long the right note has to be kept sounding before the exercise moves on.
+     *
+     * Zero is "until it is right": the note is confirmed and gone, which is what the trainer has
+     * always done. Anything above it asks the player to hold the note, and a note that stops or
+     * changes in the middle starts its hold again from nothing.
+     */
+    val holdSeconds: Double = 0.0,
+    val holdOptions: List<Double> = emptyList(),
     /** Set when the microphone was asked for and refused; without one there is no exercise. */
     val microphoneUnavailable: Boolean = false,
     val isPaused: Boolean = false,
@@ -153,6 +172,9 @@ data class NoteTrainerUiState(
     val isEditingCustomNotes: Boolean get() = customNotesDraft != null
 
     val isRandom: Boolean get() = order == NoteOrder.RANDOM
+
+    /** No hold to keep: the exercise advances as soon as the note is right. */
+    val holdsUntilCorrect: Boolean get() = holdSeconds <= 0.0
 
     /** How a note set reads on the setup screen. */
     fun summaryOf(set: NoteSet, chart: com.example.saxtrainer.core.fingering.FingeringChart): String =

@@ -7,13 +7,14 @@ import com.example.saxtrainer.SaxTrainerApp
 import com.example.saxtrainer.core.audio.capture.WebAudioCapture
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
 import com.example.saxtrainer.core.audio.metronome.WebMetronome
+import com.example.saxtrainer.core.settings.LocalStorageExerciseSetupRepository
 import com.example.saxtrainer.core.settings.LocalStorageSettingsRepository
 
 /**
  * The web app.
  *
  * The same shell, the same navigation, the same screens and the same trainers as Android; only the
- * three things a platform has to answer for differ, and each of those is an implementation of an
+ * things a platform has to answer for differ, and each of those is an implementation of an
  * interface `:shell` never looks behind.
  */
 @OptIn(ExperimentalComposeUiApi::class)
@@ -30,6 +31,7 @@ fun main() {
  */
 internal fun webContainer(): AppContainer = AppContainer(
     settingsRepository = LocalStorageSettingsRepository(),
+    exerciseSetups = LocalStorageExerciseSetupRepository(),
     audioCapture = WebAudioCapture(),
     newMetronome = MetronomeFactory { WebMetronome() },
 )

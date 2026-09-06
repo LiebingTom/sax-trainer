@@ -6,6 +6,9 @@ import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.settings.AppSettings
+import com.example.saxtrainer.core.settings.Exercise
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.testing.FakeMicrophone
@@ -61,10 +64,12 @@ class NoteTrainerViewModelTest {
         private fun TestScope.viewModel(
         microphone: AudioCapture? = FakeMicrophone(frameDurationMs),
         settings: SettingsRepository = FakeSettingsRepository(),
+        setups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
         preset: NoteTrainerPreset? = null,
         seed: Int = 1,
     ) = NoteTrainerViewModel(
         settingsRepository = settings,
+        exerciseSetups = setups,
         audioCapture = microphone,
         preset = preset,
         config = config,
@@ -557,6 +562,190 @@ class NoteTrainerViewModelTest {
         assertNull(result.medianReactionSeconds)
         assertEquals(0, result.correctCount)
         assertEquals(0, result.withinTarget(4))
+    }
+
+    // --- holding ------------------------------------------------------------------------------
+
+    @Test
+    fun `with no hold asked for the note counts as soon as it is right`() = trainerTest {
+        val microphone = FakeMicrophone(frameDurationMs)
+        val viewModel = viewModel(microphone = microphone)
+        viewModel.selectOnly(c4, d4)
+
+        try {
+            viewModel.start()
+            advanceTimeBy(200)
+            microphone.frequencyHz = soundingFrequencyOf(c4)
+            advanceTimeBy(500)
+
+            val progress = viewModel.uiState.value.progress!!
+            assertTrue(progress.landed, "the note was confirmed and is on its way out")
+            assertNull(progress.holdFraction, "there is no hold to be part way through")
+        } finally {
+            viewModel.stop()
+            settle()
+        }
+    }
+
+    @Test
+    fun `a hold has to be kept for as long as it asks`() = trainerTest {
+        val microphone = FakeMicrophone(frameDurationMs)
+        val viewModel = viewModel(microphone = microphone)
+        viewModel.selectOnly(c4, d4)
+        viewModel.setHoldSeconds(2.0)
+
+        try {
+            viewModel.start()
+            advanceTimeBy(200)
+            microphone.frequencyHz = soundingFrequencyOf(c4)
+            advanceTimeBy(1_000)
+
+            val holding = viewModel.uiState.value.progress!!
+            assertEquals(0, holding.noteIndex, "a second of a two second hold is not a played note")
+            assertEquals(Listening.CORRECT, holding.listening)
+            assertFalse(holding.landed)
+            assertTrue(holding.isHolding)
+            assertNotNull(holding.holdFraction)
+            assertTrue(holding.holdFraction < 1f, "the hold is under way, not finished")
+
+            advanceTimeBy(2_000)
+
+            assertEquals(1, viewModel.uiState.value.progress!!.noteIndex, "the hold was kept")
+        } finally {
+            viewModel.stop()
+            settle()
+        }
+    }
+
+    @Test
+    fun `losing the note starts its hold again from nothing`() = trainerTest {
+        val microphone = FakeMicrophone(frameDurationMs)
+        val viewModel = viewModel(microphone = microphone)
+        viewModel.selectOnly(c4, d4)
+        viewModel.setHoldSeconds(2.0)
+
+        try {
+            viewModel.start()
+            advanceTimeBy(200)
+            microphone.frequencyHz = soundingFrequencyOf(c4)
+            advanceTimeBy(1_500)
+            // Dropped and picked up again: two stretches of a second and a half are not a hold of
+            // three seconds.
+            microphone.frequencyHz = null
+            advanceTimeBy(400)
+            microphone.frequencyHz = soundingFrequencyOf(c4)
+            advanceTimeBy(1_500)
+
+            assertEquals(0, viewModel.uiState.value.progress!!.noteIndex, "the hold began again")
+
+            // The rest of the two second hold, and the moment the note stays green after it.
+            advanceTimeBy(2_000)
+
+            assertEquals(1, viewModel.uiState.value.progress!!.noteIndex, "and was then kept")
+        } finally {
+            viewModel.stop()
+            settle()
+        }
+    }
+
+    @Test
+    fun `a wrong note in the middle of a hold starts it again`() = trainerTest {
+        val microphone = FakeMicrophone(frameDurationMs)
+        val viewModel = viewModel(microphone = microphone)
+        viewModel.selectOnly(c4, d4)
+        viewModel.setHoldSeconds(2.0)
+
+        try {
+            viewModel.start()
+            advanceTimeBy(200)
+            microphone.frequencyHz = soundingFrequencyOf(c4)
+            advanceTimeBy(1_500)
+            microphone.frequencyHz = soundingFrequencyOf(e4)
+            advanceTimeBy(400)
+            microphone.frequencyHz = soundingFrequencyOf(c4)
+            advanceTimeBy(1_500)
+
+            assertEquals(0, viewModel.uiState.value.progress!!.noteIndex)
+        } finally {
+            viewModel.stop()
+            settle()
+        }
+    }
+
+    @Test
+    fun `a hold never makes the player look slower than they were`() = trainerTest {
+        val microphone = FakeMicrophone(frameDurationMs)
+        val viewModel = viewModel(microphone = microphone)
+        viewModel.selectOnly(c4)
+        viewModel.setHoldSeconds(2.0)
+
+        try {
+            viewModel.start()
+            advanceTimeBy(200)
+            microphone.frequencyHz = soundingFrequencyOf(c4)
+            settle()
+
+            // Found in well under a second; the two seconds spent proving it are not the reaction.
+            val reaction = result(viewModel).attempts.single().reactionSeconds!!
+            assertTrue(reaction < 1.0, "reaction was $reaction s")
+        } finally {
+            viewModel.stop()
+            settle()
+        }
+    }
+
+    // --- remembering the setup ------------------------------------------------------------------
+
+    @Test
+    fun `the setup a run was started with is what the next one opens on`() = trainerTest {
+        val setups = InMemoryExerciseSetupRepository()
+        val first = viewModel(setups = setups)
+        first.selectOnly(c4, e4)
+        first.setRounds(3)
+        first.setShowFingeringHint(true)
+        first.setShowNoteName(true)
+        first.setTargetSeconds(8)
+        first.setHoldSeconds(2.0)
+
+        first.start()
+        advanceTimeBy(200)
+        first.stop()
+        settle()
+
+        val opened = viewModel(setups = setups).uiState.value
+
+        assertEquals(listOf(c4, e4), opened.activeNotes)
+        assertEquals(3, opened.rounds)
+        assertTrue(opened.showFingeringHint)
+        assertTrue(opened.showNoteName)
+        assertEquals(8, opened.targetSeconds)
+        assertEquals(2.0, opened.holdSeconds)
+        assertFalse(opened.isRandom)
+    }
+
+    @Test
+    fun `a setup the player never started is not remembered`() = trainerTest {
+        val setups = InMemoryExerciseSetupRepository()
+        val fiddled = viewModel(setups = setups)
+        fiddled.setRounds(3)
+        fiddled.setHoldSeconds(3.0)
+
+        assertTrue(setups.setupOf(Exercise.NOTE_TRAINER).isEmpty)
+        assertEquals(config.defaultRounds, viewModel(setups = setups).uiState.value.rounds)
+    }
+
+    @Test
+    fun `a ready-made exercise is not remembered as the player's own`() = trainerTest {
+        val setups = InMemoryExerciseSetupRepository()
+        val preset = NoteTrainerPreset(notes = listOf(c4), rounds = 2, autoStart = false)
+
+        val viewModel = viewModel(setups = setups, preset = preset)
+        viewModel.start()
+        advanceTimeBy(200)
+        viewModel.stop()
+        settle()
+
+        assertTrue(setups.setupOf(Exercise.NOTE_TRAINER).isEmpty)
     }
 }
 

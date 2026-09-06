@@ -20,6 +20,8 @@ data class FingeringPreset(
     val rounds: Int = 1,
     /** Whether the player has to sound each note, or only read its fingering. */
     val checkPlaying: Boolean = false,
+    /** How long a note played right stays up before the next one; zero moves on at once. */
+    val successDelaySeconds: Float = 1f,
     /** null leaves the player's own note-display preference alone. */
     val noteDisplay: NoteDisplay? = null,
     /** Whether the exercise begins by itself rather than waiting for Start. */
@@ -29,5 +31,6 @@ data class FingeringPreset(
         require(notes.isNotEmpty()) { "a preset needs at least one note" }
         require(secondsPerNote > 0) { "a note must be shown for some time" }
         require(rounds >= 1) { "an exercise needs at least one round" }
+        require(successDelaySeconds >= 0f) { "a wait cannot be negative" }
     }
 }

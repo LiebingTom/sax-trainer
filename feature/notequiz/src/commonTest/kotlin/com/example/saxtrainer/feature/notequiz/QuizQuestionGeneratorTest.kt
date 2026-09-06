@@ -31,8 +31,7 @@ class QuizQuestionGeneratorTest {
         mode: QuizMode = QuizMode.NOTE_TO_FINGERING,
         pool: List<Note> = octave,
         seed: Int = 1,
-        optionCount: Int = 4,
-    ) = QuizQuestionGenerator.generate(pool, mode, chart, Random(seed), optionCount)
+    ) = QuizQuestionGenerator.generate(pool, mode, chart, Random(seed))
 
     @Test
     fun `the right answer is the target's own fingering`() {
@@ -69,6 +68,8 @@ class QuizQuestionGeneratorTest {
             val shown = when (question) {
                 is NoteToFingering -> question.options
                 is FingeringToNote -> listOf(question.fingering)
+                is NoteAndFingering -> question.fingerings.options
+                is NoteToName -> emptyList()
             }
             assertTrue(
                 shown.all { it.kind == FingeringKind.STANDARD },
@@ -115,16 +116,16 @@ class QuizQuestionGeneratorTest {
 
     @Test
     fun `a small pool asks a smaller question rather than repeating an answer`() {
-        val question = generate(pool = octave.take(3), optionCount = 4)
+        val question = generate(pool = octave.take(3))
 
-        assertEquals(3, question.optionCount)
+        assertEquals(3, question.answers.single().optionCount)
     }
 
     @Test
     fun `two notes is still a question`() {
         val question = generate(pool = octave.take(2))
 
-        assertEquals(2, question.optionCount)
+        assertEquals(2, question.answers.single().optionCount)
     }
 
     @Test
@@ -134,7 +135,9 @@ class QuizQuestionGeneratorTest {
 
     @Test
     fun `the right answer is not always in the same place`() {
-        val places = (0 until 40).map { generate(seed = it).correctIndex }.toSet()
+        val places = (0 until 40)
+            .map { generate(seed = it).answers.single().correctIndex }
+            .toSet()
 
         assertTrue(places.size > 1, "the answer only ever appeared at $places")
     }
@@ -172,5 +175,43 @@ class QuizQuestionGeneratorTest {
             assertNotEquals(Note(NoteName.C, 2), question.note)
             assertTrue(question.options.all(chart::supports))
         }
+    }
+
+    // --- both halves of a note ------------------------------------------------------------------
+
+    @Test
+    fun `the combined question asks ten names and four grips`() {
+        val question = generate(QuizMode.NOTE_AND_FINGERING, pool = chart.supportedNotes)
+            as NoteAndFingering
+
+        val names = question.names
+        assertEquals(10, names.optionCount, "ten names is what the mode asks for")
+        assertEquals(10, names.options.distinct().size, "and ten different ones")
+        assertEquals(question.note, names.options[names.correctIndex])
+        assertEquals(1, names.options.count { it == question.note }, "the answer appears once")
+
+        val grips = question.fingerings
+        val correctGrip = chart.fingeringsFor(question.note)!!.standard
+        assertEquals(4, grips.optionCount, "four grips is a screenful; ten would not be")
+        assertEquals(4, grips.options.distinct().size)
+        assertEquals(correctGrip, grips.options[grips.correctIndex])
+        assertEquals(1, grips.options.count { it == correctGrip }, "the answer appears once")
+    }
+
+    @Test
+    fun `a pool too small for ten names is not padded out`() {
+        // Six notes cannot fill ten names, and can fill four grips: each slot is trimmed to what
+        // the pool can supply, on its own.
+        val question = generate(QuizMode.NOTE_AND_FINGERING, pool = octave.take(6))
+            as NoteAndFingering
+
+        val names = question.names
+        assertEquals(6, names.optionCount, "no name was invented to make the number up")
+        assertEquals(6, names.options.distinct().size)
+        assertEquals(question.note, names.options[names.correctIndex])
+
+        val grips = question.fingerings
+        assertEquals(4, grips.optionCount, "the grips were never short of candidates")
+        assertEquals(chart.fingeringsFor(question.note)!!.standard, grips.options[grips.correctIndex])
     }
 }

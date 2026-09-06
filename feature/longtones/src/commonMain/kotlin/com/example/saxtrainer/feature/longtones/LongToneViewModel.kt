@@ -21,6 +21,9 @@ import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.settings.NoteDisplay
+import com.example.saxtrainer.core.settings.Exercise
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.settings.TrainingTool
 import com.example.saxtrainer.core.settings.displayAt
@@ -57,6 +60,11 @@ import kotlin.random.Random
 class LongToneViewModel(
     private val audioCapture: AudioCapture,
     private val settingsRepository: SettingsRepository,
+    /**
+     * What this exercise was last started with. Defaulted so an exercise without one still runs; it
+     * simply opens on the plain defaults every time.
+     */
+    private val exerciseSetups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
     /** Only ever used to click the count-in; the exercise itself is played into a silent room. */
     private val metronome: Metronome? = null,
     private val config: LongToneConfig = LongToneConfig(),
@@ -120,6 +128,10 @@ class LongToneViewModel(
     /** Starts the count-in and recording. The caller must have obtained microphone permission. */
     fun start() {
         if (exerciseJob?.isActive == true) return
+
+        // What the player started with becomes what they are offered next time.
+        exerciseSetups.remember(Exercise.LONG_TONES, _uiState.value.toSetup())
+
         pause.resume()
         _uiState.value = _uiState.value.copy(
             phase = LongTonePhase.Countdown(countInBeats()),
@@ -397,7 +409,7 @@ class LongToneViewModel(
 
     private fun initialState(): LongToneUiState {
         val instrument = settingsRepository.settings.value.instrument
-        return LongToneUiState(
+        val state = LongToneUiState(
             selection = ExerciseSelection(
                 pattern = config.defaultPattern,
                 rootNote = config.defaultRoot,
@@ -414,6 +426,7 @@ class LongToneViewModel(
             countInClick = settingsRepository.settings.value.countInClick,
             centsDisplayRange = config.centsDisplayRange,
         )
+        return state.withSetup(exerciseSetups.setupOf(Exercise.LONG_TONES))
     }
 
     private companion object {

@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.capture.rememberMicrophoneAccess
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
 
 /**
@@ -28,6 +29,7 @@ import com.example.saxtrainer.core.settings.SettingsRepository
 @Composable
 fun FingeringRoute(
     settingsRepository: SettingsRepository,
+    exerciseSetups: ExerciseSetupRepository,
     audioCapture: AudioCapture,
     newMetronome: MetronomeFactory,
     onBack: () -> Unit,
@@ -37,6 +39,7 @@ fun FingeringRoute(
     viewModel: FingeringViewModel = viewModel {
         FingeringViewModel(
             settingsRepository = settingsRepository,
+            exerciseSetups = exerciseSetups,
             audioCapture = audioCapture,
             // Only ever heard during the count-in; the exercise itself makes no sound.
             metronome = newMetronome.create(),
@@ -90,7 +93,9 @@ fun FingeringRoute(
         onRandomChange = viewModel::setRandomOrder,
         onSecondsChange = viewModel::setSecondsPerNote,
         onCheckPlayingChange = viewModel::setCheckPlaying,
+        onSuccessDelayChange = viewModel::setSuccessDelaySeconds,
         onNoteDisplayChange = viewModel::setNoteDisplay,
+        onSkipSuccessDelay = viewModel::skipSuccessDelay,
         onStart = start,
         onTogglePause = viewModel::togglePause,
         onStop = viewModel::stop,

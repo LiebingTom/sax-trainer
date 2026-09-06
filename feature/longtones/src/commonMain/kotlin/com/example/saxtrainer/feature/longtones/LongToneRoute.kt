@@ -13,6 +13,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.capture.rememberMicrophoneAccess
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
 
 /**
@@ -26,11 +27,17 @@ fun LongToneRoute(
     audioCapture: AudioCapture,
     newMetronome: MetronomeFactory,
     settingsRepository: SettingsRepository,
+    exerciseSetups: ExerciseSetupRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LongToneViewModel = viewModel {
         // The click counts the exercise in and stops before the microphone opens.
-        LongToneViewModel(audioCapture, settingsRepository, metronome = newMetronome.create())
+        LongToneViewModel(
+            audioCapture = audioCapture,
+            settingsRepository = settingsRepository,
+            exerciseSetups = exerciseSetups,
+            metronome = newMetronome.create(),
+        )
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()

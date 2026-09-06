@@ -1,5 +1,6 @@
 package com.example.saxtrainer.feature.notequiz
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -46,7 +48,8 @@ import com.example.saxtrainer.core.music.conventionalStyle
  * The note quiz, stateless.
  *
  * The question is always a drawing - a note on the staff, or a fingering diagram - and never the
- * name of a note. The name appears once the answer is in, as feedback.
+ * name of a note. A name may be an answer to choose between, and is the feedback once the answer
+ * is in, but it is never what is being asked.
  */
 @Composable
 fun QuizScreen(
@@ -60,7 +63,9 @@ fun QuizScreen(
     onCancelCustomNotes: () -> Unit,
     onSelectMode: (QuizMode) -> Unit,
     onSelectQuestionCount: (Int) -> Unit,
-    onAnswer: (Int) -> Unit,
+    onSelectSuccessDelay: (Double) -> Unit,
+    onAnswer: (slot: Int, option: Int) -> Unit,
+    onSkipSuccessDelay: () -> Unit,
     onStart: () -> Unit,
     onStop: () -> Unit,
     onReset: () -> Unit,
@@ -99,23 +104,24 @@ fun QuizScreen(
                     onEditCustomNotes = onEditCustomNotes,
                     onSelectMode = onSelectMode,
                     onSelectQuestionCount = onSelectQuestionCount,
+                    onSelectSuccessDelay = onSelectSuccessDelay,
                 )
             }
 
             is QuizPhase.Asking -> QuestionPanel(
                 state = state,
                 question = phase.question,
-                index = phase.index,
-                chosen = null,
+                chosen = phase.chosen,
                 onAnswer = onAnswer,
+                onSkipSuccessDelay = onSkipSuccessDelay,
             )
 
             is QuizPhase.Answered -> QuestionPanel(
                 state = state,
                 question = phase.question,
-                index = phase.index,
                 chosen = phase.chosen,
                 onAnswer = onAnswer,
+                onSkipSuccessDelay = onSkipSuccessDelay,
             )
 
             is QuizPhase.Finished -> ResultCard(state, phase.result)
@@ -143,6 +149,7 @@ private fun Setup(
     onEditCustomNotes: () -> Unit,
     onSelectMode: (QuizMode) -> Unit,
     onSelectQuestionCount: (Int) -> Unit,
+    onSelectSuccessDelay: (Double) -> Unit,
 ) {
     SectionHeader("Notes")
     state.noteSets.forEach { set ->
@@ -179,6 +186,23 @@ private fun Setup(
         }
     }
 
+    Spacer(Modifier.height(Dimens.spaceSm))
+    SectionHeader("Stay on a right answer for")
+    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+        state.successDelayOptions.forEach { seconds ->
+            FilterChip(
+                selected = seconds == state.successDelaySeconds,
+                onClick = { onSelectSuccessDelay(seconds) },
+                label = { Text(successDelayLabelOf(seconds)) },
+            )
+        }
+    }
+    Text(
+        text = "Tap the answers to move on sooner.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
     if (!state.canStart) {
         Spacer(Modifier.height(Dimens.spaceSm))
         Text(
@@ -193,78 +217,60 @@ private fun Setup(
 /**
  * The question and its answers.
  *
- * [chosen] is null while the question is still open and holds the tapped option once it is
- * answered, which is the only difference between the two phases on screen.
+ * [chosen] holds one entry per slot: the option taken, or null while that slot is still open. A
+ * slot that has been answered is shown as right or wrong straight away; the rest of the question
+ * carries on being asked around it.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun QuestionPanel(
     state: QuizUiState,
     question: QuizQuestion,
-    index: Int,
-    chosen: Int?,
-    onAnswer: (Int) -> Unit,
+    chosen: List<Int?>,
+    onAnswer: (slot: Int, option: Int) -> Unit,
+    onSkipSuccessDelay: () -> Unit,
 ) {
+    val settled = chosen.all { it != null }
+    val allCorrect = settled &&
+        chosen.indices.all { chosen[it] == question.answers[it].correctIndex }
+
+    // The whole panel is the button once the question is over and every part of it was right, and
+    // only then: a question still open is answered by choosing an option, never by tapping around
+    // it, and a wrong answer keeps its own wait because there is something to read in it.
+    val skippable = settled && allCorrect
+
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (skippable) {
+                    Modifier.clickable(
+                        onClickLabel = "Go on to the next question",
+                        onClick = onSkipSuccessDelay,
+                    )
+                } else {
+                    Modifier
+                },
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
     ) {
-        when (question) {
-            is NoteToFingering -> {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
-                    verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
-                ) {
-                    question.options.forEachIndexed { option, fingering ->
-                        AnswerOption(
-                            onClick = { onAnswer(option) },
-                            state = stateOf(question, option, chosen),
-                            contentDescription = "Fingering ${option + 1}",
-                        ) {
-                            SaxophoneFingeringView(
-                                fingering = fingering,
-                                width = OptionFingeringWidth,
-                                pressedColor = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-                }
-            }
-
-            is FingeringToNote -> {
-                // Every option is drawn on a staff of the same height, so a high answer and a low
-                // one line up and the row does not jump as the question changes.
-                val extent = staffStepRange(question.options, Note::conventionalStyle)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
-                    verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
-                ) {
-                    question.options.forEachIndexed { option, note ->
-                        AnswerOption(
-                            onClick = { onAnswer(option) },
-                            state = stateOf(question, option, chosen),
-                            contentDescription = state.nameOf(note),
-                        ) {
-                            MusicalNoteView(
-                                primaryNote = note,
-                                lineSpacing = OptionStaffSpacing,
-                                accidentalStyle = note.conventionalStyle(),
-                                stepRange = extent,
-                                primaryColor = MaterialTheme.colorScheme.onSurface,
-                                staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
+        question.answers.forEachIndexed { slot, answers ->
+            AnswerSlotOptions(
+                state = state,
+                answers = answers,
+                chosen = chosen[slot],
+                onAnswer = { option -> onAnswer(slot, option) },
+            )
         }
 
-        if (chosen != null) {
-            // The name of the note appears here and nowhere else: it is the feedback, never the
-            // question.
+        // The combined mode has just had the player name the note themselves, next to the note
+        // itself: saying it again underneath would be telling them what they have just said.
+        if (settled && state.mode != QuizMode.NOTE_AND_FINGERING) {
+            // The name of the note appears here and nowhere else as feedback: it is what the
+            // question was about, never the question itself. It is worth saying wherever the player
+            // was not asked for the name - most of all in the mode that shows only a grip.
             Text(
-                text = if (chosen == question.correctIndex) {
+                text = if (allCorrect) {
                     "Yes - ${state.nameOf(question.note)}"
                 } else {
                     "That was ${state.nameOf(question.note)}"
@@ -276,10 +282,134 @@ private fun QuestionPanel(
     }
 }
 
-/** Neutral until an answer is in; then the right one and, if it differs, the one that was tapped. */
-private fun stateOf(question: QuizQuestion, option: Int, chosen: Int?): AnswerState = when {
+/** One slot's options, drawn as whatever kind of thing that slot is asking the player to choose. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AnswerSlotOptions(
+    state: QuizUiState,
+    answers: QuizAnswers,
+    chosen: Int?,
+    onAnswer: (Int) -> Unit,
+) {
+    when (answers) {
+        is FingeringAnswers -> FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+        ) {
+            answers.options.forEachIndexed { option, fingering ->
+                AnswerOption(
+                    onClick = { onAnswer(option) },
+                    state = stateOf(answers, option, chosen),
+                    contentDescription = "Fingering ${option + 1}",
+                ) {
+                    SaxophoneFingeringView(
+                        fingering = fingering,
+                        width = OptionFingeringWidth,
+                        pressedColor = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
+
+        is NameAnswers -> NameOptions(state, answers, chosen, onAnswer)
+
+        is StaffNoteAnswers -> {
+            // Every option is drawn on a staff of the same height, so a high answer and a low
+            // one line up and the row does not jump as the question changes.
+            val extent = staffStepRange(answers.options, Note::conventionalStyle)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+                verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+            ) {
+                answers.options.forEachIndexed { option, note ->
+                    AnswerOption(
+                        onClick = { onAnswer(option) },
+                        state = stateOf(answers, option, chosen),
+                        contentDescription = state.nameOf(note),
+                    ) {
+                        MusicalNoteView(
+                            primaryNote = note,
+                            lineSpacing = OptionStaffSpacing,
+                            accidentalStyle = note.conventionalStyle(),
+                            stepRange = extent,
+                            primaryColor = MaterialTheme.colorScheme.onSurface,
+                            staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Names to choose between.
+ *
+ * Enough of them to fill even rows are laid out as a grid, which is what ten of them are for: five
+ * across and two down reads as a keyboard of names rather than as a paragraph. Fewer than that -
+ * which only happens when the note pool cannot fill the ten - flow instead.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NameOptions(
+    state: QuizUiState,
+    answers: NameAnswers,
+    chosen: Int?,
+    onAnswer: (Int) -> Unit,
+) {
+    val options = answers.options
+    if (options.size >= NameGridColumns * 2) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+        ) {
+            options.withIndex().chunked(NameGridColumns).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+                ) {
+                    row.forEach { (option, note) ->
+                        AnswerOption(
+                            onClick = { onAnswer(option) },
+                            modifier = Modifier.weight(1f),
+                            state = stateOf(answers, option, chosen),
+                        ) {
+                            Text(
+                                text = state.nameOf(note),
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+        ) {
+            options.forEachIndexed { option, note ->
+                AnswerOption(
+                    onClick = { onAnswer(option) },
+                    state = stateOf(answers, option, chosen),
+                ) {
+                    Text(
+                        text = state.nameOf(note),
+                        style = MaterialTheme.typography.titleMedium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.widthIn(min = OptionNameWidth),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Neutral until that slot is answered; then the right one and, if it differs, the one tapped. */
+private fun stateOf(answers: QuizAnswers, option: Int, chosen: Int?): AnswerState = when {
     chosen == null -> AnswerState.NEUTRAL
-    option == question.correctIndex -> AnswerState.CORRECT
+    option == answers.correctIndex -> AnswerState.CORRECT
     option == chosen -> AnswerState.INCORRECT
     else -> AnswerState.NEUTRAL
 }
@@ -395,10 +525,20 @@ private fun Actions(
     }
 }
 
+/** How a wait reads on the setup screen; none of the offered ones needs a decimal point. */
+private fun successDelayLabelOf(seconds: Double): String =
+    if (seconds <= 0.0) "Straight on" else "${seconds.toInt()} s"
+
 private val PromptStaffSpacing = 16.dp
 private val OptionStaffSpacing = 9.dp
 private val PromptFingeringWidth = 110.dp
 private val OptionFingeringWidth = 64.dp
+
+/** Wide enough that a bare name is still a comfortable target, and that the grid stays even. */
+private val OptionNameWidth = 44.dp
+
+/** How many names sit side by side once there are enough of them to fill even rows. */
+private const val NameGridColumns = 5
 
 @Preview(showBackground = true)
 @Composable
@@ -418,7 +558,9 @@ private fun QuizSetupPreview() {
             onCancelCustomNotes = {},
             onSelectMode = {},
             onSelectQuestionCount = {},
-            onAnswer = {},
+            onSelectSuccessDelay = {},
+            onAnswer = { _, _ -> },
+            onSkipSuccessDelay = {},
             onStart = {},
             onStop = {},
             onReset = {},
@@ -438,7 +580,7 @@ private fun headerOf(state: QuizUiState): ScreenHeader = when (val phase = state
     is QuizPhase.Answered -> ScreenHeader.Question(phase.question.prompt)
     is QuizPhase.Finished -> ScreenHeader.Question("How did that go?")
     QuizPhase.Idle -> ScreenHeader.Description(
-        "See a note and pick its fingering, or a fingering and pick its note. " +
+        "See a note and pick its fingering or its name, or a fingering and pick its note. " +
             "No instrument needed.",
     )
 }
@@ -482,7 +624,7 @@ private fun QuestionSubject(question: QuizQuestion, pool: List<Note>) {
     when (question) {
         // Sized for every note the quiz can ask about, so the band does not change height when a
         // note that hangs below the staff comes up.
-        is NoteToFingering -> MusicalNoteView(
+        is NoteToFingering, is NoteToName, is NoteAndFingering -> MusicalNoteView(
             primaryNote = question.note,
             lineSpacing = PromptStaffSpacing,
             accidentalStyle = question.note.conventionalStyle(),

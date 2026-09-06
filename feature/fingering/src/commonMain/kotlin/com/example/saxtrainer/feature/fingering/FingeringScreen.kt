@@ -1,5 +1,6 @@
 package com.example.saxtrainer.feature.fingering
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -66,7 +67,9 @@ fun FingeringScreen(
     onRandomChange: (Boolean) -> Unit,
     onSecondsChange: (Int) -> Unit,
     onCheckPlayingChange: (Boolean) -> Unit,
+    onSuccessDelayChange: (Float) -> Unit,
     onNoteDisplayChange: (NoteDisplay) -> Unit,
+    onSkipSuccessDelay: () -> Unit,
     onStart: () -> Unit,
     onTogglePause: () -> Unit,
     onStop: () -> Unit,
@@ -106,11 +109,12 @@ fun FingeringScreen(
                 onRandomChange = onRandomChange,
                 onSecondsChange = onSecondsChange,
                 onCheckPlayingChange = onCheckPlayingChange,
+                onSuccessDelayChange = onSuccessDelayChange,
                 onNoteDisplayChange = onNoteDisplayChange,
             )
 
             is FingeringPhase.CountIn -> CountInPanel(phase.beatsRemaining, state.isPaused)
-            is FingeringPhase.Running -> RunningPanel(state)
+            is FingeringPhase.Running -> RunningPanel(state, onSkipSuccessDelay)
             is FingeringPhase.Finished -> ResultCard(state, phase.result)
         }
 
@@ -137,6 +141,7 @@ private fun Setup(
     onRandomChange: (Boolean) -> Unit,
     onSecondsChange: (Int) -> Unit,
     onCheckPlayingChange: (Boolean) -> Unit,
+    onSuccessDelayChange: (Float) -> Unit,
     onNoteDisplayChange: (NoteDisplay) -> Unit,
 ) {
     SectionHeader("Notes")
@@ -227,6 +232,27 @@ private fun Setup(
         Switch(checked = state.checkPlaying, onCheckedChange = onCheckPlayingChange)
     }
 
+    // Only asked about when there is something to be right about: with checking off nothing is
+    // played, so there is nothing to stay on.
+    if (state.checkPlaying) {
+        Spacer(Modifier.height(Dimens.spaceSm))
+        SectionHeader("Stay on a correct note for")
+        Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+            state.successDelayOptions.forEach { seconds ->
+                FilterChip(
+                    selected = seconds == state.successDelaySeconds,
+                    onClick = { onSuccessDelayChange(seconds) },
+                    label = { Text(successDelayLabelOf(seconds)) },
+                )
+            }
+        }
+        Text(
+            text = "Tap the fingering to move on sooner.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("Note display")
     NoteDisplayPicker(
@@ -268,8 +294,12 @@ private fun CountInPanel(beatsRemaining: Int, paused: Boolean) {
 
 /** The fingering is the point of the screen, so it gets the most room. */
 @Composable
-private fun RunningPanel(state: FingeringUiState) {
+private fun RunningPanel(state: FingeringUiState, onSkipSuccessDelay: () -> Unit) {
     val progress = state.progress ?: return
+
+    // The whole panel is the button, but only while the note is being held on screen after being
+    // played right. A note still being asked for is answered by playing it, never by tapping.
+    val skippable = progress.landed && !state.isPaused
 
     val correctColor = FeedbackColors.correct
     val wrongColor = FeedbackColors.incorrect
@@ -277,7 +307,18 @@ private fun RunningPanel(state: FingeringUiState) {
     val fingeringColor = if (progress.isCorrect) correctColor else MaterialTheme.colorScheme.onSurface
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (skippable) {
+                    Modifier.clickable(
+                        onClickLabel = "Go on to the next note",
+                        onClick = onSkipSuccessDelay,
+                    )
+                } else {
+                    Modifier
+                },
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
     ) {
@@ -302,27 +343,39 @@ private fun RunningPanel(state: FingeringUiState) {
 
         if (state.checkPlaying) {
             Text(
-                text = when (progress.heard) {
-                    Heard.CORRECT -> "That is the note"
-                    Heard.WRONG -> progress.detectedNote
-                        ?.let { "That is " + state.nameOf(it) }
-                        ?: "Not that one"
-                    // Something was played but no pitch could be read from it, which is not the
-                    // same as playing the wrong note and is not treated like one.
-                    Heard.UNCLEAR -> "Keep the tone going"
-                    Heard.NOTHING -> if (progress.showFingering) {
-                        "This is the fingering"
-                    } else {
-                        "Play the note"
+                text = when {
+                    // Already played right: what happens to the sound now changes nothing.
+                    progress.landed -> "That is the note"
+                    else -> when (progress.heard) {
+                        Heard.CORRECT -> "That is the note"
+                        Heard.WRONG -> progress.detectedNote
+                            ?.let { "That is " + state.nameOf(it) }
+                            ?: "Not that one"
+                        // Something was played but no pitch could be read from it, which is not the
+                        // same as playing the wrong note and is not treated like one.
+                        Heard.UNCLEAR -> "Keep the tone going"
+                        Heard.NOTHING -> if (progress.showFingering) {
+                            "This is the fingering"
+                        } else {
+                            "Play the note"
+                        }
                     }
                 },
                 style = MaterialTheme.typography.labelLarge,
-                color = when (progress.heard) {
-                    Heard.CORRECT -> correctColor
-                    Heard.WRONG -> wrongColor
+                color = when {
+                    progress.landed || progress.heard == Heard.CORRECT -> correctColor
+                    progress.heard == Heard.WRONG -> wrongColor
                     else -> MaterialTheme.colorScheme.onSurfaceVariant
                 },
             )
+
+            if (skippable) {
+                Text(
+                    text = "Tap to go on",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -467,6 +520,10 @@ private fun Actions(
     }
 }
 
+/** How a wait reads on the setup screen; none of the offered ones needs a decimal point. */
+private fun successDelayLabelOf(seconds: Float): String =
+    if (seconds <= 0f) "Straight on" else "${seconds.toInt()} s"
+
 private const val NEXT_NOTE_SCALE = 0.5f
 private val CurrentNoteStaffSpacing = 12.dp
 private val NextNoteStaffSpacing = 6.dp
@@ -494,7 +551,9 @@ private fun FingeringSetupPreview() {
             onRandomChange = {},
             onSecondsChange = {},
             onCheckPlayingChange = {},
+            onSuccessDelayChange = {},
             onNoteDisplayChange = {},
+            onSkipSuccessDelay = {},
             onStart = {},
             onTogglePause = {},
             onStop = {},
@@ -536,7 +595,9 @@ private fun FingeringRunningPreview() {
             onRandomChange = {},
             onSecondsChange = {},
             onCheckPlayingChange = {},
+            onSuccessDelayChange = {},
             onNoteDisplayChange = {},
+            onSkipSuccessDelay = {},
             onStart = {},
             onTogglePause = {},
             onStop = {},

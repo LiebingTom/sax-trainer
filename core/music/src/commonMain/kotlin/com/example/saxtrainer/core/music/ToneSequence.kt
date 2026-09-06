@@ -52,4 +52,26 @@ data class ToneSequence(
 
     /** Bar and beat at which the step at [index] starts. */
     fun positionOf(index: Int): BarPosition = timeSignature.positionAt(startBeatOf(index))
+
+    companion object {
+
+        /**
+         * One note, written as [notated].
+         *
+         * A single target note is a line of music one note long. Saying it that way rather than
+         * inventing a type for it means the note is drawn by the same engine as everything else,
+         * and comes with a written length, a clef and a place in a bar without any of them being
+         * special-cased.
+         */
+        fun of(
+            note: Note,
+            notated: NotatedDuration = NotatedDuration(NoteValue.QUARTER),
+            timeSignature: TimeSignature = TimeSignature.FOUR_FOUR,
+            accidentalStyle: AccidentalStyle = note.conventionalStyle(),
+        ): ToneSequence = ToneSequence(
+            steps = listOf(ToneStep(note, notated.beats(timeSignature.beatUnit))),
+            timeSignature = timeSignature,
+            accidentalStyle = accidentalStyle,
+        )
+    }
 }

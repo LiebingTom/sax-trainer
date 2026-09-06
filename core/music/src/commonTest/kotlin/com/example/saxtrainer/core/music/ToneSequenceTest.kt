@@ -79,4 +79,34 @@ class ToneSequenceTest {
     fun `asking for a note outside the sequence fails`() {
         assertFailsWith<IllegalArgumentException> { sequence.startBeatOf(3) }
     }
+
+    @Test
+    fun `a single target note is a sequence one note long`() {
+        val single = ToneSequence.of(Note(NoteName.G, 4), NotatedDuration(NoteValue.HALF))
+
+        assertEquals(listOf(Note(NoteName.G, 4)), single.notes)
+        assertEquals(2.0, single.totalBeats.value, 1e-9)
+    }
+
+    @Test
+    fun `a target note is written in the beat unit of its bar`() {
+        val inEight = ToneSequence.of(
+            note = Note(NoteName.G, 4),
+            notated = NotatedDuration(NoteValue.QUARTER),
+            timeSignature = TimeSignature(6, 8),
+        )
+
+        // A quarter is two beats where the beat is an eighth.
+        assertEquals(2.0, inEight.totalBeats.value, 1e-9)
+    }
+
+    @Test
+    fun `a target note is spelled the way a musician would name it`() {
+        assertEquals(
+            AccidentalStyle.FLATS,
+            ToneSequence.of(Note(NoteName.A_SHARP, 4)).accidentalStyle,
+            "nobody calls it an A sharp",
+        )
+        assertEquals(AccidentalStyle.SHARPS, ToneSequence.of(Note(NoteName.C_SHARP, 4)).accidentalStyle)
+    }
 }

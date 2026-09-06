@@ -43,7 +43,8 @@ shell                  the application itself: navigation graph, landing page wi
                        favorites, the Practice and Lessons lists, lesson catalog, AppContainer.
                        The one module allowed to depend on features.
 core/designsystem      theme, typography, shapes, Dimens, reusable components, the staff and
-                       fingering renderers, the icons as ImageVector code
+                       fingering renderers - treble clef, notes drawn or written by name -
+                       the icons as ImageVector code
 core/music             Note, NoteName, Transposition, Cents, TrebleStaff placement,
                        Beats/Tempo/TimeSignature, ToneStep/ToneSequence
 core/exercise          SequenceRunner (passive cursor), ExercisePattern, SequenceCatalog,

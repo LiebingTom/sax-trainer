@@ -3,6 +3,7 @@ package com.example.saxtrainer.core.designsystem.component
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.LocalContentColor
@@ -16,9 +17,15 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isFinite
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.NoteValue
 import com.example.saxtrainer.core.music.NotatedDuration
@@ -38,11 +45,15 @@ import com.example.saxtrainer.core.music.NoteNaming
  *
  * [highlightIndex] marks the note being practised now. [noteColor] lets a screen paint an individual
  * note - green for right, something else for wrong - without this component knowing what those
- * colours mean.
+ * colours mean. [noteStyle] says, in the same per-note way, which notes are written as their name
+ * instead of drawn; the design system never learns what a display setting is.
+ *
+ * [prefix] is the block at the head of the staff - the clef, and one day a key signature. Its width
+ * is fixed whatever is in it, so turning the clef off does not move a note.
  *
  * The engraving is deliberately limited; see `StaffDrawing.kt` for exactly how far it goes. Notably
- * there are no rests, ties, key signatures or clefs, beams are horizontal, and a duration with no
- * single written form is drawn as a plain hollow head rather than guessed at.
+ * there are no rests, ties or key signatures, beams are horizontal, and a duration with no single
+ * written form is drawn as a plain hollow head rather than guessed at.
  */
 @Composable
 fun MusicalStaffView(
@@ -56,13 +67,50 @@ fun MusicalStaffView(
     lineSpacing: Dp = DefaultSequenceLineSpacing,
     autoScrollToHighlight: Boolean = true,
     naming: NoteNaming = NoteNaming.INTERNATIONAL,
+    prefix: StaffPrefix = StaffPrefix.None,
+    noteStyle: (index: Int) -> StaffNoteStyle = { StaffNoteStyle.HEAD },
+    labelStyle: TextStyle = MaterialTheme.typography.labelLarge,
+    labelBackground: Color? = null,
+    /** Runs the staff lines out to the full width available, with the music kept at its own size. */
+    fillWidth: Boolean = false,
+    /**
+     * The double bar that closes the music.
+     *
+     * Worth turning off where the line is not a piece of music but a single note held up to be
+     * read: a bar line says "this is the end", and a target note is not an end of anything.
+     */
+    closingBar: Boolean = true,
+    /**
+     * The vertical room to keep, whatever this sequence needs.
+     *
+     * A screen that shows one note after another passes [reservedStepRange] over every note it can
+     * show, and the staff then keeps one size and one position throughout instead of resizing as
+     * the notes change.
+     */
+    stepRange: IntRange? = null,
 ) {
-    val layout = remember(sequence) { StaffLayoutBuilder.of(sequence) }
-    val scrollState = rememberScrollState()
+    val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
 
-    val width = lineSpacing * layout.widthSpaces
-    val height = staffHeightOf(layout.stepRange, lineSpacing)
+    val styles = sequence.steps.indices.map(noteStyle)
+    // Every written name is given the room of the widest name in the sequence, not its own, so the
+    // line does not reflow when one note's presentation changes. The same rule [NoteSlot] follows.
+    val labelWidthSpaces = remember(sequence, styles, labelStyle, lineSpacing, naming, density) {
+        if (styles.none { it == StaffNoteStyle.NAME }) {
+            0f
+        } else {
+            widestLabelSpaces(sequence, measurer, labelStyle, naming, lineSpacing, density)
+        }
+    }
+
+    val layout = remember(sequence, prefix, styles, labelWidthSpaces) {
+        StaffLayoutBuilder.of(sequence, prefix, styles, labelWidthSpaces)
+    }
+    val scrollState = rememberScrollState()
+
+    val extent = (stepRange ?: layout.stepRange).including(prefix.stepRange)
+    val musicWidth = lineSpacing * layout.widthSpaces
+    val height = staffHeightOf(extent, lineSpacing)
 
     // Keep the note being played in view without the caller having to measure anything.
     LaunchedEffect(highlightIndex, autoScrollToHighlight) {
@@ -78,37 +126,102 @@ fun MusicalStaffView(
         naming.labelOf(it.note, sequence.accidentalStyle)
     }
 
-    Box(
-        modifier = modifier
-            .horizontalScroll(scrollState)
-            .clearAndSetSemantics { contentDescription = description },
+    // Outside the scroll on purpose: inside it the width offered is infinite and says nothing.
+    BoxWithConstraints(
+        modifier = modifier.clearAndSetSemantics { contentDescription = description },
     ) {
-        Canvas(modifier = Modifier.size(width = width, height = height)) {
-            val geometry = StaffGeometry(
-                lowestStep = layout.stepRange.first,
-                highestStep = layout.stepRange.last,
-                spacing = size.height / ((layout.stepRange.last - layout.stepRange.first) / 2f),
-            )
-            val space = geometry.spacing
+        // A parent that offers unbounded width - a Row without a weight, say - has no edge to run
+        // to, and asking for one would size the canvas at infinity.
+        val width = if (fillWidth && maxWidth.isFinite) maxOf(musicWidth, maxWidth) else musicWidth
 
-            drawStaffLines(geometry, staffColor)
-            layout.barLineXSpaces.forEach { drawBarLine(geometry, staffColor, it * space) }
-            drawBarLine(geometry, staffColor, size.width - space * 0.5f, thick = true)
+        Box(modifier = Modifier.horizontalScroll(scrollState)) {
+            Canvas(modifier = Modifier.size(width = width, height = height)) {
+                val geometry = StaffGeometry(
+                    lowestStep = extent.first,
+                    highestStep = extent.last,
+                    spacing = size.height / ((extent.last - extent.first) / 2f),
+                )
+                val space = geometry.spacing
 
-            val stemming = stemmingOf(layout, geometry)
+                drawStaffLines(geometry, staffColor)
+                if (prefix.clef) drawTrebleClef(geometry, staffColor, leftX = 0f)
+                // The line that closes the header block. It is what makes the block read as a
+                // block, and it is why a clef appearing or a key signature arriving later cannot
+                // look like the music has shifted: the music starts at this line, always.
+                if (layout.prefixWidthSpaces > 0f) {
+                    drawBarLine(geometry, staffColor, layout.prefixWidthSpaces * space)
+                }
 
-            layout.notes.forEach { note ->
-                val paint = noteColor(note.index)
-                    ?: if (note.index == highlightIndex) highlightColor else color
-                drawNote(geometry, note, paint, stemming[note.index]!!, layout)
-            }
+                layout.barLineXSpaces.forEach { drawBarLine(geometry, staffColor, it * space) }
+                // At the end of the music, which is not the edge of the canvas once it fills the
+                // width: the lines simply carry on past the closing bar, as an unfinished line does.
+                if (closingBar) {
+                    drawBarLine(
+                        geometry = geometry,
+                        color = staffColor,
+                        x = (layout.widthSpaces - 0.5f) * space,
+                        thick = true,
+                    )
+                }
 
-            layout.beamGroups.forEach { group ->
-                drawBeamGroup(geometry, layout, group, stemming, color, highlightIndex, highlightColor, noteColor)
+                val stemming = stemmingOf(layout, geometry)
+
+                layout.notes.forEach { note ->
+                    val paint = noteColor(note.index)
+                        ?: if (note.index == highlightIndex) highlightColor else color
+                    when (note.style) {
+                        StaffNoteStyle.HEAD ->
+                            drawNote(geometry, note, paint, stemming[note.index]!!, layout)
+
+                        StaffNoteStyle.NAME -> drawNoteLabel(
+                            geometry = geometry,
+                            measurer = measurer,
+                            text = naming.labelOf(
+                                sequence.steps[note.index].note,
+                                sequence.accidentalStyle,
+                            ),
+                            style = labelStyle,
+                            color = paint,
+                            background = labelBackground,
+                            centerX = note.headXSpaces * space,
+                            step = note.placement.stepsFromBottomLine,
+                        )
+                    }
+                }
+
+                layout.beamGroups.forEach { group ->
+                    drawBeamGroup(geometry, layout, group, stemming, color, highlightIndex, highlightColor, noteColor)
+                }
             }
         }
     }
 }
+
+/**
+ * How much room the longest name in [sequence] needs, in staff spaces.
+ *
+ * Measured rather than guessed, because a name's width is a font's business; converted to staff
+ * spaces because that is the only unit the layout deals in.
+ */
+private fun widestLabelSpaces(
+    sequence: ToneSequence,
+    measurer: TextMeasurer,
+    labelStyle: TextStyle,
+    naming: NoteNaming,
+    lineSpacing: Dp,
+    density: Density,
+): Float {
+    val widestPx = sequence.steps.maxOf {
+        val label = naming.labelOf(it.note, sequence.accidentalStyle)
+        measurer.measure(AnnotatedString(label), labelStyle).size.width
+    }
+    val spacingPx = with(density) { lineSpacing.toPx() }
+    val padding = spacingPx * LABEL_PADDING_RATIO * 2f
+    return (widestPx + padding) / spacingPx + LABEL_GAP_SPACES
+}
+
+/** Air between one written name and the next, so two of them never touch. */
+private const val LABEL_GAP_SPACES = 0.4f
 
 /** How each note's stem is drawn: a beamed group takes one direction and one end for all of them. */
 private class Stemming(val stemUp: Boolean, val endY: Float)
@@ -232,7 +345,12 @@ private fun MusicalStaffViewScalePreview() {
             ToneStep(Note(NoteName.C, 5), NotatedDuration(NoteValue.HALF).beats()),
     )
     SaxTrainerTheme {
-        MusicalStaffView(sequence = scale, highlightIndex = 2)
+        MusicalStaffView(
+            sequence = scale,
+            highlightIndex = 2,
+            prefix = StaffPrefix.Treble,
+            fillWidth = true,
+        )
     }
 }
 
@@ -249,6 +367,26 @@ private fun MusicalStaffViewRhythmPreview() {
         ),
     )
     SaxTrainerTheme {
-        MusicalStaffView(sequence = rhythm, highlightIndex = 3)
+        MusicalStaffView(sequence = rhythm, highlightIndex = 3, prefix = StaffPrefix.Treble)
+    }
+}
+
+/** Some notes drawn and some written, which is what a mixed presentation looks like on one line. */
+@Preview(showBackground = true, widthDp = 420)
+@Composable
+private fun MusicalStaffViewNamesPreview() {
+    val line = ToneSequence(
+        steps = listOf(
+            NoteName.C to 4, NoteName.E to 4, NoteName.A_SHARP to 4, NoteName.G to 4,
+        ).map { ToneStep(Note(it.first, it.second), NotatedDuration(NoteValue.QUARTER).beats()) },
+    )
+    SaxTrainerTheme {
+        MusicalStaffView(
+            sequence = line,
+            prefix = StaffPrefix.Treble,
+            fillWidth = true,
+            noteStyle = { index -> if (index % 2 == 0) StaffNoteStyle.HEAD else StaffNoteStyle.NAME },
+            labelBackground = MaterialTheme.colorScheme.surface,
+        )
     }
 }

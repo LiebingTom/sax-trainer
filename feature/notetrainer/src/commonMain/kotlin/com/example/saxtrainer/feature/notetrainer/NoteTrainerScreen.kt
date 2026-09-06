@@ -24,7 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.saxtrainer.core.designsystem.component.MusicalNoteView
+import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
 import com.example.saxtrainer.core.designsystem.component.NoteChoiceDialog
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.SaxophoneFingeringView
@@ -34,6 +34,7 @@ import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
+import com.example.saxtrainer.core.designsystem.component.StaffPrefix
 import com.example.saxtrainer.core.designsystem.component.fingeringHeightOf
 import com.example.saxtrainer.core.designsystem.component.reservedStepRange
 import com.example.saxtrainer.core.designsystem.component.staffStepRange
@@ -45,7 +46,7 @@ import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
-import com.example.saxtrainer.core.music.conventionalStyle
+import com.example.saxtrainer.core.music.ToneSequence
 
 /**
  * The note trainer, stateless.
@@ -593,8 +594,13 @@ private fun sessionFractionOf(step: Int, stepCount: Int): Float =
 /**
  * The note being read, and nothing else.
  *
- * The staff keeps the height of the widest note in the exercise, so it does not resize between
- * notes and the player's eye stays where it was.
+ * A line of music one note long, so the note is engraved by the same code that engraves an
+ * exercise: a clef in front of it, a written value, and a staff that runs the width of the screen.
+ * The height is reserved for the widest note the exercise can ask for, so it does not resize
+ * between notes and the player's eye stays where it was.
+ *
+ * No closing bar: this is a note to read, not a piece that ends. What is being heard is said in
+ * words underneath, which is where it has always been said.
  */
 @Composable
 private fun NoteSubject(state: NoteTrainerUiState) {
@@ -602,12 +608,16 @@ private fun NoteSubject(state: NoteTrainerUiState) {
     val noteColor =
         if (progress.isCorrect) FeedbackColors.correct else MaterialTheme.colorScheme.primary
 
-    MusicalNoteView(
-        primaryNote = progress.currentNote,
-        lineSpacing = NoteStaffSpacing,
-        accidentalStyle = progress.currentNote.conventionalStyle(),
-        stepRange = reservedStepRange(state.activeNotes),
-        primaryColor = noteColor,
+    MusicalStaffView(
+        sequence = ToneSequence.of(progress.currentNote),
+        modifier = Modifier.fillMaxWidth(),
+        color = noteColor,
         staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        lineSpacing = NoteStaffSpacing,
+        naming = state.noteNaming,
+        prefix = StaffPrefix.Treble,
+        fillWidth = true,
+        closingBar = false,
+        stepRange = reservedStepRange(state.activeNotes),
     )
 }

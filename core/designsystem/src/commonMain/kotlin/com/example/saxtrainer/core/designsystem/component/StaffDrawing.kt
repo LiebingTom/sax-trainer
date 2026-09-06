@@ -1,5 +1,6 @@
 package com.example.saxtrainer.core.designsystem.component
 
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -7,6 +8,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.Dp
 import com.example.saxtrainer.core.music.Accidental
 import com.example.saxtrainer.core.music.AccidentalStyle
@@ -26,9 +31,10 @@ import kotlin.math.min
  * display.
  *
  * This is an intentionally small engraving engine. It draws heads, stems, flags, beams, dots,
- * accidentals, ledger lines and bar lines - enough for the simple exercises the app ships - and it
- * does not draw clefs, key signatures, rests, ties or tuplets. Where a simplification is made, it is
- * named as this engine's rule rather than dressed up as a general one.
+ * accidentals, ledger lines and bar lines - enough for the simple exercises the app ships - plus
+ * the treble clef, which lives in `TrebleClef.kt` because it is a letterform rather than a
+ * proportion. It does not draw key signatures, rests, ties or tuplets. Where a simplification is
+ * made, it is named as this engine's rule rather than dressed up as a general one.
  */
 internal class StaffGeometry(
     val lowestStep: Int,
@@ -319,6 +325,41 @@ internal fun DrawScope.drawAccidental(
 internal fun accidentalX(geometry: StaffGeometry, headX: Float): Float =
     headX - geometry.headWidth * ACCIDENTAL_GAP
 
+/**
+ * A note's name, written where its head would have been.
+ *
+ * The background is what makes it readable: five staff lines running through three letters is not
+ * something a reader should have to look past. Pass null for it where the staff behind the name is
+ * not in the way.
+ */
+internal fun DrawScope.drawNoteLabel(
+    geometry: StaffGeometry,
+    measurer: TextMeasurer,
+    text: String,
+    style: TextStyle,
+    color: Color,
+    background: Color?,
+    centerX: Float,
+    step: Int,
+) {
+    val measured = measurer.measure(AnnotatedString(text), style)
+    val width = measured.size.width.toFloat()
+    val height = measured.size.height.toFloat()
+    val topLeft = Offset(centerX - width / 2f, geometry.y(step) - height / 2f)
+
+    if (background != null) {
+        val padding = geometry.spacing * LABEL_PADDING_RATIO
+        drawRoundRect(
+            color = background,
+            topLeft = Offset(topLeft.x - padding, topLeft.y - padding),
+            size = Size(width + padding * 2f, height + padding * 2f),
+            cornerRadius = CornerRadius(geometry.spacing * LABEL_CORNER_RATIO),
+        )
+    }
+
+    drawText(textLayoutResult = measured, color = color, topLeft = topLeft)
+}
+
 // --- extents -----------------------------------------------------------------------------------
 
 /**
@@ -412,6 +453,8 @@ internal const val DOT_GAP = 0.85f
 internal const val DOT_PITCH = 0.5f
 internal const val BAR_LINE_RATIO = 1.4f
 internal const val BAR_LINE_THICK_RATIO = 4f
+internal const val LABEL_PADDING_RATIO = 0.18f
+internal const val LABEL_CORNER_RATIO = 0.3f
 internal const val SINGLE_WIDTH_SPACES = 4f
 
 /**

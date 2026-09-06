@@ -18,6 +18,10 @@
 #   4. Save As > Plain SVG              no Inkscape-specific attributes
 # The converter refuses anything it would get wrong - transforms, gradients, strokes, non-path
 # shapes - and says which one it found, so a bad export fails loudly instead of shipping crooked.
+#
+# Notation glyphs are not icons and are not listed here. The treble clef lives in
+# core/designsystem/.../component/TrebleClef.kt, written by hand in staff spaces and steps, because
+# it has to be anchored to the G line - something a 24x24 icon viewport cannot say.
 
 additional/icons/settings.svg     -> core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/Settings.kt
 additional/icons/learning.svg     -> core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/Learning.kt

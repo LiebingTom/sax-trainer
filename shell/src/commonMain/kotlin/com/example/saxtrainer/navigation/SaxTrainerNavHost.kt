@@ -1,7 +1,9 @@
 package com.example.saxtrainer.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -24,6 +26,8 @@ import com.example.saxtrainer.feature.notetrainer.NoteTrainerRoute
 import com.example.saxtrainer.feature.sequence.SequenceRoute
 import com.example.saxtrainer.feature.settings.SettingsRoute
 import com.example.saxtrainer.home.HomeScreen
+import com.example.saxtrainer.home.LessonsScreen
+import com.example.saxtrainer.home.PracticeScreen
 import com.example.saxtrainer.home.learningEntriesOf
 import com.example.saxtrainer.learning.catalog.steps.fingeringOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.fingeringPresetOf
@@ -61,9 +65,30 @@ fun SaxTrainerNavHost(
         modifier = modifier,
     ) {
         composable(SaxTrainerDestination.HOME) {
+            // Read straight off the settings rather than through a view model of its own: what is
+            // starred is one set that every screen showing it has to agree about, and it is already
+            // kept where every other preference is.
+            val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
             HomeScreen(
                 onEntryClick = { route -> navController.navigate(route) },
-                learning = learningEntriesOf(container.curriculum),
+                favorites = settings.favorites,
+                onToggleFavorite = container::star,
+            )
+        }
+        composable(SaxTrainerDestination.PRACTICE) {
+            val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
+            PracticeScreen(
+                onEntryClick = { route -> navController.navigate(route) },
+                favorites = settings.favorites,
+                onToggleFavorite = container::star,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(SaxTrainerDestination.LESSONS) {
+            LessonsScreen(
+                onEntryClick = { route -> navController.navigate(route) },
+                units = learningEntriesOf(container.curriculum),
+                onBack = { navController.popBackStack() },
             )
         }
         composable(SaxTrainerDestination.METRONOME) {
@@ -180,6 +205,17 @@ fun SaxTrainerNavHost(
             )
         }
     }
+}
+
+/**
+ * Stars or unstars one practice tool.
+ *
+ * The one place a [TrainerId] becomes a stored name. `:core:settings` keeps a set of names and is
+ * told nothing about what a trainer is; deciding what a trainer is called is this module's job,
+ * exactly as deciding where one lives is.
+ */
+private fun AppContainer.star(trainerId: TrainerId, favorite: Boolean) {
+    settingsRepository.setFavorite(trainerId.name, favorite)
 }
 
 /**

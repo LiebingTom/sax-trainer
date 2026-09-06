@@ -26,4 +26,7 @@ interface SettingsRepository {
 
     /** Chooses whether the count-in is clicked out loud. */
     fun setCountInClick(enabled: Boolean)
+
+    /** Stars or unstars one tool. An id this version knows nothing about is stored all the same. */
+    fun setFavorite(id: String, favorite: Boolean)
 }

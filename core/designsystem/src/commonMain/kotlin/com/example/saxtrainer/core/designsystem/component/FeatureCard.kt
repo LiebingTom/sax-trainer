@@ -28,6 +28,14 @@ fun FeatureCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     status: String? = null,
+    /**
+     * A control of the card's own, drawn at the far end of the row.
+     *
+     * Clickable in its own right, and it keeps its own description rather than joining the card's:
+     * the card says where it goes, and this says what it does instead. A card without one is laid
+     * out exactly as it always was.
+     */
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Card(
         onClick = onClick,
@@ -43,7 +51,10 @@ fun FeatureCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FeatureIcon(icon = icon, modifier = Modifier.clearAndSetSemantics { })
-            Column(verticalArrangement = Arrangement.spacedBy(Dimens.spaceXs)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(Dimens.spaceXs),
+            ) {
                 Text(text = title, style = MaterialTheme.typography.titleMedium)
                 Text(
                     text = description,
@@ -59,6 +70,9 @@ fun FeatureCard(
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
+            }
+            if (trailing != null) {
+                trailing()
             }
         }
     }

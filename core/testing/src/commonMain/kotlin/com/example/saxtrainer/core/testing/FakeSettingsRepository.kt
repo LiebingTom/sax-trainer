@@ -47,4 +47,11 @@ class FakeSettingsRepository(
     override fun setCountInClick(enabled: Boolean) {
         state.value = state.value.copy(countInClick = enabled)
     }
+
+    override fun setFavorite(id: String, favorite: Boolean) {
+        val favorites = state.value.favorites
+        state.value = state.value.copy(
+            favorites = if (favorite) favorites + id else favorites - id,
+        )
+    }
 }

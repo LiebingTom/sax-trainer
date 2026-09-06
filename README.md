@@ -39,8 +39,9 @@ All six, the guided lessons and the settings are available on both platforms.
 ```
 app                    Android entry point only: MainActivity, Application, manifest, icons
 webApp                 web entry point only: main(), ComposeViewport, index.html
-shell                  the application itself: navigation graph, landing page, lesson catalog,
-                       AppContainer. The one module allowed to depend on features.
+shell                  the application itself: navigation graph, landing page with its
+                       favorites, the Practice and Lessons lists, lesson catalog, AppContainer.
+                       The one module allowed to depend on features.
 core/designsystem      theme, typography, shapes, Dimens, reusable components, the staff and
                        fingering renderers, the icons as ImageVector code
 core/music             Note, NoteName, Transposition, Cents, TrebleStaff placement,
@@ -129,7 +130,8 @@ Adding a trainer never edits a unit; adding a unit never edits a trainer.
    recorder, write a second FFT, or draw a second staff.
 3. Add `TrainerId.<TOOL>`, which makes the compiler demand a branch in `routeForStep`.
 4. Add `shell/learning/catalog/steps/<Tool>Steps.kt`, and use it from whichever units want it.
-5. Add a `HomeEntry` to the right group in `shell/home/HomeEntry.kt`, plus a destination in
+5. Add a `HomeEntry` to the right group in `shell/home/HomeEntry.kt`, naming its
+   `trainerId` so it can be starred, plus a destination in
    `shell/navigation/SaxTrainerDestination.kt` and a `lessonStep(...)` registration in
    `shell/navigation/SaxTrainerNavHost.kt`.
 

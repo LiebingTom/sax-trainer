@@ -23,6 +23,7 @@ internal object StoredSettings {
     const val KEY_NOTE_DISPLAY = "note_display"
     const val KEY_COUNT_IN_BEATS = "count_in_beats"
     const val KEY_COUNT_IN_CLICK = "count_in_click"
+    const val KEY_FAVORITES = "favorites"
 
     /** One key per tool, so a tool's own choice never overwrites the shared default. */
     fun overrideKey(tool: TrainingTool): String = "${KEY_NOTE_DISPLAY}_${tool.name}"
@@ -49,4 +50,21 @@ internal object StoredSettings {
         stored?.coerceAtLeast(0) ?: AppSettings.DEFAULT_COUNT_IN_BEATS
 
     fun countInClickOf(stored: Boolean?): Boolean = stored ?: AppSettings().countInClick
+
+    /**
+     * The starred tools, written as one line rather than as a key each.
+     *
+     * A key each would need this to know what a tool is, which is exactly what it must not: the
+     * names are the caller's. Nothing stored, an empty line and a line of separators alike read as
+     * nothing starred, and a name carrying the separator is dropped on the way in rather than
+     * splitting into two on the way out.
+     */
+    fun favoritesOf(stored: String?): Set<String> =
+        stored?.split(SEPARATOR)?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+
+    fun encodeFavorites(favorites: Set<String>): String =
+        favorites.filter { it.isNotBlank() && !it.contains(SEPARATOR) }.joinToString(SEPARATOR)
+
+    /** Safe for the names actually stored: an enum constant cannot contain it. */
+    private const val SEPARATOR = ","
 }

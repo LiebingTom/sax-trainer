@@ -30,8 +30,9 @@ import kotlin.test.Test
  * The whole application, in a browser, started exactly as `:webApp` starts it.
  *
  * One shell, one navigation graph and one set of screens, reached on the web through the same code
- * Android reaches them through. Each destination is walked to from the landing page and left again,
- * because a route that exists but cannot be got to is not navigation.
+ * Android reaches them through. Each destination is walked to and left again, because a route that
+ * exists but cannot be got to is not navigation - the tools through Practice and the units through
+ * Lessons, which is the way a player reaches them.
  *
  * Since M8 that means every destination: the microphone trainers are shared too, so the browser
  * offers the whole catalog and every practice tool rather than the subset it could run before.
@@ -43,11 +44,17 @@ class ShellOnWasmTest {
         setContent { App(host) }
 
         onNodeWithText("Sax Trainer").assertIsDisplayed()
+        // Nothing is starred, so the landing page is the hint and the three ways on.
         listOf(
-            // The three learning units, each with every lesson it was written with.
-            "Your first five notes",
-            "The whole octave",
-            "B flat and F sharp",
+            "Star a tool in Practice to keep it here.",
+            "Practice",
+            "Lessons",
+            "Settings",
+        ).forEach { scrolledTo(it).assertIsDisplayed() }
+
+        scrolledTo("Practice").performClick()
+        waitUntil("the catalogue", BROWSER_TIMEOUT_MS) { shows("Know your notes") }
+        listOf(
             // Every practice tool, microphone or not.
             "Note Quiz",
             "Fingering Trainer",
@@ -55,7 +62,16 @@ class ShellOnWasmTest {
             "Long Tones",
             "Sequence Trainer",
             "Metronome",
-            "Settings",
+        ).forEach { scrolledTo(it).assertIsDisplayed() }
+        onNodeWithContentDescription("Back").performClick()
+
+        scrolledTo("Lessons").performClick()
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("The whole octave") }
+        listOf(
+            // The three learning units, each with every lesson it was written with.
+            "Your first five notes",
+            "The whole octave",
+            "B flat and F sharp",
         ).forEach { scrolledTo(it).assertIsDisplayed() }
     }
 
@@ -65,20 +81,55 @@ class ShellOnWasmTest {
 
         // Each destination is recognised by something only it shows, not by its title: several
         // titles are also the text of the card that leads to them.
+        openAndReturn(card = "Settings", shownThere = "Note naming")
+        openAndReturn(card = "Practice", shownThere = "Know your notes")
+        openAndReturn(card = "Lessons", shownThere = "The whole octave")
+
+        // The tools live behind Practice now, so the walk to each one starts there.
+        scrolledTo("Practice").performClick()
+        waitUntil("the catalogue", BROWSER_TIMEOUT_MS) { shows("Know your notes") }
         openAndReturn(card = "Note Quiz", shownThere = "How many")
         openAndReturn(card = "Fingering Trainer", shownThere = "Play the notes")
         openAndReturn(card = "Note Trainer", shownThere = "Show the fingering")
         openAndReturn(card = "Long Tones", shownThere = "Starting note")
         openAndReturn(card = "Sequence Trainer", shownThere = "Add inverse")
         openAndReturn(card = "Metronome", shownThere = "Tap tempo")
-        openAndReturn(card = "Settings", shownThere = "Note naming")
+        onNodeWithContentDescription("Back").performClick()
+
+        scrolledTo("Lessons").performClick()
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("The whole octave") }
         openAndReturn(card = "Your first five notes", shownThere = "Read them")
+    }
+
+    @Test
+    fun a_starred_tool_reaches_the_landing_page_and_leaves_it() = runScreenTest { host ->
+        setContent { App(host) }
+
+        scrolledTo("Practice").performClick()
+        waitUntil("the catalogue", BROWSER_TIMEOUT_MS) { shows("Know your notes") }
+
+        onNodeWithContentDescription("Favorite Metronome").performClick()
+        onNodeWithContentDescription("Back").performClick()
+
+        // A card of its own on the landing page, where the hint used to be.
+        waitUntil("the starred tool", BROWSER_TIMEOUT_MS) {
+            !shows("Star a tool in Practice to keep it here.")
+        }
+        scrolledTo("Metronome").assertIsDisplayed()
+
+        onNodeWithContentDescription("Remove Metronome from favorites").performClick()
+
+        waitUntil("the hint", BROWSER_TIMEOUT_MS) {
+            shows("Star a tool in Practice to keep it here.")
+        }
     }
 
     @Test
     fun a_lesson_starts_the_trainer_it_names() = runScreenTest { host ->
         setContent { App(host) }
 
+        scrolledTo("Lessons").performClick()
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("The whole octave") }
         scrolledTo("Your first five notes").performClick()
         waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Read them") }
 
@@ -93,6 +144,8 @@ class ShellOnWasmTest {
     fun a_lesson_that_needs_a_microphone_starts_too() = runScreenTest { host ->
         setContent { App(host) }
 
+        scrolledTo("Lessons").performClick()
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("The whole octave") }
         scrolledTo("Your first five notes").performClick()
         waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Finger them") }
 
@@ -104,15 +157,15 @@ class ShellOnWasmTest {
     }
 }
 
-/** Taps a card on the landing page, checks where it went, and comes back. */
+/** Taps a card on the list in front of us, checks where it went, and comes back. */
 private fun ComposeUiTest.openAndReturn(card: String, shownThere: String) {
     scrolledTo(card).performClick()
     waitUntil("$card to open", BROWSER_TIMEOUT_MS) { shows(shownThere) }
 
     onNodeWithContentDescription("Back").performClick()
     waitUntil("$card to close", BROWSER_TIMEOUT_MS) { !shows(shownThere) }
-    // The landing page keeps where it was scrolled to, so the card that led here is back on screen
-    // rather than the top of the list.
+    // The list keeps where it was scrolled to, so the card that led here is back on screen rather
+    // than the top of it.
     scrolledTo(card).assertIsDisplayed()
 }
 

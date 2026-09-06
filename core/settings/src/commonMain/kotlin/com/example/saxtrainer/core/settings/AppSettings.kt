@@ -89,6 +89,14 @@ data class AppSettings(
      * with. Turned off, the count is still shown - practising silently is a first-class case here.
      */
     val countInClick: Boolean = true,
+    /**
+     * The tools the player has starred, by whatever name the caller has for them.
+     *
+     * Untyped on purpose: what a tool is belongs to whoever keeps a catalogue of them, not to
+     * storage. A name this version does not recognise is kept and handed back, so a set written by
+     * a newer version survives a trip through an older one.
+     */
+    val favorites: Set<String> = emptySet(),
 ) {
     /** How [tool] should show notes: its own choice if it has one, otherwise the shared default. */
     fun noteDisplayFor(tool: TrainingTool): NoteDisplay = noteDisplayOverrides[tool] ?: noteDisplay

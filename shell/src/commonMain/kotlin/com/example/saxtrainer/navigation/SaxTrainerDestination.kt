@@ -13,6 +13,12 @@ object SaxTrainerDestination {
     const val SEQUENCE = "sequence"
     const val SETTINGS = "settings"
 
+    /** The whole catalogue of practice tools, and the only place a tool can be starred. */
+    const val PRACTICE = "practice"
+
+    /** The curriculum's units. One lands on [LEARNING_UNIT] for the lessons inside it. */
+    const val LESSONS = "lessons"
+
     /** The lessons of one unit, e.g. `learning/octave`. */
     const val LEARNING_UNIT = "learning/{$UNIT_ID_ARG}"
 

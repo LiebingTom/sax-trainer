@@ -12,6 +12,7 @@ import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
 import com.example.saxtrainer.core.designsystem.icon.Sequence
 import com.example.saxtrainer.core.designsystem.icon.Settings
 import com.example.saxtrainer.core.learning.Curriculum
+import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.learning.catalog.units.ACCIDENTALS_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.FIRST_NOTES_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.OCTAVE_UNIT_ID
@@ -28,6 +29,15 @@ data class HomeEntry(
     val description: String,
     val icon: IconSource,
     val route: String,
+    /**
+     * The practice tool this card starts, or null where it starts something else - a lesson unit,
+     * a list, the settings.
+     *
+     * It is what makes "only a practice tool can be starred" a fact about the entry rather than a
+     * rule a screen has to remember, and it is [TrainerId] rather than a name of this file's own
+     * because the app already has exactly one name for a trainer.
+     */
+    val trainerId: TrainerId? = null,
 )
 
 /** A handful of practice tools that belong together, under a heading that says why. */
@@ -68,6 +78,7 @@ private val noteQuiz = HomeEntry(
     description = "Match written notes to fingerings. No instrument needed.",
     icon = IconSource.Vector(SaxTrainerIcons.NoteQuiz),
     route = SaxTrainerDestination.NOTE_QUIZ,
+    trainerId = TrainerId.NOTE_QUIZ,
 )
 
 private val fingering = HomeEntry(
@@ -76,6 +87,7 @@ private val fingering = HomeEntry(
     description = "Learn which keys to press for each written note.",
     icon = IconSource.Vector(SaxTrainerIcons.Fingering),
     route = SaxTrainerDestination.FINGERING,
+    trainerId = TrainerId.FINGERING,
 )
 
 private val noteTrainer = HomeEntry(
@@ -84,6 +96,7 @@ private val noteTrainer = HomeEntry(
     description = "Read a note and play it. How quickly is up to you.",
     icon = IconSource.Vector(SaxTrainerIcons.NoteTrainer),
     route = SaxTrainerDestination.NOTE_TRAINER,
+    trainerId = TrainerId.NOTE_TRAINER,
 )
 
 private val longTones = HomeEntry(
@@ -92,6 +105,7 @@ private val longTones = HomeEntry(
     description = "Hold a note steadily with live level and spectrum feedback.",
     icon = IconSource.Vector(SaxTrainerIcons.LongTone),
     route = SaxTrainerDestination.LONG_TONES,
+    trainerId = TrainerId.LONG_TONES,
 )
 
 private val sequence = HomeEntry(
@@ -100,6 +114,7 @@ private val sequence = HomeEntry(
     description = "Play scales and patterns in time, with an optional click.",
     icon = IconSource.Vector(SaxTrainerIcons.Sequence),
     route = SaxTrainerDestination.SEQUENCE,
+    trainerId = TrainerId.SEQUENCE,
 )
 
 private val metronome = HomeEntry(
@@ -108,6 +123,7 @@ private val metronome = HomeEntry(
     description = "Steady click with accented downbeat and tap tempo.",
     icon = IconSource.Vector(SaxTrainerIcons.Metronome),
     route = SaxTrainerDestination.METRONOME,
+    trainerId = TrainerId.METRONOME,
 )
 
 /**
@@ -123,7 +139,37 @@ val practiceGroups: List<HomeGroup> = listOf(
     HomeGroup("Play in time", listOf(sequence, metronome)),
 )
 
+/**
+ * The starred tools, in the order the catalogue lists them.
+ *
+ * Resolved against the catalogue rather than stored alongside the star, so a favorite can never
+ * say something the Practice list does not - and a name written by a newer version, or one whose
+ * tool has since gone, simply finds nothing. The order is the traversal's: there is none stored,
+ * and a starred tool sits where a player already knows to look for it.
+ */
+fun favoriteEntriesOf(
+    favorites: Set<String>,
+    practice: List<HomeGroup> = practiceGroups,
+): List<HomeEntry> = practice
+    .flatMap { it.entries }
+    .filter { it.trainerId != null && it.trainerId.name in favorites }
+
+/** The two lists and the settings: everything the landing page offers besides a starred tool. */
 val appEntries: List<HomeEntry> = listOf(
+    HomeEntry(
+        id = "practice",
+        title = "Practice",
+        description = "All six practice tools, grouped by what they train.",
+        icon = IconSource.Vector(SaxTrainerIcons.NoteTrainer),
+        route = SaxTrainerDestination.PRACTICE,
+    ),
+    HomeEntry(
+        id = "lessons",
+        title = "Lessons",
+        description = "Guided units that take one topic at a time.",
+        icon = IconSource.Vector(SaxTrainerIcons.Learning),
+        route = SaxTrainerDestination.LESSONS,
+    ),
     HomeEntry(
         id = "settings",
         title = "Settings",

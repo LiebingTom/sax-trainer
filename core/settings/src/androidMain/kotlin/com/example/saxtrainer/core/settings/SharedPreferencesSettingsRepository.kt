@@ -36,6 +36,7 @@ class SharedPreferencesSettingsRepository(
             noteDisplayOverrides = readNoteDisplayOverrides(),
             countInBeats = StoredSettings.countInBeatsOf(readCountInBeats()),
             countInClick = StoredSettings.countInClickOf(readCountInClick()),
+            favorites = StoredSettings.favoritesOf(read(StoredSettings.KEY_FAVORITES)),
         )
     }
 
@@ -76,6 +77,16 @@ class SharedPreferencesSettingsRepository(
         if (_settings.value.countInClick == enabled) return
         _settings.value = _settings.value.copy(countInClick = enabled)
         preferences.edit { putBoolean(StoredSettings.KEY_COUNT_IN_CLICK, enabled) }
+    }
+
+    override fun setFavorite(id: String, favorite: Boolean) {
+        val was = _settings.value.favorites
+        val now = if (favorite) was + id else was - id
+        if (was == now) return
+        _settings.value = _settings.value.copy(favorites = now)
+        preferences.edit {
+            putString(StoredSettings.KEY_FAVORITES, StoredSettings.encodeFavorites(now))
+        }
     }
 
     private fun read(key: String): String? = preferences.getString(key, null)

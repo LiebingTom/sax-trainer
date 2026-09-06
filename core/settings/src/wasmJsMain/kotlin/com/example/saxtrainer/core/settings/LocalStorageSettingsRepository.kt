@@ -40,6 +40,7 @@ class LocalStorageSettingsRepository(
             countInClick = StoredSettings.countInClickOf(
                 storage[StoredSettings.KEY_COUNT_IN_CLICK]?.toBooleanStrictOrNull(),
             ),
+            favorites = StoredSettings.favoritesOf(storage[StoredSettings.KEY_FAVORITES]),
         )
     }
 
@@ -80,6 +81,17 @@ class LocalStorageSettingsRepository(
         if (_settings.value.countInClick == enabled) return
         _settings.value = _settings.value.copy(countInClick = enabled)
         storage.setItem(StoredSettings.KEY_COUNT_IN_CLICK, enabled.toString())
+    }
+
+    override fun setFavorite(id: String, favorite: Boolean) {
+        val was = _settings.value.favorites
+        val now = if (favorite) was + id else was - id
+        if (was == now) return
+        _settings.value = _settings.value.copy(favorites = now)
+        storage.setItem(
+            StoredSettings.KEY_FAVORITES,
+            StoredSettings.encodeFavorites(now),
+        )
     }
 
     private fun readNoteDisplayOverrides(): Map<TrainingTool, NoteDisplay> =

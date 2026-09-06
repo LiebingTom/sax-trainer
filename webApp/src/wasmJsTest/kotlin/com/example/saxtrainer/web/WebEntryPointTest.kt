@@ -39,7 +39,10 @@ class WebEntryPointTest {
         }
 
         onNodeWithText("Sax Trainer").assertIsDisplayed()
-        scrolledTo("Note Quiz").assertIsDisplayed()
+        scrolledTo("Practice").performClick()
+        waitUntil("the catalogue", BROWSER_TIMEOUT_MS) {
+            onAllNodesWithText("Note Quiz").fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test

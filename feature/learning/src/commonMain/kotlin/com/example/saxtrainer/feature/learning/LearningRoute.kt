@@ -24,12 +24,15 @@ fun LearningRoute(
     onStartLesson: (LessonId) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens a lesson's configuration on the trainer's own setup screen, without running it. */
+    onEditLesson: ((LessonId) -> Unit)? = null,
 ) {
     val progress by progressRepository.progress.collectAsStateWithLifecycle()
 
     LessonListScreen(
         state = learningUiStateOf(unit = unit, progress = progress, isUnlocked = isUnlocked),
         onLessonClick = onStartLesson,
+        onEditLesson = onEditLesson,
         onBack = onBack,
         modifier = modifier,
     )

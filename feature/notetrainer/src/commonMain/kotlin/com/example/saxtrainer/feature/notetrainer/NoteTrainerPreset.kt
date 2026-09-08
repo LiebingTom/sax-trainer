@@ -2,6 +2,8 @@ package com.example.saxtrainer.feature.notetrainer
 
 import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.Tempo
 
 /**
  * A fully decided exercise: everything the setup screen would otherwise ask the player.
@@ -17,17 +19,27 @@ data class NoteTrainerPreset(
     val rounds: Int = 1,
     /** Whether the fingering is offered while the note is being asked for. */
     val showFingeringHint: Boolean = false,
+    /** Whether the note's name is written under it as well as being engraved. */
+    val showNoteName: Boolean = false,
     /** What counts as a quick answer at this level. Scoring only; nothing times out. */
     val targetSeconds: Int = 4,
     /** How long the note has to be held once it is right; zero advances as soon as it is. */
-    val holdSeconds: Double = 0.0,
+    val holdBeats: Beats = Beats.ZERO,
+    /** What [holdBeats] is counted at, and so how long a hold actually lasts. */
+    val tempo: Tempo = Tempo(60),
     /** Whether the exercise begins by itself rather than waiting for Start. */
     val autoStart: Boolean = true,
+    /**
+     * Whether the setup screen opens filled in with this rather than being skipped.
+     *
+     * A launch instruction like [autoStart] and not part of the configuration: it says how the
+     * screen opens, not what is practised, and neither is ever written down.
+     */
+    val editable: Boolean = false,
 ) {
     init {
         require(notes.isNotEmpty()) { "a preset needs at least one note" }
         require(rounds >= 1) { "an exercise needs at least one round" }
         require(targetSeconds > 0) { "a target needs to be some length of time" }
-        require(holdSeconds >= 0) { "a hold cannot be shorter than no hold at all" }
     }
 }

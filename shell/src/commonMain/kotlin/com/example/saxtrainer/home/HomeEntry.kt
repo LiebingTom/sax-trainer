@@ -16,6 +16,7 @@ import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.learning.catalog.units.ACCIDENTALS_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.FIRST_NOTES_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.OCTAVE_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.UPPER_OCTAVE_UNIT_ID
 import com.example.saxtrainer.navigation.SaxTrainerDestination
 
 /**
@@ -69,6 +70,7 @@ private fun iconForUnit(unitId: String): ImageVector = when (unitId) {
     FIRST_NOTES_UNIT_ID -> SaxTrainerIcons.NoteQuiz
     OCTAVE_UNIT_ID -> SaxTrainerIcons.NoteTrainer
     ACCIDENTALS_UNIT_ID -> SaxTrainerIcons.Fingering
+    UPPER_OCTAVE_UNIT_ID -> SaxTrainerIcons.Sequence
     else -> SaxTrainerIcons.Learning
 }
 
@@ -169,6 +171,13 @@ val appEntries: List<HomeEntry> = listOf(
         description = "Guided units that take one topic at a time.",
         icon = IconSource.Vector(SaxTrainerIcons.Learning),
         route = SaxTrainerDestination.LESSONS,
+    ),
+    HomeEntry(
+        id = "my-lessons",
+        title = "My Lessons",
+        description = "The practices you saved, in the groups you put them in.",
+        icon = IconSource.Vector(SaxTrainerIcons.Learning),
+        route = SaxTrainerDestination.MY_LESSONS,
     ),
     HomeEntry(
         id = "settings",

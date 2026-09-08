@@ -9,6 +9,8 @@ import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.Transposition
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.NoteDisplay
+import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.Tempo
 
 /** Where the exercise is. Simpler than a long tone: the trainer works whether or not you play. */
 sealed interface FingeringPhase {
@@ -70,9 +72,15 @@ data class FingeringProgress(
     val remainingSeconds: Float,
     val noteSeconds: Float,
     /** How this note is presented, already resolved: never [NoteDisplay.RANDOM]. */
-    val noteDisplay: NoteDisplay = NoteDisplay.BOTH,
+    val noteDisplay: NoteDisplay = NoteDisplay.STAFF,
     /** How the note after it will be presented, so the preview matches what arrives. */
-    val nextNoteDisplay: NoteDisplay = NoteDisplay.BOTH,
+    /**
+     * How the note after it will be presented.
+     *
+     * Kept because the schedule produces it, but no longer shown: a next note is always given as
+     * its name, so that reading ahead by letter cannot replace reading the staff.
+     */
+    val nextNoteDisplay: NoteDisplay = NoteDisplay.STAFF,
     /**
      * Whether the fingering is on screen.
      *
@@ -121,13 +129,25 @@ data class FingeringUiState(
     /** The notes the next exercise will draw from. */
     val activeNotes: List<Note> = emptyList(),
     val order: NoteOrder = NoteOrder.RANDOM,
-    val secondsPerNote: Int = 5,
+    /** How long each note is worked on. Beats, turned into seconds against [tempo]. */
+    val beatsPerNote: Beats = Beats.of(5),
+    /** The speed those beats are counted at, which is what gives them a length in seconds. */
+    val tempo: Tempo = Tempo(60),
+    val tempoRange: IntRange = Tempo.SUPPORTED_RANGE,
+    /**
+     * Whether the note after this one is shown.
+     *
+     * Turning it off is a way to practise: the next note is always given as its name, so leaving it
+     * on lets a player read letters instead of notation. Off, there is nothing to read but the
+     * staff.
+     */
+    val showNextNote: Boolean = true,
     /** How long a correctly played note is left on screen before the next one, zero for no wait. */
     val successDelaySeconds: Float = 1f,
     val successDelayOptions: List<Float> = emptyList(),
     /** How often the notes are worked through. */
     val rounds: Int = 1,
-    val secondsOptions: List<Int> = emptyList(),
+    val beatOptions: List<Beats> = emptyList(),
     /** Whether the player has to play each note, or only look at its fingering. */
     val checkPlaying: Boolean = false,
     /** Set when listening was asked for but the microphone could not be used. */
@@ -136,7 +156,7 @@ data class FingeringUiState(
     val instrumentName: String = "",
     /** What the note letters are called; a display convention, nothing else. */
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
-    val noteDisplay: NoteDisplay = NoteDisplay.BOTH,
+    val noteDisplay: NoteDisplay = NoteDisplay.STAFF,
     val noteDisplayOptions: List<NoteDisplay> = NoteDisplay.entries,
     val progress: FingeringProgress? = null,
     /**

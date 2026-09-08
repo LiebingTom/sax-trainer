@@ -43,6 +43,9 @@ import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.conventionalStyle
+import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
+import com.example.saxtrainer.core.designsystem.component.StaffPrefix
+import com.example.saxtrainer.core.music.ToneSequence
 
 /**
  * The note quiz, stateless.
@@ -71,6 +74,7 @@ fun QuizScreen(
     onReset: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onAddToLessons: (() -> Unit)? = null,
 ) {
     // What is being asked about, kept apart from the answers to it.
     val asked = when (val phase = state.phase) {
@@ -106,6 +110,14 @@ fun QuizScreen(
                     onSelectQuestionCount = onSelectQuestionCount,
                     onSelectSuccessDelay = onSelectSuccessDelay,
                 )
+                if (onAddToLessons != null) {
+                    Spacer(Modifier.height(Dimens.spaceMd))
+                    SecondaryButton(
+                        text = "Add to your lessons",
+                        onClick = onAddToLessons,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
             is QuizPhase.Asking -> QuestionPanel(
@@ -624,13 +636,20 @@ private fun QuestionSubject(question: QuizQuestion, pool: List<Note>) {
     when (question) {
         // Sized for every note the quiz can ask about, so the band does not change height when a
         // note that hangs below the staff comes up.
-        is NoteToFingering, is NoteToName, is NoteAndFingering -> MusicalNoteView(
-            primaryNote = question.note,
-            lineSpacing = PromptStaffSpacing,
-            accidentalStyle = question.note.conventionalStyle(),
-            stepRange = reservedStepRange(pool.ifEmpty { listOf(question.note) }),
-            primaryColor = MaterialTheme.colorScheme.primary,
+        is NoteToFingering, is NoteToName, is NoteAndFingering -> MusicalStaffView(
+            sequence = ToneSequence.of(question.note),
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.primary,
             staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineSpacing = PromptStaffSpacing,
+            prefix = StaffPrefix.Treble,
+            fillWidth = true,
+            // A question is one note held up to be read, not a piece of music: no closing bar, and
+            // the same room kept for an accidental whichever note is asked, so it does not shift.
+            closingBar = false,
+            centerMusic = true,
+            reserveAccidentals = true,
+            stepRange = reservedStepRange(pool.ifEmpty { listOf(question.note) }),
         )
 
         is FingeringToNote -> SaxophoneFingeringView(

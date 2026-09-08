@@ -25,6 +25,9 @@ internal object StoredSettings {
     const val KEY_COUNT_IN_CLICK = "count_in_click"
     const val KEY_FAVORITES = "favorites"
 
+    /** What the removed "name and notation together" choice was stored as. Read, never written. */
+    private const val LEGACY_BOTH = "BOTH"
+
     /** One key per tool, so a tool's own choice never overwrites the shared default. */
     fun overrideKey(tool: TrainingTool): String = "${KEY_NOTE_DISPLAY}_${tool.name}"
 
@@ -35,11 +38,15 @@ internal object StoredSettings {
         NoteNaming.entries.firstOrNull { it.name == stored } ?: AppSettings().noteNaming
 
     fun noteDisplayOf(stored: String?): NoteDisplay =
-        NoteDisplay.entries.firstOrNull { it.name == stored } ?: AppSettings().noteDisplay
+        noteDisplayOverrideOf(stored) ?: AppSettings().noteDisplay
 
     /** Null for a tool that has never been given a preference of its own. */
-    fun noteDisplayOverrideOf(stored: String?): NoteDisplay? =
-        NoteDisplay.entries.firstOrNull { it.name == stored }
+    fun noteDisplayOverrideOf(stored: String?): NoteDisplay? = when (stored) {
+        // Name and notation at once used to be a choice. Whoever picked it wanted to read notation
+        // with a safety net, so that is what they are given rather than being reset to a default.
+        LEGACY_BOTH -> NoteDisplay.STAFF
+        else -> NoteDisplay.entries.firstOrNull { it.name == stored }
+    }
 
     /**
      * A count-in cannot be negative. Zero can: it is one of the choices the settings screen offers,

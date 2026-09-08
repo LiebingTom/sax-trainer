@@ -33,6 +33,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.example.saxtrainer.core.music.Beats
+import kotlin.test.assertNotNull
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.Exercise
+import com.example.saxtrainer.core.settings.ExerciseSetup
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FingeringViewModelTest {
@@ -65,8 +71,10 @@ class FingeringViewModelTest {
         microphone: AudioCapture? = null,
         settings: SettingsRepository = FakeSettingsRepository(),
         preset: FingeringPreset? = null,
+        setups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
     ) = FingeringViewModel(
         settingsRepository = settings,
+        exerciseSetups = setups,
         audioCapture = microphone,
         preset = preset,
         config = config,
@@ -105,7 +113,7 @@ class FingeringViewModelTest {
         )
         assertTrue(state.isRandom, "mixed order is the default")
         assertFalse(state.checkPlaying, "listening is off until asked for")
-        assertEquals(config.defaultSeconds, state.secondsPerNote)
+        assertEquals(Beats.of(config.defaultBeats), state.beatsPerNote)
         assertTrue(state.canStart)
     }
 
@@ -234,7 +242,7 @@ class FingeringViewModelTest {
         val viewModel = viewModel()
         viewModel.selectOnly(c4, d4, e4)
         viewModel.setRandomOrder(false)
-        viewModel.setSecondsPerNote(3)
+        viewModel.setBeatsPerNote(Beats.of(3))
 
         viewModel.start()
         advanceTimeBy(10)
@@ -255,7 +263,7 @@ class FingeringViewModelTest {
     fun `remaining time counts down within a note`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectOnly(c4)
-        viewModel.setSecondsPerNote(5)
+        viewModel.setBeatsPerNote(Beats.of(5))
 
         viewModel.start()
         advanceTimeBy(10)
@@ -276,7 +284,7 @@ class FingeringViewModelTest {
         val viewModel = viewModel()
         viewModel.selectOnly(c4, d4)
         viewModel.setRandomOrder(false)
-        viewModel.setSecondsPerNote(3)
+        viewModel.setBeatsPerNote(Beats.of(3))
 
         viewModel.start()
         advanceUntilIdle()
@@ -352,7 +360,7 @@ class FingeringViewModelTest {
         val viewModel = viewModel()
         viewModel.selectOnly(c4, d4)
         viewModel.setRandomOrder(false)
-        viewModel.setSecondsPerNote(5)
+        viewModel.setBeatsPerNote(Beats.of(5))
 
         viewModel.start()
         advanceTimeBy(2_000)
@@ -375,7 +383,7 @@ class FingeringViewModelTest {
         val viewModel = viewModel()
         viewModel.selectOnly(c4, d4)
         viewModel.setRandomOrder(false)
-        viewModel.setSecondsPerNote(5)
+        viewModel.setBeatsPerNote(Beats.of(5))
 
         viewModel.start()
         advanceTimeBy(2_000)
@@ -400,7 +408,7 @@ class FingeringViewModelTest {
     fun `pausing is not stopping`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectOnly(c4)
-        viewModel.setSecondsPerNote(5)
+        viewModel.setBeatsPerNote(Beats.of(5))
 
         viewModel.start()
         advanceTimeBy(1_000)
@@ -444,7 +452,7 @@ class FingeringViewModelTest {
         val viewModel = viewModel()
         viewModel.selectOnly(c4, d4, e4)
         viewModel.setRandomOrder(false)
-        viewModel.setSecondsPerNote(3)
+        viewModel.setBeatsPerNote(Beats.of(3))
 
         viewModel.start()
         advanceTimeBy(4_000)
@@ -479,21 +487,21 @@ class FingeringViewModelTest {
         val viewModel = viewModel()
         viewModel.selectOnly(c4, d4)
         viewModel.setRandomOrder(false)
-        viewModel.setSecondsPerNote(5)
+        viewModel.setBeatsPerNote(Beats.of(5))
 
         viewModel.start()
         advanceTimeBy(100)
 
         viewModel.selectNoteSet(NoteSet.BEGINNER_PLUS)
         viewModel.editCustomNotes()
-        viewModel.setSecondsPerNote(8)
+        viewModel.setBeatsPerNote(Beats.of(8))
         viewModel.setRandomOrder(true)
 
         val state = viewModel.uiState.value
         assertEquals(NoteSet.CUSTOM, state.noteSet)
         assertEquals(listOf(c4, d4), state.activeNotes)
         assertFalse(state.isEditingCustomNotes, "the dialog cannot be opened mid exercise")
-        assertEquals(5, state.secondsPerNote)
+        assertEquals(Beats.of(5), state.beatsPerNote)
         assertFalse(state.isRandom)
 
         viewModel.stop()
@@ -504,7 +512,7 @@ class FingeringViewModelTest {
     fun `reset returns to the setup screen`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectOnly(c4)
-        viewModel.setSecondsPerNote(3)
+        viewModel.setBeatsPerNote(Beats.of(3))
 
         viewModel.start()
         advanceUntilIdle()
@@ -521,7 +529,7 @@ class FingeringViewModelTest {
     fun `mixed order shuffles the same selection differently`() = runTest(dispatcher) {
         fun run(seed: Int): List<Note> {
             val viewModel = viewModel(seed = seed)
-            viewModel.setSecondsPerNote(3)
+            viewModel.setBeatsPerNote(Beats.of(3))
             viewModel.start()
             advanceUntilIdle()
             val result = (viewModel.uiState.value.phase as FingeringPhase.Finished).result
@@ -548,7 +556,7 @@ class FingeringViewModelTest {
         val viewModel = viewModel(microphone = microphone)
         viewModel.selectOnly(*notes)
         viewModel.setRandomOrder(false)
-        viewModel.setSecondsPerNote(3)
+        viewModel.setBeatsPerNote(Beats.of(3))
         viewModel.setCheckPlaying(true)
         return viewModel
     }
@@ -664,7 +672,7 @@ class FingeringViewModelTest {
     fun `with playing switched off the fingering is simply shown`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectOnly(c4)
-        viewModel.setSecondsPerNote(3)
+        viewModel.setBeatsPerNote(Beats.of(3))
 
         viewModel.start()
         advanceTimeBy(500)
@@ -694,7 +702,7 @@ class FingeringViewModelTest {
     fun `without a microphone the trainer never claims to be listening`() = runTest(dispatcher) {
         val viewModel = viewModel(microphone = null)
         viewModel.selectOnly(c4)
-        viewModel.setSecondsPerNote(3)
+        viewModel.setBeatsPerNote(Beats.of(3))
         viewModel.setCheckPlaying(true)
 
         viewModel.start()
@@ -725,12 +733,12 @@ class FingeringViewModelTest {
 
         assertEquals(NoteDisplay.STAFF, viewModel.uiState.value.noteDisplay)
         assertEquals(
-            NoteDisplay.BOTH,
+            NoteDisplay.STAFF,
             settings.settings.value.noteDisplay,
             "the shared default is left alone",
         )
         assertEquals(
-            NoteDisplay.BOTH,
+            NoteDisplay.STAFF,
             settings.settings.value.noteDisplayFor(TrainingTool.LONG_TONES),
         )
     }
@@ -743,14 +751,14 @@ class FingeringViewModelTest {
             preset = FingeringPreset(
                 notes = listOf(c4, d4, e4),
                 order = NoteOrder.ORDERED,
-                secondsPerNote = 8,
+                beatsPerNote = Beats.of(8),
                 rounds = 2,
             ),
         ).uiState.value
 
         assertEquals(listOf(c4, d4, e4), state.activeNotes)
         assertEquals(NoteOrder.ORDERED, state.order)
-        assertEquals(8, state.secondsPerNote)
+        assertEquals(Beats.of(8), state.beatsPerNote)
         assertEquals(2, state.rounds)
         assertTrue(state.isPreconfigured)
         assertTrue(state.canStart)
@@ -772,7 +780,7 @@ class FingeringViewModelTest {
             preset = FingeringPreset(
                 notes = listOf(c4, d4),
                 order = NoteOrder.ORDERED,
-                secondsPerNote = 3,
+                beatsPerNote = Beats.of(3),
                 rounds = 2,
             ),
         )
@@ -874,7 +882,7 @@ class FingeringViewModelTest {
             preset = FingeringPreset(
                 notes = listOf(c4, d4, e4),
                 order = NoteOrder.ORDERED,
-                secondsPerNote = 3,
+                beatsPerNote = Beats.of(3),
                 noteDisplay = NoteDisplay.RANDOM,
             ),
         )
@@ -903,7 +911,7 @@ class FingeringViewModelTest {
             preset = FingeringPreset(
                 notes = listOf(c4, d4),
                 order = NoteOrder.ORDERED,
-                secondsPerNote = 8,
+                beatsPerNote = Beats.of(8),
                 noteDisplay = NoteDisplay.RANDOM,
             ),
         )
@@ -929,7 +937,7 @@ class FingeringViewModelTest {
             preset = FingeringPreset(
                 notes = listOf(c4, d4, e4),
                 order = NoteOrder.ORDERED,
-                secondsPerNote = 3,
+                beatsPerNote = Beats.of(3),
                 noteDisplay = NoteDisplay.RANDOM,
             ),
         )
@@ -954,7 +962,7 @@ class FingeringViewModelTest {
             preset = FingeringPreset(
                 notes = listOf(c4, d4, e4),
                 order = NoteOrder.ORDERED,
-                secondsPerNote = 3,
+                beatsPerNote = Beats.of(3),
                 rounds = 8,
                 noteDisplay = NoteDisplay.RANDOM,
             ),
@@ -998,7 +1006,7 @@ class FingeringViewModelTest {
             val viewModel = viewModel(
                 preset = FingeringPreset(
                     notes = listOf(c4, d4, e4),
-                    secondsPerNote = 3,
+                    beatsPerNote = Beats.of(3),
                     rounds = 2,
                     noteDisplay = display,
                 ),
@@ -1014,7 +1022,7 @@ class FingeringViewModelTest {
             return notes
         }
 
-        assertEquals(orderWith(NoteDisplay.NAME), orderWith(NoteDisplay.BOTH))
+        assertEquals(orderWith(NoteDisplay.NAME), orderWith(NoteDisplay.STAFF))
         advanceUntilIdle()
     }
 
@@ -1060,4 +1068,90 @@ class FingeringViewModelTest {
 
         assertEquals(before, viewModel.uiState.value.activeNotes, "the notes practised are the same pitches")
     }
+
+    // --- the round trip ---------------------------------------------------------------------
+
+    /**
+     * Every choice the setup screen offers survives being written down, turned back into a
+     * ready-made exercise, and written down again.
+     *
+     * A stored setup has two ways out - one opens the setup screen on it, the other starts it - and
+     * they have to agree. Where they do not, the difference shows only in an exercise somebody
+     * saved, and only once it is started, which is the worst place to find it.
+     */
+    @Test
+    fun `every choice survives being written down and started again`() = runTest(dispatcher) {
+        val microphone = FakeMicrophone(frameDurationMs = 20)
+        val configured = viewModel(microphone = microphone)
+        configured.selectOnly(c4, d4, e4)
+        configured.setRandomOrder(false)
+        configured.setBeatsPerNote(Beats.of(3))
+        configured.setTempo(96)
+        configured.setShowNextNote(false)
+        configured.setCheckPlaying(true)
+        configured.setSuccessDelaySeconds(2f)
+        val written = configured.uiState.value.toSetup()
+
+        val preset = assertNotNull(fingeringPresetOf(written, editable = true))
+        val started = viewModel(microphone = microphone, preset = preset)
+
+        assertEquals(written, started.uiState.value.toSetup())
+    }
+
+    @Test
+    fun `the tempo is part of the exercise, since it is what beats are counted at`() =
+        runTest(dispatcher) {
+            val configured = viewModel()
+            configured.selectOnly(c4, d4)
+            configured.setTempo(120)
+
+            val preset = assertNotNull(fingeringPresetOf(configured.uiState.value.toSetup()))
+
+            assertEquals(120, preset.tempo.bpm)
+        }
+
+    @Test
+    fun `a named set of notes comes back as the notes themselves`() = runTest(dispatcher) {
+        val configured = viewModel()
+        configured.selectNoteSet(NoteSet.BEGINNER)
+        val expected = configured.uiState.value.activeNotes
+
+        val preset = assertNotNull(fingeringPresetOf(configured.uiState.value.toSetup()))
+
+        // The label collapses - a preset names notes, not a set - but not one note changes.
+        assertEquals(expected, preset.notes)
+    }
+
+
+    /**
+     * A practice nobody has touched is still a practice.
+     *
+     * The setup is written down as it is changed, so an exercise opened and left on its defaults
+     * has nothing on record - and "add to your lessons" would have found nothing to save. Asking
+     * for it writes it.
+     */
+    @Test
+    fun `an untouched setup is written down when it is asked for`() = runTest(dispatcher) {
+        val setups = InMemoryExerciseSetupRepository()
+
+        viewModel(setups = setups).rememberSetupNow()
+
+        assertFalse(setups.setupOf(Exercise.FINGERING).isEmpty)
+    }
+
+
+    /**
+     * A setup nobody has written yet is still a practice.
+     *
+     * Nothing is on record until a control is changed, so an exercise saved straight off its
+     * defaults arrives here as an empty setup - and reading that as "no notes chosen" would save a
+     * lesson that then quietly refuses to start.
+     */
+    @Test
+    fun `an empty setup is the beginner's notes rather than none at all`() {
+        val preset = assertNotNull(fingeringPresetOf(ExerciseSetup()))
+
+        assertTrue(preset.notes.isNotEmpty())
+    }
+
 }

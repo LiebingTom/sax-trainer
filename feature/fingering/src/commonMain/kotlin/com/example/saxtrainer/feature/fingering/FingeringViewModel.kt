@@ -42,6 +42,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
+import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.Tempo
 
 /**
  * Runs a fingering exercise: show a note with its fingering, hold it for the chosen time, move on.
@@ -145,7 +147,11 @@ class FingeringViewModel(
         it.copy(order = if (random) NoteOrder.RANDOM else NoteOrder.ORDERED)
     }
 
-    fun setSecondsPerNote(seconds: Int) = updateSetup { it.copy(secondsPerNote = seconds) }
+    fun setBeatsPerNote(beats: Beats) = updateSetup { it.copy(beatsPerNote = beats) }
+
+    fun setTempo(bpm: Int) = updateSetup { it.copy(tempo = Tempo(bpm.coerceIn(it.tempoRange))) }
+
+    fun setShowNextNote(show: Boolean) = updateSetup { it.copy(showNextNote = show) }
 
     fun setCheckPlaying(enabled: Boolean) = updateSetup {
         it.copy(checkPlaying = enabled, checkUnavailable = false)
@@ -184,6 +190,16 @@ class FingeringViewModel(
      * The screen owns the microphone permission flow, so the decision to start is taken there
      * rather than here, where a listening exercise would begin deaf.
      */
+    /**
+     * Writes the current setup down now, without waiting for it to be changed or started.
+     *
+     * What the setup screen is showing is a practice whether or not the player has touched a
+     * control, so anything outside that wants to keep it - "add to your lessons" - has to be able
+     * to ask for it. Nothing else about when a setup is remembered changes: the untouched defaults
+     * are only written when somebody actually asks for them.
+     */
+    fun rememberSetupNow() = rememberSetup(_uiState.value)
+
     fun consumeAutoStart(): Boolean {
         if (!autoStartPending) return false
         autoStartPending = false
@@ -195,18 +211,15 @@ class FingeringViewModel(
         val state = _uiState.value
         if (!state.canStart) return
 
-        // What the player started with becomes what they are offered next time. A ready-made
-        // exercise is somebody else's decision and is deliberately not remembered as theirs.
-        if (!state.isPreconfigured) {
-            exerciseSetups.remember(Exercise.FINGERING, state.toSetup())
-        }
+        // Already written down as it was chosen; this is the setup as it is actually
+        // started.
+        rememberSetup(state)
 
         val sequence = FingeringExerciseGenerator.generate(
             notes = state.activeNotes,
             order = state.order,
-            secondsPerNote = state.secondsPerNote,
+            beatsPerNote = state.beatsPerNote,
             rounds = state.rounds,
-            tempo = config.tempo,
             random = random,
         )
 
@@ -403,11 +416,11 @@ class FingeringViewModel(
             // Shown standing at its starting number through the quiet lead-in, so the screen says
             // what is coming before the count begins to move.
             publishCountIn(beats)
-            held.leadIn(leadInBeatsFor(beats), config.tempo)
+            held.leadIn(leadInBeatsFor(beats), state.tempo)
         }
 
         val engine = metronome?.takeIf { state.countInClick } ?: run {
-            held.countIn(beats, config.tempo, ::publishCountIn)
+            held.countIn(beats, state.tempo, ::publishCountIn)
             return
         }
 
@@ -415,7 +428,7 @@ class FingeringViewModel(
         while (!counted) {
             pause.isPaused.first { !it }
             counted = coroutineScope {
-                val counting = launch { engine.clickCountIn(beats, config.tempo, ::publishCountIn) }
+                val counting = launch { engine.clickCountIn(beats, state.tempo, ::publishCountIn) }
                 val watcher = launch {
                     pause.isPaused.first { it }
                     counting.cancel()
@@ -487,11 +500,28 @@ class FingeringViewModel(
     }
 
     private fun noteSecondsOf(runner: SequenceRunner): Float =
-        config.tempo.secondsFor(runner.currentStep.duration).toFloat()
+        _uiState.value.tempo.secondsFor(runner.currentStep.duration).toFloat()
 
     private fun updateSetup(change: (FingeringUiState) -> FingeringUiState) {
         if (_uiState.value.isBusy) return
-        _uiState.value = change(_uiState.value)
+        val changed = change(_uiState.value)
+        _uiState.value = changed
+        rememberSetup(changed)
+    }
+
+    /**
+     * Writes the setup down, as it is changed rather than only when a run begins.
+     *
+     * The setup screen is left by going back, which throws this ViewModel away: anything not
+     * written down by then is gone. Remembering only at Start therefore lost every choice made by
+     * a player who set the exercise up and then thought better of starting it.
+     *
+     * A ready-made exercise is somebody else's decision and is still never written down as the
+     * player's own. One handed over to be edited is the player's again, and is.
+     */
+    private fun rememberSetup(state: FingeringUiState) {
+        if (state.isPreconfigured) return
+        exerciseSetups.remember(Exercise.FINGERING, state.toSetup())
     }
 
     /** Applies a note set and recomputes the pool the next exercise will use. */
@@ -502,18 +532,29 @@ class FingeringViewModel(
 
     /**
      * Overlays a ready-made exercise. Only the run is configured: nothing is written back to the
-     * player's settings, and the setup screen is skipped rather than pre-filled.
+     * player's settings.
+     *
+     * The setup screen is skipped rather than pre-filled, unless the preset asks to be edited - and
+     * then the note set has to be filled in too, or the screen would claim a set it is not
+     * practising: a preset names notes, so as something to edit it is always a custom set.
      */
-    private fun FingeringUiState.withPreset(preset: FingeringPreset) = copy(
-        activeNotes = preset.notes.filter(config.chart::supports),
-        order = preset.order,
-        secondsPerNote = preset.secondsPerNote,
-        rounds = preset.rounds,
-        checkPlaying = preset.checkPlaying && audioCapture != null,
-        successDelaySeconds = preset.successDelaySeconds,
-        noteDisplay = preset.noteDisplay ?: noteDisplay,
-        isPreconfigured = true,
-    )
+    private fun FingeringUiState.withPreset(preset: FingeringPreset): FingeringUiState {
+        val notes = preset.notes.filter(config.chart::supports)
+        return copy(
+            noteSet = if (preset.editable) NoteSet.CUSTOM else noteSet,
+            customNotes = if (preset.editable) notes.toSet() else customNotes,
+            activeNotes = notes,
+            order = preset.order,
+            beatsPerNote = preset.beatsPerNote,
+            tempo = Tempo(preset.tempo.bpm.coerceIn(tempoRange)),
+            showNextNote = preset.showNextNote,
+            rounds = preset.rounds,
+            checkPlaying = preset.checkPlaying && audioCapture != null,
+            successDelaySeconds = preset.successDelaySeconds,
+            noteDisplay = preset.noteDisplay ?: noteDisplay,
+            isPreconfigured = !preset.editable,
+        )
+    }
 
     private fun initialState(): FingeringUiState {
         val notes = config.chart.supportedNotes
@@ -524,9 +565,11 @@ class FingeringViewModel(
             customNotes = notes.toSet(),
             activeNotes = NoteSets.notesOf(NoteSet.BEGINNER, config.chart, notes.toSet()),
             order = NoteOrder.RANDOM,
-            secondsPerNote = config.defaultSeconds,
+            beatsPerNote = Beats.of(config.defaultBeats),
+            tempo = config.defaultTempo,
+            tempoRange = config.tempoRange,
             rounds = config.defaultRounds,
-            secondsOptions = config.secondsOptions,
+            beatOptions = config.beatChoices,
             checkPlaying = config.checkPlayingByDefault && audioCapture != null,
             successDelaySeconds = config.defaultSuccessDelaySeconds,
             successDelayOptions = config.successDelayOptions,

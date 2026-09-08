@@ -59,6 +59,21 @@ class ExerciseSetup(private val values: Map<String, String> = emptyMap()) {
 
     internal fun asMap(): Map<String, String> = values
 
+    /**
+     * Two setups are the same when they say the same things, whoever built them.
+     *
+     * Worth having rather than identity: the point of a setup is that it can be written down, read
+     * back and compared with what was written, and that comparison is the only way to hold the two
+     * directions of a codec to each other.
+     */
+    override fun equals(other: Any?): Boolean =
+        this === other || (other is ExerciseSetup && values == other.values)
+
+    override fun hashCode(): Int = values.hashCode()
+
+    override fun toString(): String =
+        values.entries.sortedBy { it.key }.joinToString(prefix = "ExerciseSetup(", postfix = ")")
+
     companion object {
         val EMPTY = ExerciseSetup()
 

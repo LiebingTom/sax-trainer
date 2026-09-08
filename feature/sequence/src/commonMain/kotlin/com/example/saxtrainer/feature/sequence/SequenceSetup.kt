@@ -49,6 +49,39 @@ internal fun SequenceUiState.withSetup(setup: ExerciseSetup, canCheck: Boolean):
     )
 }
 
+/**
+ * The same setup, offered back as a ready-made exercise.
+ *
+ * The other way out of a stored setup: [withSetup] opens the setup screen on it, this starts it.
+ * Both read the same keys through the same clamps - including the one that brings the click back
+ * with a remembered timing check - so what is practised cannot depend on which door was used.
+ *
+ * Null where the setup names no sequence at all, which is the one thing this cannot make up.
+ */
+fun sequencePresetOf(
+    setup: ExerciseSetup,
+    autoStart: Boolean = true,
+    editable: Boolean = false,
+): SequencePreset? {
+    val sequenceId = setup.string(KEY_SEQUENCE)?.takeIf { it.isNotBlank() } ?: return null
+    val checkTiming = setup.boolean(KEY_CHECK_TIMING, false)
+
+    return SequencePreset(
+        sequenceId = sequenceId,
+        tempo = Tempo(setup.int(KEY_TEMPO, DEFAULT_TEMPO)),
+        addInverse = setup.boolean(KEY_ADD_INVERSE, false),
+        repeats = setup.int(KEY_REPEATS, 1).coerceAtLeast(1),
+        metronome = setup.boolean(KEY_METRONOME, false) || checkTiming,
+        checkPitch = setup.boolean(KEY_CHECK_PITCH, false),
+        checkTiming = checkTiming,
+        autoStart = autoStart,
+        editable = editable,
+    )
+}
+
+/** What the setup screen itself starts at, so a key that was never written reads the same either way. */
+private const val DEFAULT_TEMPO = 80
+
 private const val KEY_SEQUENCE = "sequence"
 private const val KEY_ADD_INVERSE = "add_inverse"
 private const val KEY_REPEATS = "repeats"

@@ -15,6 +15,8 @@ import com.example.saxtrainer.core.audio.capture.rememberMicrophoneAccess
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.LaunchedEffect
 
 /**
  * Stateful entry point of the long tone feature.
@@ -30,6 +32,13 @@ fun LongToneRoute(
     exerciseSetups: ExerciseSetupRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    preset: LongTonePreset? = null,
+    onExerciseFinished: (LongToneResult) -> Unit = {},
+    /**
+     * Where an exercise the player wants to keep is saved, or null where saving makes no sense -
+     * a trainer running somebody else's lesson is not making one up.
+     */
+    onAddToLessons: (() -> Unit)? = null,
     viewModel: LongToneViewModel = viewModel {
         // The click counts the exercise in and stops before the microphone opens.
         LongToneViewModel(
@@ -37,12 +46,43 @@ fun LongToneRoute(
             settingsRepository = settingsRepository,
             exerciseSetups = exerciseSetups,
             metronome = newMetronome.create(),
+            preset = preset,
         )
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // The setup is what is being saved, so it is written down on the way rather than being hoped
+    // for: a practice nobody has touched is still a practice.
+    val addToLessons: (() -> Unit)? = onAddToLessons?.let { open ->
+        {
+            viewModel.rememberSetupNow()
+            open()
+        }
+    }
     val microphone = rememberMicrophoneAccess()
     var permissionDenied by remember { mutableStateOf(false) }
+
+    val start: () -> Unit = {
+        microphone.request { granted ->
+            permissionDenied = !granted
+            if (granted) viewModel.start()
+        }
+    }
+
+    // A preset that asked to start goes through the same door as the Start button, so it still
+    // gets its permission prompt. The ViewModel answers this once.
+    val startNow by rememberUpdatedState(start)
+    LaunchedEffect(viewModel) {
+        if (viewModel.consumeAutoStart()) startNow()
+    }
+
+    // Reported once per finished run: Finished carries the result, so the same value never fires
+    // twice.
+    val report by rememberUpdatedState(onExerciseFinished)
+    LaunchedEffect(state.phase) {
+        (state.phase as? LongTonePhase.Finished)?.let { report(it.result) }
+    }
 
     // Recording must not continue while the app is in the background.
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
@@ -56,16 +96,13 @@ fun LongToneRoute(
         onSelectBeats = viewModel::selectBeatsPerNote,
         onSetTempo = viewModel::setTempo,
         onSelectNoteDisplay = viewModel::selectNoteDisplay,
-        onStart = {
-            microphone.request { granted ->
-                permissionDenied = !granted
-                if (granted) viewModel.start()
-            }
-        },
+        onShowNextNote = viewModel::setShowNextNote,
+        onStart = start,
         onTogglePause = viewModel::togglePause,
         onStop = viewModel::stop,
         onReset = viewModel::reset,
         onBack = onBack,
+        onAddToLessons = addToLessons,
         modifier = modifier,
         permissionDenied = permissionDenied,
         onOpenAppSettings = microphone::openSettings,

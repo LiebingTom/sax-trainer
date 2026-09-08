@@ -1,18 +1,21 @@
 package com.example.saxtrainer.core.settings
 
 /**
- * Where each exercise's last-started setup is kept.
+ * Where each exercise's last setup is kept.
  *
  * Separate from [SettingsRepository] because it answers a different question. [SettingsRepository]
  * holds what the player decided once and every tool obeys - the instrument, what notes are called;
- * this holds what one exercise happened to be set to the last time it was run, which is a default
+ * this holds what one exercise happened to be set to the last time it was used, which is a default
  * offered rather than a rule followed.
  *
- * Remembered at Start, not at every switch flicked: a setup the player fiddled with and then left
- * without starting was never their answer to anything.
+ * When a setup is written down is the exercise's own decision, and there are two honest answers.
+ * An exercise whose setup screen can be left without starting - by going back, which throws its
+ * ViewModel away - has to write as the player chooses, or the choice is simply lost. One that is
+ * configured and started in the same breath can wait until Start. Either way what is kept is a
+ * default offered next time, never a rule.
  */
 interface ExerciseSetupRepository {
-    /** [ExerciseSetup.EMPTY] for an exercise that has never been started. */
+    /** [ExerciseSetup.EMPTY] for an exercise that has never been set up. */
     fun setupOf(exercise: Exercise): ExerciseSetup
 
     fun remember(exercise: Exercise, setup: ExerciseSetup)

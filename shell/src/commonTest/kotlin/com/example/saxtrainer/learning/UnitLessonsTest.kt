@@ -2,12 +2,16 @@ package com.example.saxtrainer.learning
 
 import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.learning.TrainerId
+import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.feature.notequiz.QuizMode
+import com.example.saxtrainer.learning.catalog.steps.fingeringPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
 import com.example.saxtrainer.learning.catalog.units.ACCIDENTALS_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.ACCIDENTAL_NOTES
 import com.example.saxtrainer.learning.catalog.units.FIRST_NOTES_UNIT_ID
 import com.example.saxtrainer.learning.catalog.units.OCTAVE_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.UPPER_OCTAVE_UNIT_ID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -20,8 +24,41 @@ class UnitLessonsTest {
     @Test
     fun `the units are topics, in teaching order`() {
         assertEquals(
-            listOf(FIRST_NOTES_UNIT_ID, OCTAVE_UNIT_ID, ACCIDENTALS_UNIT_ID),
+            listOf(
+                FIRST_NOTES_UNIT_ID,
+                OCTAVE_UNIT_ID,
+                ACCIDENTALS_UNIT_ID,
+                UPPER_OCTAVE_UNIT_ID,
+            ),
             SaxTrainerCurriculum.units.map { it.id },
+        )
+    }
+
+    @Test
+    fun `the upper octave is one key rather than nine new grips`() {
+        val upper = SaxTrainerCurriculum.unitOf(UPPER_OCTAVE_UNIT_ID)!!
+        val notes = upper.lessons.first().steps.flatMap { fingeringPresetOf(it)!!.notes }
+
+        // Every note of the register is a note already learned, an octave higher: the lesson is the
+        // octave key, so the first one asks for grips the player owns and nothing else.
+        assertEquals(4, notes.size, "a handful first, not the whole register")
+        assertTrue(
+            notes.all { note -> Note(note.name, note.octave - 1) in ACCIDENTAL_NOTES },
+            "every upper note is an earlier one with the octave key added",
+        )
+    }
+
+    @Test
+    fun `the upper octave unit ends across both octaves`() {
+        val upper = SaxTrainerCurriculum.unitOf(UPPER_OCTAVE_UNIT_ID)!!
+        val last = upper.lessons.last()
+
+        assertEquals(2, last.stepCount)
+        assertEquals(TrainerId.NOTE_TRAINER, last.stepAt(0)!!.trainerId)
+        assertEquals(TrainerId.SEQUENCE, last.stepAt(1)!!.trainerId, "ending on something musical")
+        assertFalse(
+            noteTrainerPresetOf(last.stepAt(0)!!)!!.showFingeringHint,
+            "the hint given while the register was new is taken away again",
         )
     }
 

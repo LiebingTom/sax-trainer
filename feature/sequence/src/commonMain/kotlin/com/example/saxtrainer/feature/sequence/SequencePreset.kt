@@ -23,6 +23,13 @@ data class SequencePreset(
     val checkTiming: Boolean = false,
     /** Whether the exercise begins by itself rather than waiting for Start. */
     val autoStart: Boolean = true,
+    /**
+     * Whether the setup screen opens filled in with this rather than being skipped.
+     *
+     * A launch instruction like [autoStart] and not part of the configuration: it says how the
+     * screen opens, not what is practised, and neither is ever written down.
+     */
+    val editable: Boolean = false,
 ) {
     init {
         require(repeats >= 1) { "a sequence is played at least once, not $repeats times" }

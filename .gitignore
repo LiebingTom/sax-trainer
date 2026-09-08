@@ -20,3 +20,7 @@ build/
 additional/
 # The Kotlin Gradle plugin writes per-project caches here.
 .kotlin/
+
+# The music font the notation glyphs were traced from; fetched on demand, never shipped.
+# tools/bravura_glyphs.py --download
+tools/.bravura/

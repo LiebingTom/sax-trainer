@@ -86,7 +86,7 @@ class LocalStorageSettingsRepositoryTest {
         repository.setInstrument(Instrument.SOPRANO_SAX)
         repository.setNoteNaming(NoteNaming.GERMAN)
         repository.setNoteDisplay(NoteDisplay.RANDOM)
-        repository.setNoteDisplayFor(TrainingTool.FINGERING, NoteDisplay.BOTH)
+        repository.setNoteDisplayFor(TrainingTool.FINGERING, NoteDisplay.STAFF)
         repository.setCountInBeats(2)
         repository.setCountInClick(false)
 

@@ -33,6 +33,11 @@ fun SequenceRoute(
     modifier: Modifier = Modifier,
     preset: SequencePreset? = null,
     onExerciseFinished: (SequenceResult) -> Unit = {},
+    /**
+     * Where an exercise the player wants to keep is saved, or null where saving makes no sense -
+     * a trainer running somebody else's lesson is not making one up.
+     */
+    onAddToLessons: (() -> Unit)? = null,
     viewModel: SequenceViewModel = viewModel {
         SequenceViewModel(
             settingsRepository = settingsRepository,
@@ -44,6 +49,15 @@ fun SequenceRoute(
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // The setup is what is being saved, so it is written down on the way rather than being hoped
+    // for: a practice nobody has touched is still a practice.
+    val addToLessons: (() -> Unit)? = onAddToLessons?.let { open ->
+        {
+            viewModel.rememberSetupNow()
+            open()
+        }
+    }
     val microphone = rememberMicrophoneAccess()
 
     val start: () -> Unit = {
@@ -88,6 +102,7 @@ fun SequenceRoute(
         onStop = viewModel::stop,
         onReset = viewModel::reset,
         onBack = onBack,
+        onAddToLessons = addToLessons,
         modifier = modifier,
     )
 }

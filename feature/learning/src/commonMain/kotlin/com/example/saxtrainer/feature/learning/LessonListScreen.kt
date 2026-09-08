@@ -1,18 +1,12 @@
 package com.example.saxtrainer.feature.learning
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
@@ -38,6 +32,11 @@ fun LessonListScreen(
     onLessonClick: (LessonId) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Opens this lesson's configuration on the trainer's own setup screen, or null where a lesson
+     * cannot be looked into at all.
+     */
+    onEditLesson: ((LessonId) -> Unit)? = null,
 ) {
     ScreenScaffold(
         title = state.title,
@@ -59,49 +58,28 @@ fun LessonListScreen(
         Spacer(Modifier.height(Dimens.spaceXs))
 
         state.lessons.forEach { item ->
-            LessonCard(item = item, onClick = { onLessonClick(item.id) })
+            LessonCard(
+                title = item.title,
+                subtitle = item.subtitle,
+                onClick = { onLessonClick(item.id) },
+                enabled = item.unlocked,
+                status = statusOf(item),
+                badge = { Badge(item) },
+                trailing = if (onEditLesson == null) {
+                    null
+                } else {
+                    { EditButton(enabled = item.unlocked) { onEditLesson(item.id) } }
+                },
+            )
         }
         Spacer(Modifier.height(Dimens.spaceLg))
     }
 }
 
 @Composable
-private fun LessonCard(item: LessonItem, onClick: () -> Unit) {
-    Card(
-        onClick = onClick,
-        enabled = item.unlocked,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
-    ) {
-        Row(
-            modifier = Modifier.padding(Dimens.cardPadding),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(Dimens.spaceXs),
-            ) {
-                Text(text = item.title, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = item.subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                val note = statusOf(item)
-                if (note != null) {
-                    Text(
-                        text = note,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            Badge(item)
-        }
+private fun EditButton(enabled: Boolean, onClick: () -> Unit) {
+    TextButton(onClick = onClick, enabled = enabled) {
+        Text(text = "Edit", style = MaterialTheme.typography.labelLarge)
     }
 }
 

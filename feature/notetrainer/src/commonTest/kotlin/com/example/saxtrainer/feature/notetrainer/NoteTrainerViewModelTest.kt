@@ -31,6 +31,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
+import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.fingering.NoteSet
+import com.example.saxtrainer.core.settings.ExerciseSetup
 
 /** Reading a note, playing it, and what the trainer makes of that. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -592,7 +595,7 @@ class NoteTrainerViewModelTest {
         val microphone = FakeMicrophone(frameDurationMs)
         val viewModel = viewModel(microphone = microphone)
         viewModel.selectOnly(c4, d4)
-        viewModel.setHoldSeconds(2.0)
+        viewModel.setHoldBeats(Beats.of(2))
 
         try {
             viewModel.start()
@@ -622,7 +625,7 @@ class NoteTrainerViewModelTest {
         val microphone = FakeMicrophone(frameDurationMs)
         val viewModel = viewModel(microphone = microphone)
         viewModel.selectOnly(c4, d4)
-        viewModel.setHoldSeconds(2.0)
+        viewModel.setHoldBeats(Beats.of(2))
 
         try {
             viewModel.start()
@@ -653,7 +656,7 @@ class NoteTrainerViewModelTest {
         val microphone = FakeMicrophone(frameDurationMs)
         val viewModel = viewModel(microphone = microphone)
         viewModel.selectOnly(c4, d4)
-        viewModel.setHoldSeconds(2.0)
+        viewModel.setHoldBeats(Beats.of(2))
 
         try {
             viewModel.start()
@@ -677,7 +680,7 @@ class NoteTrainerViewModelTest {
         val microphone = FakeMicrophone(frameDurationMs)
         val viewModel = viewModel(microphone = microphone)
         viewModel.selectOnly(c4)
-        viewModel.setHoldSeconds(2.0)
+        viewModel.setHoldBeats(Beats.of(2))
 
         try {
             viewModel.start()
@@ -705,7 +708,7 @@ class NoteTrainerViewModelTest {
         first.setShowFingeringHint(true)
         first.setShowNoteName(true)
         first.setTargetSeconds(8)
-        first.setHoldSeconds(2.0)
+        first.setHoldBeats(Beats.of(2))
 
         first.start()
         advanceTimeBy(200)
@@ -719,19 +722,77 @@ class NoteTrainerViewModelTest {
         assertTrue(opened.showFingeringHint)
         assertTrue(opened.showNoteName)
         assertEquals(8, opened.targetSeconds)
-        assertEquals(2.0, opened.holdSeconds)
+        assertEquals(Beats.of(2), opened.holdBeats)
         assertFalse(opened.isRandom)
     }
 
     @Test
-    fun `a setup the player never started is not remembered`() = trainerTest {
+    fun `a setup is kept without waiting for a run to be started`() = trainerTest {
+        // Going back throws the ViewModel away, so a choice not written down by then is lost. This
+        // is the setup screen being left rather than started, which is how most of them are left.
+        val setups = InMemoryExerciseSetupRepository()
+        val chosen = viewModel(setups = setups)
+        chosen.setRounds(3)
+        chosen.setHoldBeats(Beats.of(3))
+
+        val opened = viewModel(setups = setups).uiState.value
+
+        assertEquals(3, opened.rounds)
+        assertEquals(Beats.of(3), opened.holdBeats)
+    }
+
+    @Test
+    fun `the notes chosen by hand are kept, chosen and unchosen alike`() = trainerTest {
+        val setups = InMemoryExerciseSetupRepository()
+        viewModel(setups = setups).selectOnly(c4, e4)
+
+        val opened = viewModel(setups = setups).uiState.value
+
+        assertEquals(setOf(c4, e4), opened.customNotes)
+        assertEquals(listOf(c4, e4), opened.activeNotes, "in pitch order, whatever order they were ticked")
+        assertFalse(d4 in opened.customNotes, "a note left unticked stays unticked")
+        assertTrue(setups.setupOf(Exercise.LONG_TONES).isEmpty, "one exercise, one setup")
+    }
+
+    @Test
+    fun `a new selection replaces the one before it`() = trainerTest {
+        val setups = InMemoryExerciseSetupRepository()
+        viewModel(setups = setups).selectOnly(c4, d4, e4)
+        viewModel(setups = setups).selectOnly(d4)
+
+        val opened = viewModel(setups = setups).uiState.value
+
+        assertEquals(setOf(d4), opened.customNotes)
+        assertEquals(listOf(d4), opened.activeNotes)
+    }
+
+    @Test
+    fun `choosing no notes at all is a choice, and is kept`() = trainerTest {
+        // Nothing to practise, so the exercise cannot be started - which is exactly why waiting for
+        // Start would have lost it. The screen opens on the empty selection and says so.
+        val setups = InMemoryExerciseSetupRepository()
+        val cleared = viewModel(setups = setups)
+        cleared.editCustomNotes()
+        cleared.clearCustomNotes()
+        cleared.applyCustomNotes()
+
+        val opened = viewModel(setups = setups).uiState.value
+
+        assertTrue(opened.customNotes.isEmpty())
+        assertTrue(opened.activeNotes.isEmpty())
+        assertFalse(opened.canStart)
+    }
+
+    @Test
+    fun `notes ticked in the dialog count for nothing until they are applied`() = trainerTest {
         val setups = InMemoryExerciseSetupRepository()
         val fiddled = viewModel(setups = setups)
-        fiddled.setRounds(3)
-        fiddled.setHoldSeconds(3.0)
+        fiddled.selectOnly(c4, e4)
+        fiddled.editCustomNotes()
+        fiddled.toggleCustomNote(d4)
+        fiddled.cancelCustomNotes()
 
-        assertTrue(setups.setupOf(Exercise.NOTE_TRAINER).isEmpty)
-        assertEquals(config.defaultRounds, viewModel(setups = setups).uiState.value.rounds)
+        assertEquals(setOf(c4, e4), viewModel(setups = setups).uiState.value.customNotes)
     }
 
     @Test
@@ -747,6 +808,93 @@ class NoteTrainerViewModelTest {
 
         assertTrue(setups.setupOf(Exercise.NOTE_TRAINER).isEmpty)
     }
+
+    // --- the round trip ---------------------------------------------------------------------
+
+    /**
+     * Every choice the setup screen offers survives being written down, turned back into a
+     * ready-made exercise, and written down again.
+     *
+     * A stored setup has two ways out - one opens the setup screen on it, the other starts it - and
+     * they have to agree. Where they do not, the difference shows only in an exercise somebody
+     * saved, and only once it is started, which is the worst place to find it.
+     */
+    @Test
+    fun `every choice survives being written down and started again`() = trainerTest {
+        val configured = viewModel()
+        configured.selectOnly(c4, d4, e4)
+        configured.setRandomOrder(false)
+        configured.setRounds(3)
+        configured.setShowFingeringHint(true)
+        configured.setShowNoteName(true)
+        configured.setTargetSeconds(8)
+        configured.setHoldBeats(Beats.of(2))
+        configured.setTempo(96)
+        val written = configured.uiState.value.toSetup()
+
+        val preset = assertNotNull(noteTrainerPresetOf(written, editable = true))
+        val started = viewModel(preset = preset)
+
+        assertEquals(written, started.uiState.value.toSetup())
+    }
+
+    @Test
+    fun `the name under the staff and the tempo are part of the exercise`() = trainerTest {
+        val configured = viewModel()
+        configured.selectOnly(c4, d4)
+        configured.setShowNoteName(true)
+        configured.setTempo(120)
+
+        val preset = assertNotNull(noteTrainerPresetOf(configured.uiState.value.toSetup()))
+
+        assertTrue(preset.showNoteName, "the note name was chosen")
+        assertEquals(120, preset.tempo.bpm)
+    }
+
+    @Test
+    fun `a named set of notes comes back as the notes themselves`() = trainerTest {
+        val configured = viewModel()
+        configured.selectNoteSet(NoteSet.BEGINNER)
+        val expected = configured.uiState.value.activeNotes
+
+        val preset = assertNotNull(noteTrainerPresetOf(configured.uiState.value.toSetup()))
+
+        // The label collapses - a preset names notes, not a set - but not one note changes.
+        assertEquals(expected, preset.notes)
+    }
+
+
+    /**
+     * A practice nobody has touched is still a practice.
+     *
+     * The setup is written down as it is changed, so an exercise opened and left on its defaults
+     * has nothing on record - and "add to your lessons" would have found nothing to save. Asking
+     * for it writes it.
+     */
+    @Test
+    fun `an untouched setup is written down when it is asked for`() = trainerTest {
+        val setups = InMemoryExerciseSetupRepository()
+
+        viewModel(setups = setups).rememberSetupNow()
+
+        assertFalse(setups.setupOf(Exercise.NOTE_TRAINER).isEmpty)
+    }
+
+
+    /**
+     * A setup nobody has written yet is still a practice.
+     *
+     * Nothing is on record until a control is changed, so an exercise saved straight off its
+     * defaults arrives here as an empty setup - and reading that as "no notes chosen" would save a
+     * lesson that then quietly refuses to start.
+     */
+    @Test
+    fun `an empty setup is the beginner's notes rather than none at all`() {
+        val preset = assertNotNull(noteTrainerPresetOf(ExerciseSetup()))
+
+        assertTrue(preset.notes.isNotEmpty())
+    }
+
 }
 
 /** Long enough for any exercise here, short enough that a hang is reported rather than waited on. */

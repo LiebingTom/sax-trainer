@@ -36,6 +36,11 @@ fun NoteTrainerRoute(
     modifier: Modifier = Modifier,
     preset: NoteTrainerPreset? = null,
     onExerciseFinished: (NoteTrainerResult) -> Unit = {},
+    /**
+     * Where an exercise the player wants to keep is saved, or null where saving makes no sense -
+     * a trainer running somebody else's lesson is not making one up.
+     */
+    onAddToLessons: (() -> Unit)? = null,
     viewModel: NoteTrainerViewModel = viewModel {
         NoteTrainerViewModel(
             settingsRepository = settingsRepository,
@@ -48,6 +53,15 @@ fun NoteTrainerRoute(
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // The setup is what is being saved, so it is written down on the way rather than being hoped
+    // for: a practice nobody has touched is still a practice.
+    val addToLessons: (() -> Unit)? = onAddToLessons?.let { open ->
+        {
+            viewModel.rememberSetupNow()
+            open()
+        }
+    }
     val microphone = rememberMicrophoneAccess()
 
     val start: () -> Unit = {
@@ -89,13 +103,15 @@ fun NoteTrainerRoute(
         onShowFingeringHintChange = viewModel::setShowFingeringHint,
         onShowNoteNameChange = viewModel::setShowNoteName,
         onTargetChange = viewModel::setTargetSeconds,
-        onHoldChange = viewModel::setHoldSeconds,
+        onHoldChange = viewModel::setHoldBeats,
+        onTempoChange = viewModel::setTempo,
         onStart = start,
         onTogglePause = viewModel::togglePause,
         onSkip = viewModel::skip,
         onStop = viewModel::stop,
         onReset = viewModel::reset,
         onBack = onBack,
+        onAddToLessons = addToLessons,
         modifier = modifier,
     )
 }

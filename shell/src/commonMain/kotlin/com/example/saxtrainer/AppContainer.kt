@@ -8,7 +8,9 @@ import com.example.saxtrainer.core.learning.InMemoryLessonRunRepository
 import com.example.saxtrainer.core.learning.LessonProgressRepository
 import com.example.saxtrainer.core.learning.LessonRunRepository
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.InMemoryUserLessonRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
+import com.example.saxtrainer.core.settings.UserLessonRepository
 import com.example.saxtrainer.learning.SaxTrainerCurriculum
 
 /**
@@ -27,6 +29,13 @@ class AppContainer(
     val audioCapture: AudioCapture,
     /** A new click per practice: two exercises must never share one. */
     val newMetronome: MetronomeFactory,
+    /**
+     * The practices the player saved for themselves.
+     *
+     * Defaulted so an entry point without a store still runs the whole app; it simply forgets what
+     * was saved when it closes.
+     */
+    val userLessons: UserLessonRepository = InMemoryUserLessonRepository(),
     curriculum: Curriculum = SaxTrainerCurriculum,
 ) {
     val curriculum: Curriculum = curriculum

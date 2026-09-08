@@ -12,6 +12,7 @@ import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
 import com.example.saxtrainer.learning.catalog.steps.fingeringStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
+import com.example.saxtrainer.core.music.Beats
 
 /**
  * B flat and F sharp: the two accidentals that turn up immediately, and the two grips that are
@@ -47,7 +48,7 @@ val accidentalsUnit = LearningUnit(
                     FingeringPreset(
                         notes = ACCIDENTAL_NOTES,
                         order = NoteOrder.RANDOM,
-                        secondsPerNote = 5,
+                        beatsPerNote = Beats.of(5),
                         rounds = 2,
                         checkPlaying = true,
                         // Each note comes up as its letter or on the staff, decided as the exercise

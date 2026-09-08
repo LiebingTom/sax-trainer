@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -29,10 +30,12 @@ import androidx.compose.ui.unit.isFinite
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.NoteValue
 import com.example.saxtrainer.core.music.NotatedDuration
+import com.example.saxtrainer.core.music.AccidentalStyle
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.ToneSequence
 import com.example.saxtrainer.core.music.ToneStep
+import com.example.saxtrainer.core.music.TrebleStaff
 import com.example.saxtrainer.core.music.NoteNaming
 
 /**
@@ -50,6 +53,11 @@ import com.example.saxtrainer.core.music.NoteNaming
  *
  * [prefix] is the block at the head of the staff - the clef, and one day a key signature. Its width
  * is fixed whatever is in it, so turning the clef off does not move a note.
+ *
+ * **This cannot be asked for an intrinsic measurement.** It sizes the music against the width it is
+ * offered and is therefore built on `BoxWithConstraints`, which throws when a parent asks it how
+ * tall it would like to be - so it must not be put inside a `Modifier.height(IntrinsicSize.Min)`
+ * row or anything else that measures intrinsics.
  *
  * The engraving is deliberately limited; see `StaffDrawing.kt` for exactly how far it goes. Notably
  * there are no rests, ties or key signatures, beams are horizontal, and a duration with no single
@@ -88,6 +96,30 @@ fun MusicalStaffView(
      * the notes change.
      */
     stepRange: IntRange? = null,
+    /**
+     * Keeps room for an accidental beside every note, whether it has one or not.
+     *
+     * A practice showing one note at a time out of a pool wants this: without it the note moves
+     * sideways as the pitch changes from C to C sharp. A written-out piece does not.
+     */
+    reserveAccidentals: Boolean = false,
+    /**
+     * Centres the music in the width left over after the header block.
+     *
+     * The block itself does not move - it is part of the staff, not of the music - so what is
+     * centred is everything after it. Only has an effect where the music is narrower than the
+     * space available, which is exactly when a line does not scroll.
+     */
+    centerMusic: Boolean = false,
+    /**
+     * A second note to show beside the one at that index, in [secondaryColor].
+     *
+     * For the pitch a microphone actually heard, held up against the one that was asked for. It has
+     * no duration and takes no part in the line: a head, its accidental and its ledger lines, and
+     * nothing else.
+     */
+    secondaryNote: (index: Int) -> Note? = { null },
+    secondaryColor: Color = staffColor,
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -103,8 +135,8 @@ fun MusicalStaffView(
         }
     }
 
-    val layout = remember(sequence, prefix, styles, labelWidthSpaces) {
-        StaffLayoutBuilder.of(sequence, prefix, styles, labelWidthSpaces)
+    val layout = remember(sequence, prefix, styles, labelWidthSpaces, reserveAccidentals) {
+        StaffLayoutBuilder.of(sequence, prefix, styles, labelWidthSpaces, reserveAccidentals)
     }
     val scrollState = rememberScrollState()
 
@@ -115,7 +147,8 @@ fun MusicalStaffView(
     // Keep the note being played in view without the caller having to measure anything.
     LaunchedEffect(highlightIndex, autoScrollToHighlight) {
         if (!autoScrollToHighlight) return@LaunchedEffect
-        val note = highlightIndex?.let { index -> layout.notes.getOrNull(index) }
+        // By step, not by position: the first head of the note being played is what to scroll to.
+        val note = highlightIndex?.let { index -> layout.notes.firstOrNull { it.index == index } }
             ?: return@LaunchedEffect
         val headPx = with(density) { (lineSpacing * note.headXSpaces).toPx() }
         val target = (headPx - scrollState.viewportSize / 2f).toInt().coerceAtLeast(0)
@@ -144,7 +177,14 @@ fun MusicalStaffView(
                 val space = geometry.spacing
 
                 drawStaffLines(geometry, staffColor)
-                if (prefix.clef) drawTrebleClef(geometry, staffColor, leftX = 0f)
+                // The clef and the time signature take the notes' colour rather than the staff's.
+                // They are writing, not ruling: the lines are the paper a note is put on, while a
+                // clef is a symbol somebody wrote there, and reading them as one ink says so.
+                if (prefix.clef) drawTrebleClef(geometry, color, leftX = 0f)
+                prefix.timeSignature?.let { signature ->
+                    val x = if (prefix.clef) CLEF_ADVANCE_SPACES + TIME_SIGNATURE_GAP_SPACES else 0f
+                    drawTimeSignature(geometry, signature, color, leftX = x * space)
+                }
                 // The line that closes the header block. It is what makes the block read as a
                 // block, and it is why a clef appearing or a key signature arriving later cannot
                 // look like the music has shifted: the music starts at this line, always.
@@ -152,45 +192,86 @@ fun MusicalStaffView(
                     drawBarLine(geometry, staffColor, layout.prefixWidthSpaces * space)
                 }
 
-                layout.barLineXSpaces.forEach { drawBarLine(geometry, staffColor, it * space) }
-                // At the end of the music, which is not the edge of the canvas once it fills the
-                // width: the lines simply carry on past the closing bar, as an unfinished line does.
-                if (closingBar) {
-                    drawBarLine(
-                        geometry = geometry,
-                        color = staffColor,
-                        x = (layout.widthSpaces - 0.5f) * space,
-                        thick = true,
-                    )
-                }
+                // Everything from here on is the music, which is the only part that is centred. The
+                // header block above stays where it is: it belongs to the staff, not to the line.
+                val slack = size.width - layout.widthSpaces * space
+                val musicX = if (centerMusic && slack > 0f) slack / 2f else 0f
 
-                val stemming = stemmingOf(layout, geometry)
-
-                layout.notes.forEach { note ->
-                    val paint = noteColor(note.index)
-                        ?: if (note.index == highlightIndex) highlightColor else color
-                    when (note.style) {
-                        StaffNoteStyle.HEAD ->
-                            drawNote(geometry, note, paint, stemming[note.index]!!, layout)
-
-                        StaffNoteStyle.NAME -> drawNoteLabel(
+                translate(left = musicX) {
+                    layout.barLineXSpaces.forEach { drawBarLine(geometry, staffColor, it * space) }
+                    // At the end of the music, which is not the edge of the canvas once it fills
+                    // the width: the lines carry on past the closing bar, as an unfinished line does.
+                    if (closingBar) {
+                        drawBarLine(
                             geometry = geometry,
-                            measurer = measurer,
-                            text = naming.labelOf(
-                                sequence.steps[note.index].note,
-                                sequence.accidentalStyle,
-                            ),
-                            style = labelStyle,
-                            color = paint,
-                            background = labelBackground,
-                            centerX = note.headXSpaces * space,
-                            step = note.placement.stepsFromBottomLine,
+                            color = staffColor,
+                            x = (layout.widthSpaces - 0.5f) * space,
+                            style = BarLineStyle.FINAL,
                         )
                     }
-                }
 
-                layout.beamGroups.forEach { group ->
-                    drawBeamGroup(geometry, layout, group, stemming, color, highlightIndex, highlightColor, noteColor)
+                    val stemming = stemmingOf(layout, geometry)
+
+                    // Position, not step: a note held across a bar line is written as more than one
+                    // head, so the page has its own numbering. The step index is what a caller
+                    // colours and highlights by, so both heads of a tie answer to the same one.
+                    layout.notes.forEachIndexed { position, note ->
+                        val paint = noteColor(note.index)
+                            ?: if (note.index == highlightIndex) highlightColor else color
+                        when (note.style) {
+                            StaffNoteStyle.HEAD ->
+                                drawNote(geometry, note, paint, stemming[position]!!, position, layout)
+
+                            StaffNoteStyle.NAME -> drawNoteLabel(
+                                geometry = geometry,
+                                measurer = measurer,
+                                text = naming.labelOf(
+                                    sequence.steps[note.index].note,
+                                    sequence.accidentalStyle,
+                                ),
+                                style = labelStyle,
+                                color = paint,
+                                background = labelBackground,
+                                centerX = note.headXSpaces * space,
+                                step = note.placement.stepsFromBottomLine,
+                            )
+                        }
+
+                        if (note.tiedToNext) {
+                            val next = layout.notes[position + 1]
+                            drawTie(
+                                geometry = geometry,
+                                color = paint,
+                                fromX = note.headXSpaces * space,
+                                toX = next.headXSpaces * space,
+                                step = note.placement.stepsFromBottomLine,
+                                // Away from the stems, which both point the same way here: the two
+                                // heads are the same pitch, so they take the same direction.
+                                below = stemming[position]!!.stemUp,
+                            )
+                        }
+
+                        // Only beside the head the note starts on: one reading of one pitch, not
+                        // one for every head a held note happens to be written with.
+                        val heard = if (note.continuesPrevious(layout, position)) {
+                            null
+                        } else {
+                            secondaryNote(note.index)
+                        }
+                        heard?.let {
+                            drawSecondaryNote(
+                                geometry = geometry,
+                                note = it,
+                                accidentalStyle = sequence.accidentalStyle,
+                                color = secondaryColor,
+                                headX = (note.headXSpaces + SECONDARY_NOTE_GAP_SPACES) * space,
+                            )
+                        }
+                    }
+
+                    layout.beamGroups.forEach { group ->
+                        drawBeamGroup(geometry, layout, group, stemming, color, highlightIndex, highlightColor, noteColor)
+                    }
                 }
             }
         }
@@ -223,44 +304,87 @@ private fun widestLabelSpaces(
 /** Air between one written name and the next, so two of them never touch. */
 private const val LABEL_GAP_SPACES = 0.4f
 
+/** Between the clef and the time signature that follows it, inside the same fixed block. */
+private const val TIME_SIGNATURE_GAP_SPACES = 0.5f
+
+/**
+ * From a note's head to the head of the pitch heard beside it.
+ *
+ * Far enough that the second note's own accidental clears the first note's head, and near enough
+ * that the pair still reads as one note being compared with another rather than as two notes.
+ */
+private const val SECONDARY_NOTE_GAP_SPACES = 2.6f
+
+/**
+ * A pitch shown beside the note it is being compared with: no stem, no value, no place in the line.
+ *
+ * Drawn filled because it is a reading rather than a written note - a hollow head would say "hold
+ * this for two beats", which is not what a microphone reporting a pitch means.
+ */
+private fun DrawScope.drawSecondaryNote(
+    geometry: StaffGeometry,
+    note: Note,
+    accidentalStyle: AccidentalStyle,
+    color: Color,
+    headX: Float,
+) {
+    val placement = TrebleStaff.placementOf(note, accidentalStyle)
+    drawLedgerLines(geometry, placement, color, headX)
+    drawNoteHead(geometry, placement, color, headX, filled = true)
+    drawAccidental(
+        geometry = geometry,
+        accidental = placement.accidental,
+        color = color,
+        rightX = accidentalRightX(geometry, headX),
+        centerY = geometry.y(placement.stepsFromBottomLine),
+    )
+}
+
 /** How each note's stem is drawn: a beamed group takes one direction and one end for all of them. */
 private class Stemming(val stemUp: Boolean, val endY: Float)
 
+/** Keyed by position in [StaffLayout.notes], because one step can be written as several heads. */
 private fun stemmingOf(layout: StaffLayout, geometry: StaffGeometry): Map<Int, Stemming> {
     val stemming = mutableMapOf<Int, Stemming>()
 
-    layout.notes.forEach { note ->
-        stemming[note.index] = Stemming(
+    layout.notes.forEachIndexed { position, note ->
+        stemming[position] = Stemming(
             stemUp = note.placement.stemUp,
             endY = stemEndY(geometry, note.placement),
         )
     }
 
     layout.beamGroups.forEach { group ->
-        val members = layout.notes.filter { it.index in group }
+        val members = group.map { layout.notes[it] }
         // One direction for the whole group; the majority wins, as engraving does.
         val ups = members.count { it.placement.stemUp }
         val groupUp = ups * 2 >= members.size
         val ends = members.map { stemEndY(geometry, it.placement, groupUp) }
         // Every stem reaches the same height, so the beam comes out horizontal.
         val beamY = if (groupUp) ends.min() else ends.max()
-        members.forEach { stemming[it.index] = Stemming(groupUp, beamY) }
+        group.forEach { stemming[it] = Stemming(groupUp, beamY) }
     }
 
     return stemming
 }
+
+/** True where this head is the far end of a tie rather than a note of its own. */
+private fun StaffNotePlacement.continuesPrevious(layout: StaffLayout, position: Int): Boolean =
+    position > 0 && layout.notes[position - 1].let { it.tiedToNext && it.index == index }
 
 private fun DrawScope.drawNote(
     geometry: StaffGeometry,
     note: StaffNotePlacement,
     color: Color,
     stemming: Stemming,
+    position: Int,
     layout: StaffLayout,
 ) {
     val headX = note.headXSpaces * geometry.spacing
     val written = note.notated
+    val whole = written?.value == NoteValue.WHOLE
 
-    drawLedgerLines(geometry, note.placement, color, headX)
+    drawLedgerLines(geometry, note.placement, color, headX, headWidthOf(whole))
     drawNoteHead(
         geometry = geometry,
         placement = note.placement,
@@ -269,6 +393,7 @@ private fun DrawScope.drawNote(
         // A duration with no written form is drawn hollow: honest about being a held note of no
         // particular value rather than pretending to be a quarter.
         filled = written?.value?.isFilledHead ?: false,
+        whole = whole,
     )
 
     if (written == null || written.value.hasStem) {
@@ -276,7 +401,7 @@ private fun DrawScope.drawNote(
     }
 
     // A beamed note has no flag: the beam is the flag.
-    if (written != null && layout.beamGroupOf(note.index) == null) {
+    if (written != null && layout.beamGroupOf(position) == null) {
         drawFlags(
             geometry = geometry,
             placement = note.placement,
@@ -293,7 +418,7 @@ private fun DrawScope.drawNote(
         geometry = geometry,
         accidental = note.placement.accidental,
         color = color,
-        centerX = accidentalX(geometry, headX),
+        rightX = accidentalRightX(geometry, headX),
         centerY = geometry.y(note.placement.stepsFromBottomLine),
     )
 }
@@ -308,7 +433,7 @@ private fun DrawScope.drawBeamGroup(
     highlightColor: Color,
     noteColor: (Int) -> Color?,
 ) {
-    val members = layout.notes.filter { it.index in group }
+    val members = group.map { layout.notes[it] }
     if (members.size < 2) return
 
     val first = members.first()
@@ -319,7 +444,7 @@ private fun DrawScope.drawBeamGroup(
 
     // The beam belongs to the whole group, so it takes the group's colour: highlighted if the note
     // being played is one of them, otherwise plain.
-    val beamColor = if (highlightIndex != null && highlightIndex in group) {
+    val beamColor = if (highlightIndex != null && members.any { it.index == highlightIndex }) {
         noteColor(highlightIndex) ?: highlightColor
     } else {
         color

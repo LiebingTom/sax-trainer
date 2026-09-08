@@ -10,6 +10,9 @@ import com.example.saxtrainer.core.exercise.SequenceCatalog
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.settings.Exercise
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.settings.TrainingTool
@@ -33,6 +36,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import com.example.saxtrainer.core.settings.ExerciseSetup
+import kotlin.test.assertNull
+import kotlin.test.assertNotNull
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LongToneViewModelTest {
@@ -94,10 +100,14 @@ class LongToneViewModelTest {
     private fun TestScope.viewModel(
         capture: AudioCapture,
         settings: SettingsRepository = FakeSettingsRepository(),
+        setups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
+        preset: LongTonePreset? = null,
         seed: Int = 1,
     ) = LongToneViewModel(
         audioCapture = capture,
         settingsRepository = settings,
+        exerciseSetups = setups,
+        preset = preset,
         config = config,
         processingDispatcher = dispatcher,
         random = Random(seed),
@@ -478,9 +488,9 @@ class LongToneViewModelTest {
         advanceUntilIdle()
 
         assertEquals(NoteDisplay.NAME, viewModel.uiState.value.noteDisplay)
-        assertEquals(NoteDisplay.BOTH, settings.settings.value.noteDisplay)
+        assertEquals(NoteDisplay.STAFF, settings.settings.value.noteDisplay)
         assertEquals(
-            NoteDisplay.BOTH,
+            NoteDisplay.STAFF,
             settings.settings.value.noteDisplayFor(TrainingTool.FINGERING),
         )
     }
@@ -564,4 +574,99 @@ class LongToneViewModelTest {
         viewModel.stop()
         advanceUntilIdle()
     }
+
+    // --- remembering the setup ------------------------------------------------------------------
+
+    @Test
+    fun `the notes chosen are kept without waiting for a run to be started`() = runTest(dispatcher) {
+        // Going back throws the ViewModel away, so a choice not written down by then is lost. The
+        // notes this exercise practises are its pattern and the note it starts from; both are here.
+        val setups = InMemoryExerciseSetupRepository()
+        val chosen = viewModel(FakeAudioCapture(frameDurationMs), setups = setups)
+        chosen.selectPattern(SequenceCatalog.stepwiseUp)
+        chosen.selectRootNote(Note(NoteName.D, 4))
+        chosen.selectBeatsPerNote(Beats.of(8))
+        chosen.setTempo(96)
+        chosen.setShowNextNote(false)
+
+        val opened = viewModel(FakeAudioCapture(frameDurationMs), setups = setups).uiState.value
+
+        assertEquals(SequenceCatalog.stepwiseUp, opened.selection.pattern)
+        assertEquals(Note(NoteName.D, 4), opened.selection.rootNote)
+        assertEquals(Beats.of(8), opened.selection.beatsPerNote)
+        assertEquals(96, opened.selection.tempo.bpm)
+        assertFalse(opened.showNextNote)
+    }
+
+    @Test
+    fun `a new selection replaces the one before it`() = runTest(dispatcher) {
+        val setups = InMemoryExerciseSetupRepository()
+        viewModel(FakeAudioCapture(frameDurationMs), setups = setups)
+            .selectRootNote(Note(NoteName.D, 4))
+        viewModel(FakeAudioCapture(frameDurationMs), setups = setups)
+            .selectRootNote(Note(NoteName.G, 4))
+
+        val opened = viewModel(FakeAudioCapture(frameDurationMs), setups = setups).uiState.value
+
+        assertEquals(Note(NoteName.G, 4), opened.selection.rootNote)
+    }
+
+    @Test
+    fun `this exercise's setup is its own`() = runTest(dispatcher) {
+        val setups = InMemoryExerciseSetupRepository()
+
+        viewModel(FakeAudioCapture(frameDurationMs), setups = setups).selectBeatsPerNote(Beats.of(8))
+
+        assertFalse(setups.setupOf(Exercise.LONG_TONES).isEmpty)
+        assertTrue(setups.setupOf(Exercise.NOTE_TRAINER).isEmpty, "one exercise, one setup")
+    }
+
+    // --- the round trip ---------------------------------------------------------------------
+
+    /**
+     * Every choice the setup screen offers survives being written down, turned back into a
+     * ready-made exercise, and written down again.
+     *
+     * A stored setup has two ways out - one opens the setup screen on it, the other starts it - and
+     * they have to agree. Where they do not, the difference shows only in an exercise somebody
+     * saved, and only once it is started, which is the worst place to find it.
+     */
+    @Test
+    fun `every choice survives being written down and started again`() = runTest(dispatcher) {
+        val configured = viewModel(FakeAudioCapture(frameDurationMs))
+        configured.selectPattern(SequenceCatalog.stepwiseUp)
+        configured.selectRootNote(Note(NoteName.G, 4))
+        configured.selectBeatsPerNote(Beats.of(8))
+        configured.setTempo(96)
+        configured.setShowNextNote(false)
+        val written = configured.uiState.value.toSetup()
+
+        val preset = assertNotNull(longTonePresetOf(written, editable = true))
+        val started = viewModel(FakeAudioCapture(frameDurationMs), preset = preset)
+
+        assertEquals(written, started.uiState.value.toSetup())
+    }
+
+    @Test
+    fun `a setup naming no pattern is not an exercise that can be started`() = runTest(dispatcher) {
+        assertNull(longTonePresetOf(ExerciseSetup()))
+    }
+
+
+    /**
+     * A practice nobody has touched is still a practice.
+     *
+     * The setup is written down as it is changed, so an exercise opened and left on its defaults
+     * has nothing on record - and "add to your lessons" would have found nothing to save. Asking
+     * for it writes it.
+     */
+    @Test
+    fun `an untouched setup is written down when it is asked for`() = runTest(dispatcher) {
+        val setups = InMemoryExerciseSetupRepository()
+
+        viewModel(FakeAudioCapture(frameDurationMs), setups = setups).rememberSetupNow()
+
+        assertFalse(setups.setupOf(Exercise.LONG_TONES).isEmpty)
+    }
+
 }

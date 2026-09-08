@@ -41,6 +41,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
+import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.Tempo
 
 /**
  * Runs a note trainer exercise: read the note, find the fingering, play it, next.
@@ -145,8 +147,10 @@ class NoteTrainerViewModel(
     fun setTargetSeconds(seconds: Int) = updateSetup { it.copy(targetSeconds = seconds) }
 
     /** Zero asks for no hold at all: the note counts as soon as it is right. */
-    fun setHoldSeconds(seconds: Double) = updateSetup {
-        it.copy(holdSeconds = seconds.coerceAtLeast(0.0))
+    fun setTempo(bpm: Int) = updateSetup { it.copy(tempo = Tempo(bpm.coerceIn(it.tempoRange))) }
+
+    fun setHoldBeats(beats: Beats) = updateSetup {
+        it.copy(holdBeats = maxOf(beats, Beats.ZERO))
     }
 
     /** Called by the screen when the microphone was asked for and refused. */
@@ -160,6 +164,16 @@ class NoteTrainerViewModel(
      * The screen owns the microphone permission flow, so the decision to start is taken there
      * rather than here, where the exercise would begin deaf.
      */
+    /**
+     * Writes the current setup down now, without waiting for it to be changed or started.
+     *
+     * What the setup screen is showing is a practice whether or not the player has touched a
+     * control, so anything outside that wants to keep it - "add to your lessons" - has to be able
+     * to ask for it. Nothing else about when a setup is remembered changes: the untouched defaults
+     * are only written when somebody actually asks for them.
+     */
+    fun rememberSetupNow() = rememberSetup(_uiState.value)
+
     fun consumeAutoStart(): Boolean {
         if (!autoStartPending) return false
         autoStartPending = false
@@ -173,11 +187,8 @@ class NoteTrainerViewModel(
 
         val notes = practiceOrder(state.activeNotes, state.order, state.rounds, random)
 
-        // What the player started with becomes what they are offered next time. A ready-made
-        // exercise is somebody else's decision and is deliberately not remembered as theirs.
-        if (!state.isPreconfigured) {
-            exerciseSetups.remember(Exercise.NOTE_TRAINER, state.toSetup())
-        }
+        // Already written down as it was chosen; this is the setup as it is actually started.
+        rememberSetup(state)
 
         pause.resume()
         skipRequested = false
@@ -282,7 +293,9 @@ class NoteTrainerViewModel(
         heard: SharedFlow<Hearing>,
     ): NoteAttempt {
         val expected = _uiState.value.soundingNoteOf(note)
-        val holdSeconds = _uiState.value.holdSeconds
+        // The one place the hold stops being music and becomes clock time, because what it is
+        // measured against is the microphone, which reports seconds.
+        val holdSeconds = _uiState.value.let { it.tempo.secondsFor(it.holdBeats) }
         // The confirming wait is a floor rather than an alternative: a note passed through on the
         // way to another must not count, whether or not the player asked for a hold on top.
         val requiredSeconds = maxOf(config.requiredCorrectSeconds, holdSeconds)
@@ -430,11 +443,11 @@ class NoteTrainerViewModel(
 
         if (beats > 0) {
             publishCountIn(beats)
-            held.leadIn(leadInBeatsFor(beats), config.tempo)
+            held.leadIn(leadInBeatsFor(beats), state.tempo)
         }
 
         val engine = metronome?.takeIf { state.countInClick } ?: run {
-            held.countIn(beats, config.tempo, ::publishCountIn)
+            held.countIn(beats, state.tempo, ::publishCountIn)
             return
         }
 
@@ -442,7 +455,7 @@ class NoteTrainerViewModel(
         while (!counted) {
             pause.isPaused.first { !it }
             counted = coroutineScope {
-                val counting = launch { engine.clickCountIn(beats, config.tempo, ::publishCountIn) }
+                val counting = launch { engine.clickCountIn(beats, state.tempo, ::publishCountIn) }
                 val watcher = launch {
                     pause.isPaused.first { it }
                     counting.cancel()
@@ -505,7 +518,25 @@ class NoteTrainerViewModel(
 
     private fun updateSetup(change: (NoteTrainerUiState) -> NoteTrainerUiState) {
         if (_uiState.value.isBusy) return
-        _uiState.value = change(_uiState.value)
+        val changed = change(_uiState.value)
+        _uiState.value = changed
+        rememberSetup(changed)
+    }
+
+    /**
+     * Writes the setup down, as it is changed rather than only when a run begins.
+     *
+     * The setup screen is left by going back, which throws this ViewModel away: anything not
+     * written down by then is gone. Remembering only at Start therefore lost every choice made by
+     * a player who set the exercise up and then thought better of starting it - and lost a choice
+     * of notes that cannot be started at all, since an empty selection has nothing to practise.
+     *
+     * A ready-made exercise is somebody else's decision and is still never written down as the
+     * player's own.
+     */
+    private fun rememberSetup(state: NoteTrainerUiState) {
+        if (state.isPreconfigured) return
+        exerciseSetups.remember(Exercise.NOTE_TRAINER, state.toSetup())
     }
 
     private fun NoteTrainerUiState.withNoteSet(noteSet: NoteSet) = copy(
@@ -515,17 +546,28 @@ class NoteTrainerViewModel(
 
     /**
      * Overlays a ready-made exercise. Only the run is configured: nothing is written back to the
-     * player's settings, and the setup screen is skipped rather than pre-filled.
+     * player's settings.
+     *
+     * The setup screen is skipped rather than pre-filled, unless the preset asks to be edited - and
+     * then the note set has to be filled in too, or the screen would claim a set it is not
+     * practising: a preset names notes, so as something to edit it is always a custom set.
      */
-    private fun NoteTrainerUiState.withPreset(preset: NoteTrainerPreset) = copy(
-        activeNotes = preset.notes.filter(config.chart::supports),
-        order = preset.order,
-        rounds = preset.rounds,
-        showFingeringHint = preset.showFingeringHint,
-        targetSeconds = preset.targetSeconds,
-        holdSeconds = preset.holdSeconds,
-        isPreconfigured = true,
-    )
+    private fun NoteTrainerUiState.withPreset(preset: NoteTrainerPreset): NoteTrainerUiState {
+        val notes = preset.notes.filter(config.chart::supports)
+        return copy(
+            noteSet = if (preset.editable) NoteSet.CUSTOM else noteSet,
+            customNotes = if (preset.editable) notes.toSet() else customNotes,
+            activeNotes = notes,
+            order = preset.order,
+            rounds = preset.rounds,
+            showFingeringHint = preset.showFingeringHint,
+            showNoteName = preset.showNoteName,
+            targetSeconds = preset.targetSeconds,
+            holdBeats = preset.holdBeats,
+            tempo = Tempo(preset.tempo.bpm.coerceIn(tempoRange)),
+            isPreconfigured = !preset.editable,
+        )
+    }
 
     private fun initialState(): NoteTrainerUiState {
         val notes = config.chart.supportedNotes
@@ -539,8 +581,10 @@ class NoteTrainerViewModel(
             rounds = config.defaultRounds,
             targetSeconds = config.defaultTargetSeconds,
             targetOptions = config.targetOptions,
-            holdSeconds = config.defaultHoldSeconds,
-            holdOptions = config.holdOptions,
+            holdBeats = Beats.of(config.defaultHoldBeats),
+            tempo = config.defaultTempo,
+            tempoRange = config.tempoRange,
+            holdOptions = config.holdChoices,
             transposition = settings.instrument.transposition,
             instrumentName = settings.instrument.displayName,
             noteNaming = settings.noteNaming,

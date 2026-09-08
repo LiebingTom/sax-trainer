@@ -65,6 +65,13 @@ class LongToneViewModel(
      * simply opens on the plain defaults every time.
      */
     private val exerciseSetups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
+    /**
+     * A ready-made exercise, where somebody else decided what to practise.
+     *
+     * Overrides the remembered setup, since a preset decides everything the setup screen would have
+     * asked. Null is the ordinary case: the player sets the exercise up themselves.
+     */
+    private val preset: LongTonePreset? = null,
     /** Only ever used to click the count-in; the exercise itself is played into a silent room. */
     private val metronome: Metronome? = null,
     private val config: LongToneConfig = LongToneConfig(),
@@ -86,6 +93,8 @@ class LongToneViewModel(
 
     private val _uiState = MutableStateFlow(initialState())
     val uiState: StateFlow<LongToneUiState> = _uiState.asStateFlow()
+
+    private var autoStartPending = preset?.autoStart == true
 
     private var exerciseJob: Job? = null
 
@@ -121,6 +130,12 @@ class LongToneViewModel(
 
     fun selectBeatsPerNote(beats: Beats) = updateSelection { it.copy(beatsPerNote = beats) }
 
+    fun setShowNextNote(show: Boolean) {
+        if (_uiState.value.isBusy) return
+        _uiState.value = _uiState.value.copy(showNextNote = show)
+        rememberSetup()
+    }
+
     fun setTempo(bpm: Int) = updateSelection {
         it.copy(tempo = Tempo(bpm.coerceIn(config.tempoRange.first, config.tempoRange.last)))
     }
@@ -129,8 +144,8 @@ class LongToneViewModel(
     fun start() {
         if (exerciseJob?.isActive == true) return
 
-        // What the player started with becomes what they are offered next time.
-        exerciseSetups.remember(Exercise.LONG_TONES, _uiState.value.toSetup())
+        // Already written down as it was chosen; this is the setup as it is actually started.
+        rememberSetup()
 
         pause.resume()
         _uiState.value = _uiState.value.copy(
@@ -402,7 +417,63 @@ class LongToneViewModel(
     private fun updateSelection(change: (ExerciseSelection) -> ExerciseSelection) {
         if (_uiState.value.isBusy) return
         _uiState.value = _uiState.value.copy(selection = change(_uiState.value.selection))
+        rememberSetup()
     }
+
+    /**
+     * Writes the setup down, as it is changed rather than only when a run begins.
+     *
+     * The setup screen is left by going back, which throws this ViewModel away: anything not
+     * written down by then is gone. Remembering only at Start therefore lost every choice made by
+     * a player who set the exercise up and then thought better of starting it.
+     */
+    private fun rememberSetup() {
+        // A ready-made exercise is somebody else's decision and is never written down as the
+        // player's own. One handed over to be edited is the player's again, and is.
+        if (_uiState.value.isPreconfigured) return
+        exerciseSetups.remember(Exercise.LONG_TONES, _uiState.value.toSetup())
+    }
+
+    /**
+     * Whether the screen should start the exercise without being asked, answered true only once.
+     *
+     * The screen owns the microphone permission flow, so the decision to start is taken there
+     * rather than here, where the exercise would begin deaf.
+     */
+    /**
+     * Writes the current setup down now, without waiting for it to be changed or started.
+     *
+     * What the setup screen is showing is a practice whether or not the player has touched a
+     * control, so anything outside that wants to keep it - "add to your lessons" - has to be able
+     * to ask for it. Nothing else about when a setup is remembered changes: the untouched defaults
+     * are only written when somebody actually asks for them.
+     */
+    fun rememberSetupNow() = rememberSetup()
+
+    fun consumeAutoStart(): Boolean {
+        if (!autoStartPending) return false
+        autoStartPending = false
+        return true
+    }
+
+    /**
+     * Overlays a ready-made exercise. Only the run is configured: nothing is written back to the
+     * player's settings, and the setup screen is skipped rather than pre-filled unless the preset
+     * asks to be edited.
+     *
+     * What this build no longer offers is left as it was, exactly as a remembered setup is: a
+     * pattern that has gone, a root outside the range, a hold that is not one of the choices.
+     */
+    private fun LongToneUiState.withPreset(preset: LongTonePreset): LongToneUiState = copy(
+        showNextNote = preset.showNextNote,
+        isPreconfigured = !preset.editable,
+        selection = selection.copy(
+            pattern = patterns.firstOrNull { it.id == preset.patternId } ?: selection.pattern,
+            rootNote = preset.rootNote.takeIf { it in selectableNotes } ?: selection.rootNote,
+            beatsPerNote = preset.beatsPerNote.takeIf { it in beatOptions } ?: selection.beatsPerNote,
+            tempo = Tempo(preset.tempo.bpm.coerceIn(tempoRange)),
+        ),
+    )
 
     /** One bar of count-in, in beats. */
     private fun countInBeats(): Int = config.countInBars * COUNT_IN_BEATS_PER_BAR
@@ -426,7 +497,13 @@ class LongToneViewModel(
             countInClick = settingsRepository.settings.value.countInClick,
             centsDisplayRange = config.centsDisplayRange,
         )
-        return state.withSetup(exerciseSetups.setupOf(Exercise.LONG_TONES))
+        // A preset decides everything the setup screen would have asked, so a remembered setup has
+        // nothing left to say about it.
+        return if (preset != null) {
+            state.withPreset(preset)
+        } else {
+            state.withSetup(exerciseSetups.setupOf(Exercise.LONG_TONES))
+        }
     }
 
     private companion object {

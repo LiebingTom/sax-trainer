@@ -13,6 +13,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.example.saxtrainer.core.music.Beats
+import kotlin.test.assertFalse
 
 /**
  * Where the notes of a sequence end up.
@@ -86,13 +88,20 @@ class StaffLayoutTest {
     }
 
     @Test
-    fun `a duration with no written form is placed anyway`() {
+    fun `a note held across a bar line is written as two notes, tied`() {
+        // Five beats of four-four: a whole note, the bar line, then a quarter still sounding.
         val layout = StaffLayoutBuilder.of(
-            ToneSequence(steps = listOf(ToneStep(note(NoteName.A), com.example.saxtrainer.core.music.Beats(5.0))))
+            ToneSequence(steps = listOf(ToneStep(note(NoteName.A), Beats(5.0))))
         )
 
-        assertEquals(1, layout.notes.size)
-        assertNull(layout.notes.single().notated, "nothing is invented for it")
+        assertEquals(2, layout.notes.size, "one sounding note, two written ones")
+        assertEquals(NoteValue.WHOLE, layout.notes[0].notated!!.value)
+        assertEquals(NoteValue.QUARTER, layout.notes[1].notated!!.value)
+        assertTrue(layout.notes[0].tiedToNext, "the first is held into the second")
+        assertFalse(layout.notes[1].tiedToNext, "and the second ends it")
+        assertEquals(1, layout.barLineXSpaces.size, "the bar line it crosses is still drawn")
+        // Both halves are the same note of the exercise, so a caller colours them together.
+        assertEquals(listOf(0, 0), layout.notes.map { it.index })
     }
 
     @Test

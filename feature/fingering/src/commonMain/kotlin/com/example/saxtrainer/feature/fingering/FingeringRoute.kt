@@ -36,6 +36,11 @@ fun FingeringRoute(
     modifier: Modifier = Modifier,
     preset: FingeringPreset? = null,
     onExerciseFinished: (FingeringResult) -> Unit = {},
+    /**
+     * Where an exercise the player wants to keep is saved, or null where saving makes no sense -
+     * a trainer running somebody else's lesson is not making one up.
+     */
+    onAddToLessons: (() -> Unit)? = null,
     viewModel: FingeringViewModel = viewModel {
         FingeringViewModel(
             settingsRepository = settingsRepository,
@@ -48,6 +53,15 @@ fun FingeringRoute(
     },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // The setup is what is being saved, so it is written down on the way rather than being hoped
+    // for: a practice nobody has touched is still a practice.
+    val addToLessons: (() -> Unit)? = onAddToLessons?.let { open ->
+        {
+            viewModel.rememberSetupNow()
+            open()
+        }
+    }
     val microphone = rememberMicrophoneAccess()
 
     // The microphone is only ever asked for when playing is checked; a refusal switches checking
@@ -91,7 +105,9 @@ fun FingeringRoute(
         onApplyCustomNotes = viewModel::applyCustomNotes,
         onCancelCustomNotes = viewModel::cancelCustomNotes,
         onRandomChange = viewModel::setRandomOrder,
-        onSecondsChange = viewModel::setSecondsPerNote,
+        onBeatsChange = viewModel::setBeatsPerNote,
+        onTempoChange = viewModel::setTempo,
+        onShowNextNoteChange = viewModel::setShowNextNote,
         onCheckPlayingChange = viewModel::setCheckPlaying,
         onSuccessDelayChange = viewModel::setSuccessDelaySeconds,
         onNoteDisplayChange = viewModel::setNoteDisplay,
@@ -101,6 +117,7 @@ fun FingeringRoute(
         onStop = viewModel::stop,
         onReset = viewModel::reset,
         onBack = onBack,
+        onAddToLessons = addToLessons,
         modifier = modifier,
     )
 }

@@ -36,6 +36,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.example.saxtrainer.core.settings.ExerciseSetup
+import kotlin.test.assertNotNull
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.Exercise
 
 /**
  * The trainer, driven by virtual time.
@@ -101,8 +106,10 @@ class SequenceViewModelTest {
         microphone: AudioCapture? = null,
         settings: SettingsRepository = FakeSettingsRepository(),
         preset: SequencePreset? = null,
+        setups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
     ) = SequenceViewModel(
         settingsRepository = settings,
+        exerciseSetups = setups,
         audioCapture = microphone,
         metronome = null,
         preset = preset,
@@ -720,4 +727,57 @@ class SequenceViewModelTest {
 
         assertEquals("Fis5", viewModel.uiState.value.nameOf(seventh))
     }
+
+    // --- the round trip ---------------------------------------------------------------------
+
+    /**
+     * Every choice the setup screen offers survives being written down, turned back into a
+     * ready-made exercise, and written down again.
+     *
+     * A stored setup has two ways out - one opens the setup screen on it, the other starts it - and
+     * they have to agree. Where they do not, the difference shows only in an exercise somebody
+     * saved, and only once it is started, which is the worst place to find it.
+     */
+    @Test
+    fun `every choice survives being written down and started again`() = runTest(dispatcher) {
+        val microphone = FakeMicrophone(frameDurationMs = 20)
+        val configured = viewModel(microphone = microphone)
+        configured.selectSequence(SequenceLibrary.gMajorUp.id)
+        configured.setAddInverse(true)
+        configured.setRepeats(4)
+        configured.setTempo(96)
+        configured.setMetronome(true)
+        configured.setCheckPitch(true)
+        configured.setCheckTiming(true)
+        val written = configured.uiState.value.toSetup()
+
+        val preset = assertNotNull(sequencePresetOf(written, editable = true))
+        val started = viewModel(microphone = microphone, preset = preset)
+
+        assertEquals(written, started.uiState.value.toSetup())
+    }
+
+    @Test
+    fun `a setup naming no sequence is not an exercise that can be started`() =
+        runTest(dispatcher) {
+            assertNull(sequencePresetOf(ExerciseSetup()))
+        }
+
+
+    /**
+     * A practice nobody has touched is still a practice.
+     *
+     * The setup is written down as it is changed, so an exercise opened and left on its defaults
+     * has nothing on record - and "add to your lessons" would have found nothing to save. Asking
+     * for it writes it.
+     */
+    @Test
+    fun `an untouched setup is written down when it is asked for`() = runTest(dispatcher) {
+        val setups = InMemoryExerciseSetupRepository()
+
+        viewModel(setups = setups).rememberSetupNow()
+
+        assertFalse(setups.setupOf(Exercise.SEQUENCE).isEmpty)
+    }
+
 }

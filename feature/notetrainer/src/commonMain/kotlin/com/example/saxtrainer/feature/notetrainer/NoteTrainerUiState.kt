@@ -8,6 +8,8 @@ import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.Transposition
 import com.example.saxtrainer.core.settings.AppSettings
+import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.Tempo
 
 /** Where the exercise is. */
 sealed interface NoteTrainerPhase {
@@ -145,8 +147,12 @@ data class NoteTrainerUiState(
      * always done. Anything above it asks the player to hold the note, and a note that stops or
      * changes in the middle starts its hold again from nothing.
      */
-    val holdSeconds: Double = 0.0,
-    val holdOptions: List<Double> = emptyList(),
+    /** How long a right note has to be kept, in beats; zero moves on as soon as it is right. */
+    val holdBeats: Beats = Beats.ZERO,
+    /** The speed those beats are counted at, which is what gives them a length in seconds. */
+    val tempo: Tempo = Tempo(60),
+    val tempoRange: IntRange = Tempo.SUPPORTED_RANGE,
+    val holdOptions: List<Beats> = emptyList(),
     /** Set when the microphone was asked for and refused; without one there is no exercise. */
     val microphoneUnavailable: Boolean = false,
     val isPaused: Boolean = false,
@@ -174,7 +180,7 @@ data class NoteTrainerUiState(
     val isRandom: Boolean get() = order == NoteOrder.RANDOM
 
     /** No hold to keep: the exercise advances as soon as the note is right. */
-    val holdsUntilCorrect: Boolean get() = holdSeconds <= 0.0
+    val holdsUntilCorrect: Boolean get() = holdBeats <= Beats.ZERO
 
     /** How a note set reads on the setup screen. */
     fun summaryOf(set: NoteSet, chart: com.example.saxtrainer.core.fingering.FingeringChart): String =

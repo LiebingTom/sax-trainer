@@ -18,6 +18,13 @@ data class QuizPreset(
     val successDelaySeconds: Double = 1.0,
     /** Whether the quiz begins by itself rather than waiting for Start. */
     val autoStart: Boolean = true,
+    /**
+     * Whether the setup screen opens filled in with this rather than being skipped.
+     *
+     * A launch instruction like [autoStart] and not part of the configuration: it says how the
+     * screen opens, not what is practised, and neither is ever written down.
+     */
+    val editable: Boolean = false,
 ) {
     init {
         require(notes.size >= QuizQuestionGenerator.MIN_OPTIONS) {

@@ -44,8 +44,8 @@ fun ToneSequence.beamCountOf(index: Int): Int =
 /**
  * How the step at [index] is written, or null when no single note head says it.
  *
- * Null is a real answer: a five-beat long tone is a tie in engraved music, and this app does not
- * write ties. Whoever draws it decides what to do with that.
+ * Null is a real answer: a five-beat long tone is written as two tied notes, and no single head
+ * says it. [notatedReading] is what writes such a note out in full.
  */
 fun ToneSequence.notatedDurationOf(index: Int): NotatedDuration? =
     NotatedDuration.of(steps[index].duration, timeSignature.beatUnit)

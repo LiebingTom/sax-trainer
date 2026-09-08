@@ -57,6 +57,7 @@ fun SequenceScreen(
     onReset: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onAddToLessons: (() -> Unit)? = null,
 ) {
     ScreenScaffold(
         title = "Sequence Trainer",
@@ -84,6 +85,14 @@ fun SequenceScreen(
                     onCheckPitchChange = onCheckPitchChange,
                     onCheckTimingChange = onCheckTimingChange,
                 )
+                if (onAddToLessons != null) {
+                    Spacer(Modifier.height(Dimens.spaceMd))
+                    SecondaryButton(
+                        text = "Add to your lessons",
+                        onClick = onAddToLessons,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
             is SequencePhase.CountIn -> CountInPanel(state, phase)

@@ -30,11 +30,8 @@ import com.example.saxtrainer.core.designsystem.component.CentsMeter
 import com.example.saxtrainer.core.designsystem.component.CentsMeterLabels
 import com.example.saxtrainer.core.designsystem.component.LevelMeter
 import com.example.saxtrainer.core.designsystem.component.MetricDisplay
-import com.example.saxtrainer.core.designsystem.component.CurrentAndNextNote
 import com.example.saxtrainer.core.designsystem.component.DEFAULT_STAFF_MARGIN
 import com.example.saxtrainer.core.designsystem.component.NoteDisplayPicker
-import com.example.saxtrainer.core.designsystem.component.NotePresentation
-import com.example.saxtrainer.core.designsystem.component.rememberNoteSlot
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.ScreenHeader
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
@@ -57,6 +54,17 @@ import com.example.saxtrainer.core.settings.NoteDisplay
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.roundToInt
+import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
+import com.example.saxtrainer.core.designsystem.component.StaffNoteStyle
+import com.example.saxtrainer.core.designsystem.component.StaffPrefix
+import com.example.saxtrainer.core.designsystem.component.reservedStepRange
+import com.example.saxtrainer.core.music.TimeSignature
+import com.example.saxtrainer.core.music.ToneSequence
+import com.example.saxtrainer.core.music.ToneStep
+import com.example.saxtrainer.core.music.conventionalStyle
+import com.example.saxtrainer.core.designsystem.component.CurrentAndNextNote
+import com.example.saxtrainer.core.designsystem.component.NextNoteName
+import androidx.compose.material3.Switch
 
 /** Stateless long tone UI. All measurements arrive ready to render in [state]. */
 @Composable
@@ -67,12 +75,14 @@ fun LongToneScreen(
     onSelectBeats: (Beats) -> Unit,
     onSetTempo: (Int) -> Unit,
     onSelectNoteDisplay: (NoteDisplay) -> Unit,
+    onShowNextNote: (Boolean) -> Unit,
     onStart: () -> Unit,
     onTogglePause: () -> Unit,
     onStop: () -> Unit,
     onReset: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onAddToLessons: (() -> Unit)? = null,
     permissionDenied: Boolean = false,
     onOpenAppSettings: (() -> Unit)? = null,
     detectedNoteColor: Color = MaterialTheme.colorScheme.error,
@@ -113,7 +123,12 @@ fun LongToneScreen(
             }
         }
 
-        if (!state.isBusy) {
+        if (!state.isBusy && state.isPreconfigured) {
+            ReadyPanel(state)
+            Spacer(Modifier.height(Dimens.spaceMd))
+        }
+
+        if (!state.isBusy && !state.isPreconfigured) {
             ExerciseSetup(
                 state = state,
                 onSelectPattern = onSelectPattern,
@@ -121,7 +136,16 @@ fun LongToneScreen(
                 onSelectBeats = onSelectBeats,
                 onSetTempo = onSetTempo,
                 onSelectNoteDisplay = onSelectNoteDisplay,
+                onShowNextNote = onShowNextNote,
             )
+            if (onAddToLessons != null) {
+                Spacer(Modifier.height(Dimens.spaceMd))
+                SecondaryButton(
+                    text = "Add to your lessons",
+                    onClick = onAddToLessons,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Spacer(Modifier.height(Dimens.spaceMd))
         }
 
@@ -130,6 +154,39 @@ fun LongToneScreen(
             is LongTonePhase.Running -> RunningPanel(state)
             is LongTonePhase.Finished -> ResultCard(state, phase.result)
             else -> Unit
+        }
+    }
+}
+
+/**
+ * What a ready-made exercise is about to ask for.
+ *
+ * The counterpart of the setup panel for an exercise that arrived decided: it says what will be
+ * played rather than offering to change it, because what to practise was somebody else's choice and
+ * inviting the player to undo it by accident helps nobody.
+ */
+@Composable
+private fun ReadyPanel(state: LongToneUiState) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(Dimens.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+        ) {
+            Text(text = "Ready", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = state.selection.pattern.name,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = state.selection.notes.joinToString(" ") { state.writtenLabel(it) },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -144,78 +201,67 @@ private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
     val currentNote = state.currentNote
     val written = state.transposition.writtenFor(currentNote)
     val detected = state.measurements.pitch?.detectedNote?.let(state.transposition::writtenFor)
-    val nextNote = state.progress?.upcomingNotes?.firstOrNull()
+    val nextNote = state.progress?.upcomingNotes?.firstOrNull()?.takeIf { state.showNextNote }
     // Before the exercise runs there is no schedule yet, so the setting speaks for itself.
     val currentDisplay = state.progress?.noteDisplay ?: state.noteDisplay
-    val nextDisplay = state.progress?.nextNoteDisplay ?: state.noteDisplay
 
-    Column(
+    val currentColor = MaterialTheme.colorScheme.primary
+
+    // These beats are real music: the player picks how many a tone lasts and at what tempo, so the
+    // duration is written out as the note value it actually is - four beats a whole note, two a
+    // half - and a tone that runs past a bar line is split there and tied, as it would be on paper.
+    val writtenNotes = remember(state.selection.notes, state.transposition) {
+        state.selection.notes.map(state.transposition::writtenFor)
+    }
+    val beats = state.selection.beatsPerNote
+    val sequence = remember(written, beats) {
+        ToneSequence(
+            steps = listOf(ToneStep(written, beats)),
+            timeSignature = NOTE_HEADER_TIME_SIGNATURE,
+            // Spelled the way the note is usually written, as the label beside it always was.
+            accidentalStyle = written.conventionalStyle(),
+        )
+    }
+
+    CurrentAndNextNote(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        next = nextNote?.let { { NextNoteName(state.writtenLabel(it)) } },
     ) {
-        // One box per note, big enough for any note of this exercise shown either way, so neither a
-        // change of presentation nor the detected note appearing beside the target moves the row.
-        val writtenNotes = remember(state.selection.notes, state.transposition) {
-            state.selection.notes.map(state.transposition::writtenFor)
-        }
-        val nextNameStyle = numericLarge.copy(
-            fontSize = numericLarge.fontSize * NEXT_NOTE_SCALE,
-            lineHeight = numericLarge.lineHeight * NEXT_NOTE_SCALE,
-        )
-        val currentSlot = rememberNoteSlot(
-            notes = writtenNotes,
-            nameStyle = numericLarge,
-            staffLineSpacing = CurrentNoteStaffSpacing,
+        MusicalStaffView(
+            sequence = sequence,
+            modifier = Modifier.fillMaxWidth(),
+            color = currentColor,
+            staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineSpacing = CurrentNoteStaffSpacing,
             naming = state.noteNaming,
-            mayShowName = state.noteDisplay.showsName,
-            mayShowStaff = state.noteDisplay.showsStaff,
-            mayShowBothAtOnce = state.noteDisplay == NoteDisplay.BOTH,
-        )
-        val nextSlot = rememberNoteSlot(
-            notes = writtenNotes,
-            nameStyle = nextNameStyle,
-            staffLineSpacing = NextNoteStaffSpacing,
-            naming = state.noteNaming,
-            mayShowName = state.noteDisplay.showsName,
-            mayShowStaff = state.noteDisplay.showsStaff,
-            mayShowBothAtOnce = state.noteDisplay == NoteDisplay.BOTH,
-        )
-
-        CurrentAndNextNote(
-            next = nextNote?.let { next ->
-                {
-                    NotePresentation(
-                        note = state.transposition.writtenFor(next),
-                        label = state.writtenLabel(next),
-                        showName = nextDisplay.showsName,
-                        showStaff = nextDisplay.showsStaff,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        nameStyle = nextNameStyle,
-                        staffLineSpacing = NextNoteStaffSpacing,
-                        slot = nextSlot,
-                    )
-                }
+            prefix = StaffPrefix.treble(NOTE_HEADER_TIME_SIGNATURE),
+            // The name-or-notation setting arrives as a per-note choice, which is the only shape
+            // the design system understands - it never learns what a setting is.
+            noteStyle = {
+                if (currentDisplay.showsStaff) StaffNoteStyle.HEAD else StaffNoteStyle.NAME
             },
-        ) {
-            NotePresentation(
-                note = written,
-                label = state.writtenLabel(currentNote),
-                showName = currentDisplay.showsName,
-                showStaff = currentDisplay.showsStaff,
-                // The note itself takes the accent colour the buttons use, drawn either way; only
-                // the staff behind it stays neutral.
-                color = MaterialTheme.colorScheme.primary,
-                staffColor = MaterialTheme.colorScheme.primary,
-                staffLineColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                nameStyle = numericLarge,
-                staffLineSpacing = CurrentNoteStaffSpacing,
-                secondaryNote = detected.takeIf { it != written },
-                secondaryColor = detectedHighlightColor,
-                slot = currentSlot,
-            )
-        }
+            labelBackground = MaterialTheme.colorScheme.surface,
+            fillWidth = true,
+            closingBar = false,
+            centerMusic = true,
+            reserveAccidentals = true,
+            // Sized for every note of the exercise plus room around it, so neither a change of
+            // presentation nor the heard note appearing beside the target moves the staff.
+            stepRange = reservedStepRange(writtenNotes),
+            // What the microphone is hearing, held up beside what was asked for.
+            secondaryNote = { detected.takeIf { it != written } },
+            secondaryColor = detectedHighlightColor,
+        )
     }
 }
+
+/**
+ * The bar this practice counts in.
+ *
+ * Named rather than assumed: the notation model takes any time signature, and a practice that one
+ * day counts in three or in six will say so here instead of having four written into the drawing.
+ */
+private val NOTE_HEADER_TIME_SIGNATURE = TimeSignature.FOUR_FOUR
 
 /**
  * What the note on screen actually sounds like on the horn in the player's hands.
@@ -248,6 +294,7 @@ private fun ExerciseSetup(
     onSelectBeats: (Beats) -> Unit,
     onSetTempo: (Int) -> Unit,
     onSelectNoteDisplay: (NoteDisplay) -> Unit,
+    onShowNextNote: (Boolean) -> Unit,
 ) {
     val selection = state.selection
 
@@ -285,13 +332,19 @@ private fun ExerciseSetup(
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("Note length")
-    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.beatOptions.forEach { beats ->
-            FilterChip(
-                selected = beats == selection.beatsPerNote,
-                onClick = { onSelectBeats(beats) },
-                label = { Text("${beats.value.roundToInt()} beats") },
-            )
+    // Two rows on purpose. Four of these in one row leaves the last chip too little width and it
+    // wraps its own label instead; deciding where the break goes keeps every label on one line.
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+        state.beatOptions.chunked(BEAT_OPTIONS_PER_ROW).forEach { options ->
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+                options.forEach { beats ->
+                    FilterChip(
+                        selected = beats == selection.beatsPerNote,
+                        onClick = { onSelectBeats(beats) },
+                        label = { Text("${beats.value.roundToInt()} beats", maxLines = 1) },
+                    )
+                }
+            }
         }
     }
 
@@ -309,6 +362,23 @@ private fun ExerciseSetup(
             textAlign = TextAlign.Center,
         )
         SecondaryButton(text = "+5", onClick = { onSetTempo(selection.tempo.bpm + 5) })
+    }
+
+    Spacer(Modifier.height(Dimens.spaceSm))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "Show next note", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = "The note after this one, as its name. Off, there is nothing to read but " +
+                    "the staff.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = state.showNextNote, onCheckedChange = onShowNextNote)
     }
 
     Spacer(Modifier.height(Dimens.spaceSm))
@@ -466,9 +536,7 @@ private fun pitchDescription(
 private const val IN_TUNE_CENTS = 5f
 
 /** The upcoming note is drawn at half the size of the one being played. */
-private const val NEXT_NOTE_SCALE = 0.5f
 private val CurrentNoteStaffSpacing = 12.dp
-private val NextNoteStaffSpacing = 5.dp
 
 /** Signed cents, e.g. "+7 ct" or "-12 ct". */
 private fun formatCents(cents: Float): String {
@@ -669,6 +737,7 @@ private fun LongToneScreenPreview() {
             onSelectBeats = {},
             onSetTempo = {},
             onSelectNoteDisplay = {},
+            onShowNextNote = {},
             onStart = {},
             onTogglePause = {},
             onStop = {},
@@ -724,3 +793,6 @@ private fun timingOf(state: LongToneUiState): ScreenTiming? {
  */
 private fun sessionFractionOf(step: Int, stepCount: Int): Float =
     if (stepCount <= 0) 0f else ((step - 1).toFloat() / stepCount).coerceIn(0f, 1f)
+
+/** How many note lengths go on one line. Two, so no chip has to wrap its label. */
+private const val BEAT_OPTIONS_PER_ROW = 2

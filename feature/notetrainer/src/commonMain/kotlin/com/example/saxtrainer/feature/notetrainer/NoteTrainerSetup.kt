@@ -4,9 +4,12 @@ import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.fingering.FingeringChart
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.NoteSets
+import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.settings.ExerciseSetup
 import com.example.saxtrainer.core.settings.exerciseSetup
+import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.Tempo
 
 /**
  * How this trainer's setup is written down and read back.
@@ -26,7 +29,8 @@ internal fun NoteTrainerUiState.toSetup(): ExerciseSetup = exerciseSetup {
     put(KEY_FINGERING_HINT, showFingeringHint)
     put(KEY_NOTE_NAME, showNoteName)
     put(KEY_TARGET_SECONDS, targetSeconds)
-    put(KEY_HOLD_SECONDS, holdSeconds)
+    put(KEY_HOLD_BEATS, holdBeats.value)
+    put(KEY_TEMPO, tempo.bpm)
 }
 
 /**
@@ -58,9 +62,67 @@ internal fun NoteTrainerUiState.withSetup(
         showFingeringHint = setup.boolean(KEY_FINGERING_HINT, showFingeringHint),
         showNoteName = setup.boolean(KEY_NOTE_NAME, showNoteName),
         targetSeconds = setup.int(KEY_TARGET_SECONDS, targetSeconds),
-        holdSeconds = setup.double(KEY_HOLD_SECONDS, holdSeconds).coerceAtLeast(0.0),
+        // A setup remembered before the hold was beats holds seconds counted at 60 BPM, which is
+        // the same number of beats - so the old key is read as beats and nothing is lost.
+        tempo = Tempo(setup.int(KEY_TEMPO, tempo.bpm).coerceIn(tempoRange)),
+        holdBeats = Beats(
+            setup.double(KEY_HOLD_BEATS, setup.double(KEY_HOLD_SECONDS, holdBeats.value))
+                .coerceAtLeast(0.0),
+        ),
     )
 }
+
+/**
+ * The same setup, offered back as a ready-made exercise.
+ *
+ * The other way out of a stored setup: [withSetup] opens the setup screen on it, this starts it.
+ * Both read the same keys through the same clamps, so what is practised cannot depend on which
+ * door was used - see the round-trip test.
+ *
+ * Null where the setup does not describe an exercise that can be run at all.
+ */
+fun noteTrainerPresetOf(
+    setup: ExerciseSetup,
+    autoStart: Boolean = true,
+    editable: Boolean = false,
+): NoteTrainerPreset? {
+    val custom = setup.ints(KEY_CUSTOM_NOTES)
+        .orEmpty()
+        .map(Note::fromMidi)
+        .filter(SaxophoneFingerings::supports)
+        .toSet()
+    // An absent note set is the one the setup screen itself starts on, not an empty custom set:
+    // a practice nobody has narrowed down is the beginner's notes, and reading it as "no notes"
+    // would turn an exercise that has simply never been changed into one that cannot be run.
+    val notes = NoteSets.notesOf(
+        set = setup.enum(KEY_NOTE_SET, NoteSet.entries, NoteSet.BEGINNER),
+        chart = SaxophoneFingerings,
+        customNotes = custom,
+    )
+    if (notes.isEmpty()) return null
+
+    return NoteTrainerPreset(
+        notes = notes,
+        order = setup.enum(KEY_ORDER, NoteOrder.entries, NoteOrder.RANDOM),
+        rounds = setup.int(KEY_ROUNDS, 1).coerceAtLeast(1),
+        showFingeringHint = setup.boolean(KEY_FINGERING_HINT, false),
+        showNoteName = setup.boolean(KEY_NOTE_NAME, false),
+        targetSeconds = setup.int(KEY_TARGET_SECONDS, DEFAULT_TARGET_SECONDS),
+        holdBeats = Beats(
+            setup.double(KEY_HOLD_BEATS, setup.double(KEY_HOLD_SECONDS, 0.0)).coerceAtLeast(0.0),
+        ),
+        tempo = Tempo(setup.int(KEY_TEMPO, DEFAULT_TEMPO)),
+        autoStart = autoStart,
+        editable = editable,
+    )
+}
+
+/** What the setup screen itself starts at, so a key that was never written reads the same either way. */
+private const val DEFAULT_TARGET_SECONDS = 4
+private const val DEFAULT_TEMPO = 60
+
+private const val KEY_HOLD_BEATS = "hold_beats"
+private const val KEY_TEMPO = "tempo"
 
 private const val KEY_NOTE_SET = "note_set"
 private const val KEY_CUSTOM_NOTES = "custom_notes"
@@ -69,4 +131,5 @@ private const val KEY_ROUNDS = "rounds"
 private const val KEY_FINGERING_HINT = "fingering_hint"
 private const val KEY_NOTE_NAME = "note_name"
 private const val KEY_TARGET_SECONDS = "target_seconds"
+/** What [KEY_HOLD_BEATS] was called when the same number meant seconds. Read, never written. */
 private const val KEY_HOLD_SECONDS = "hold_seconds"

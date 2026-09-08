@@ -1,11 +1,14 @@
 package com.example.saxtrainer.core.designsystem.component
 
+import com.example.saxtrainer.core.music.Accidental
 import com.example.saxtrainer.core.music.NotatedDuration
+import com.example.saxtrainer.core.music.NotatedNote
 import com.example.saxtrainer.core.music.StaffPlacement
+import com.example.saxtrainer.core.music.TimeSignature
 import com.example.saxtrainer.core.music.ToneSequence
 import com.example.saxtrainer.core.music.TrebleStaff
 import com.example.saxtrainer.core.music.beamGroups
-import com.example.saxtrainer.core.music.notatedDurationOf
+import com.example.saxtrainer.core.music.notatedReading
 import kotlin.math.pow
 
 /** How one note of a line is shown. */
@@ -36,6 +39,8 @@ enum class StaffNoteStyle {
  */
 data class StaffPrefix(
     val clef: Boolean = true,
+    /** Shown after the clef when there is one. Null leaves the room empty rather than narrower. */
+    val timeSignature: TimeSignature? = null,
     val widthSpaces: Float = DEFAULT_WIDTH_SPACES,
 ) {
     init {
@@ -54,6 +59,15 @@ data class StaffPrefix(
          */
         const val DEFAULT_WIDTH_SPACES = 4f
 
+        /**
+         * Wide enough for a clef and a time signature beside it.
+         *
+         * One width for every time signature, sized for the widest this app will meet, so that
+         * 4/4 and 12/8 put their first note in the same place - the same reason the block has a
+         * fixed width in the first place.
+         */
+        const val TIMED_WIDTH_SPACES = 7f
+
         /** A treble clef, and room for what will one day stand beside it. */
         val Treble = StaffPrefix()
 
@@ -62,6 +76,16 @@ data class StaffPrefix(
 
         /** As wide as [Treble] but empty, for hiding the clef without moving a single note. */
         val Reserved = StaffPrefix(clef = false)
+
+        /** A treble clef with a time signature after it, in a block wide enough for either. */
+        fun treble(timeSignature: TimeSignature?): StaffPrefix = when (timeSignature) {
+            null -> Treble
+            else -> StaffPrefix(
+                clef = true,
+                timeSignature = timeSignature,
+                widthSpaces = TIMED_WIDTH_SPACES,
+            )
+        }
     }
 }
 
@@ -75,9 +99,17 @@ data class StaffNotePlacement(
     /** Centre of the note head, or of the name written in its place, in staff spaces. */
     val headXSpaces: Float,
     val placement: StaffPlacement,
-    /** How the note is written, or null when no single head says it - a five-beat tone, say. */
+    /** How this head is written, or null where even one piece of it has no single written value. */
     val notated: NotatedDuration?,
     val style: StaffNoteStyle = StaffNoteStyle.HEAD,
+    /**
+     * True when the head after this one is the same sounding note still going.
+     *
+     * A held note that crosses a bar line is written as two heads with a tie between them, so
+     * several placements can share one [index]: the index says which note of the exercise this
+     * belongs to, and this says whether the reader is meant to play it again or hold it.
+     */
+    val tiedToNext: Boolean = false,
 )
 
 /**
@@ -91,11 +123,10 @@ data class StaffLayout(
     /**
      * Bar lines, in staff spaces. The final double bar is not among them; it closes the width.
      *
-     * A bar line is drawn before the first note that begins at or after the bar boundary. Where a
-     * note starts exactly on the boundary - which is every note of the material this app ships -
-     * that is exactly right. Where a note spans the boundary, engraved music would split it with a
-     * tie; this engine does not write ties, so it draws the line before that note instead, which is
-     * as close as it can come without pretending to be right.
+     * A bar line is drawn before the first head that begins at or after the bar boundary. A held
+     * note that runs past one has already been cut there by [notatedReading] into two heads joined
+     * by a tie, so the line appears inside the held note rather than being hidden by it - the metre
+     * is a fact about the music and does not stop being true because a note is still sounding.
      */
     val barLineXSpaces: List<Float>,
     /** Room kept at the head of the staff for the clef and whatever joins it. */
@@ -105,8 +136,13 @@ data class StaffLayout(
     val stepRange: IntRange,
     val beamGroups: List<IntRange>,
 ) {
-    /** The group [index] belongs to, or null when it stands alone and keeps its flag. */
-    fun beamGroupOf(index: Int): IntRange? = beamGroups.firstOrNull { index in it }
+    /**
+     * The group the head at [position] belongs to, or null when it stands alone and keeps its flag.
+     *
+     * A position is an index into [notes], not into the sequence's steps: one step can be written
+     * as several heads, so the two numberings part company as soon as a note crosses a bar line.
+     */
+    fun beamGroupOf(position: Int): IntRange? = beamGroups.firstOrNull { position in it }
 }
 
 /**
@@ -124,17 +160,20 @@ object StaffLayoutBuilder {
      * @param labelWidthSpaces room one written name takes. The same for every name on the line,
      *   measured from the widest of them, so that a line does not reflow when one note's
      *   presentation changes - the rule [rememberNoteSlot] already follows for a single note.
+     * @param reserveAccidentals gives every note the room an accidental takes whether it has one or
+     *   not. A practice that shows one note after another from a pool wants this: without it a line
+     *   would be laid out differently for C than for C sharp, and the note would jump sideways as
+     *   the pitch changed. A written-out piece does not want it, and does not get it by default.
      */
     fun of(
         sequence: ToneSequence,
         prefix: StaffPrefix = StaffPrefix.None,
         styles: List<StaffNoteStyle> = emptyList(),
         labelWidthSpaces: Float = 0f,
+        reserveAccidentals: Boolean = false,
     ): StaffLayout {
-        val placements = sequence.steps.map {
-            TrebleStaff.placementOf(it.note, sequence.accidentalStyle)
-        }
         val styleOf = { index: Int -> styles.getOrElse(index) { StaffNoteStyle.HEAD } }
+        val written = writtenNotesOf(sequence, styleOf)
 
         val notes = mutableListOf<StaffNotePlacement>()
         val barLines = mutableListOf<Float>()
@@ -143,41 +182,50 @@ object StaffLayoutBuilder {
         val beatsPerBar = sequence.timeSignature.beatsPerBar.toDouble()
         var nextBarBeat = beatsPerBar
 
-        sequence.steps.indices.forEach { index ->
-            val placement = placements[index]
-            val notated = sequence.notatedDurationOf(index)
-            val startBeat = sequence.startBeatOf(index).value
+        written.forEachIndexed { position, piece ->
+            val spelling = TrebleStaff.placementOf(piece.note, sequence.accidentalStyle)
+            // The far end of a tie is the same note still sounding, so it does not say its
+            // accidental again - the first head already did, and repeating it would read as a
+            // second alteration.
+            val placement = if (piece.continuesPrevious) {
+                spelling.copy(accidental = Accidental.NONE)
+            } else {
+                spelling
+            }
+            val startBeat = piece.startBeat.value
 
-            if (index > 0 && startBeat >= nextBarBeat - BEAT_TOLERANCE) {
+            if (position > 0 && startBeat >= nextBarBeat - BEAT_TOLERANCE) {
                 barLines += cursor
                 cursor += BAR_LINE_SPACES
                 // A note long enough to swallow a whole bar leaves only one line, not several.
                 while (nextBarBeat <= startBeat + BEAT_TOLERANCE) nextBarBeat += beatsPerBar
             }
 
-            val style = styleOf(index)
+            val style = styleOf(piece.stepIndex)
             // A written name carries its own accidental in its letters and has no dots to hang off
             // it, so it needs neither of those rooms - only a box of its own to sit in the middle of.
             val accidentalRoom = when {
                 style == StaffNoteStyle.NAME -> 0f
-                placement.accidental == com.example.saxtrainer.core.music.Accidental.NONE -> 0f
+                reserveAccidentals -> ACCIDENTAL_SPACES
+                placement.accidental == Accidental.NONE -> 0f
                 else -> ACCIDENTAL_SPACES
             }
 
             notes += StaffNotePlacement(
-                index = index,
+                index = piece.stepIndex,
                 headXSpaces = if (style == StaffNoteStyle.NAME) {
                     cursor + labelWidthSpaces / 2f
                 } else {
                     cursor + accidentalRoom + HEAD_OFFSET_SPACES
                 },
                 placement = placement,
-                notated = notated,
+                notated = piece.notated,
                 style = style,
+                tiedToNext = piece.tiedToNext,
             )
 
-            val dots = notated?.dots ?: 0
-            val advance = advanceSpaces(sequence.steps[index].duration.value)
+            val dots = piece.notated?.dots ?: 0
+            val advance = advanceSpaces(piece.duration.value)
             cursor += if (style == StaffNoteStyle.NAME) {
                 // Never narrower than the name itself, and never narrower than the note's length
                 // asks for, so a line of names still reads left to right in time.
@@ -202,12 +250,42 @@ object StaffLayoutBuilder {
             prefixWidthSpaces = prefix.widthSpaces,
             widthSpaces = cursor + TRAILING_SPACES,
             stepRange = stepRange,
-            beamGroups = beamGroupsOf(sequence, styleOf),
+            beamGroups = beamGroupsOf(sequence, written, styleOf),
         )
     }
 
     /**
-     * The beams, with the written names taken out of them.
+     * The notes as they are written, with a name kept whole.
+     *
+     * Splitting a held note at a bar line is notation, and a note shown as its name is out of
+     * notation - it has no written length to divide. So a name stays one label taking the room its
+     * whole step asks for, and only drawn notes are cut. Where a name does span a bar line, the
+     * line lands after it rather than inside it, which is the same simplification this engine
+     * already makes for a note that swallows a whole bar.
+     */
+    private fun writtenNotesOf(
+        sequence: ToneSequence,
+        styleOf: (Int) -> StaffNoteStyle,
+    ): List<NotatedNote> {
+        return sequence.notatedReading().mapNotNull { piece ->
+            when {
+                styleOf(piece.stepIndex) == StaffNoteStyle.HEAD -> piece
+                piece.continuesPrevious -> null
+                else -> piece.copy(
+                    duration = sequence.steps[piece.stepIndex].duration,
+                    tiedToNext = false,
+                )
+            }
+        }
+    }
+
+    /**
+     * The beams, over positions on the page, with the written names taken out of them.
+     *
+     * [ToneSequence.beamGroups] counts in steps, and a step can be written as more than one note, so
+     * the groups are moved onto the page's own numbering first. Only a note shorter than a beat is
+     * ever beamed and nothing that short crosses a bar line, so each beamed step is exactly one
+     * written note and a group stays the run of positions it was.
      *
      * A name has no stem for a beam to reach, so it does not merely go undrawn - it breaks the group
      * it was in. What is left either side of it is beamed if two notes are still standing there,
@@ -216,25 +294,40 @@ object StaffLayoutBuilder {
      */
     private fun beamGroupsOf(
         sequence: ToneSequence,
+        written: List<NotatedNote>,
         styleOf: (Int) -> StaffNoteStyle,
-    ): List<IntRange> = sequence.beamGroups().flatMap { group ->
-        if (group.all { styleOf(it) == StaffNoteStyle.HEAD }) return@flatMap listOf(group)
+    ): List<IntRange> {
+        val positionOfStep = HashMap<Int, Int>()
+        written.forEachIndexed { position, piece ->
+            if (!piece.continuesPrevious) positionOfStep.getOrPut(piece.stepIndex) { position }
+        }
+        val drawnAt = { position: Int ->
+            styleOf(written[position].stepIndex) == StaffNoteStyle.HEAD
+        }
 
-        val runs = mutableListOf<IntRange>()
-        var start: Int? = null
-        // One past the end, so a run that reaches the end of the group is closed like any other.
-        for (index in group.first..group.last + 1) {
-            val drawn = index <= group.last && styleOf(index) == StaffNoteStyle.HEAD
-            val open = start
-            when {
-                drawn && open == null -> start = index
-                !drawn && open != null -> {
-                    if (index - 1 > open) runs += open..index - 1
-                    start = null
+        return sequence.beamGroups().mapNotNull { steps ->
+            val first = positionOfStep[steps.first] ?: return@mapNotNull null
+            val last = positionOfStep[steps.last] ?: return@mapNotNull null
+            first..last
+        }.flatMap { group ->
+            if (group.all(drawnAt)) return@flatMap listOf(group)
+
+            val runs = mutableListOf<IntRange>()
+            var start: Int? = null
+            // One past the end, so a run that reaches the end of the group is closed like any other.
+            for (position in group.first..group.last + 1) {
+                val drawn = position <= group.last && drawnAt(position)
+                val open = start
+                when {
+                    drawn && open == null -> start = position
+                    !drawn && open != null -> {
+                        if (position - 1 > open) runs += open..position - 1
+                        start = null
+                    }
                 }
             }
+            runs
         }
-        runs
     }
 
     /** Room one note takes, in staff spaces, for a duration of [beats]. */

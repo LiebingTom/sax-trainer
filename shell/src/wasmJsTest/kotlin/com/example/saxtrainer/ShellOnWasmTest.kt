@@ -44,11 +44,12 @@ class ShellOnWasmTest {
         setContent { App(host) }
 
         onNodeWithText("Sax Trainer").assertIsDisplayed()
-        // Nothing is starred, so the landing page is the hint and the three ways on.
+        // Nothing is starred, so the landing page is the hint and the four ways on.
         listOf(
             "Star a tool in Practice to keep it here.",
             "Practice",
             "Lessons",
+            "My Lessons",
             "Settings",
         ).forEach { scrolledTo(it).assertIsDisplayed() }
 
@@ -68,10 +69,11 @@ class ShellOnWasmTest {
         scrolledTo("Lessons").performClick()
         waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("The whole octave") }
         listOf(
-            // The three learning units, each with every lesson it was written with.
+            // Every learning unit, each with every lesson it was written with.
             "Your first five notes",
             "The whole octave",
             "B flat and F sharp",
+            "The octave key",
         ).forEach { scrolledTo(it).assertIsDisplayed() }
     }
 
@@ -84,6 +86,10 @@ class ShellOnWasmTest {
         openAndReturn(card = "Settings", shownThere = "Note naming")
         openAndReturn(card = "Practice", shownThere = "Know your notes")
         openAndReturn(card = "Lessons", shownThere = "The whole octave")
+        openAndReturn(
+            card = "My Lessons",
+            shownThere = "Tap to practise. Edit opens the setup it was saved with.",
+        )
 
         // The tools live behind Practice now, so the walk to each one starts there.
         scrolledTo("Practice").performClick()

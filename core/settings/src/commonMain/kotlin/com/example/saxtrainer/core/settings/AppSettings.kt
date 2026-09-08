@@ -29,7 +29,13 @@ enum class TrainingTool {
     FINGERING,
 }
 
-/** How a note is presented on screen. */
+/**
+ * How a note is presented on screen.
+ *
+ * One presentation at a time, never two at once: a note shown as both its name and its notation
+ * asks the reader nothing, because the letter answers the staff. This applies to the note being
+ * played now; a next note, where a tool shows one, is always its name and is not affected.
+ */
 enum class NoteDisplay(
     val displayName: String,
     val shortName: String,
@@ -37,7 +43,6 @@ enum class NoteDisplay(
 ) {
     NAME("Note name only", "Name", "Just the letter, e.g. G4"),
     STAFF("Notation only", "Notation", "The note drawn on the staff"),
-    BOTH("Name and notation", "Both", "Both together"),
     RANDOM("Random", "Random", "Name or notation, decided again for every note"),
     ;
 
@@ -45,12 +50,12 @@ enum class NoteDisplay(
      * True while [RANDOM] still has to be turned into something drawable.
      *
      * A tool that shows a sequence of notes resolves it once per note with [noteDisplaySchedule];
-     * anywhere that has no sequence to resolve against - a setup screen, a preview - [RANDOM] falls
-     * back to showing both, which is why the two properties below stay total.
+     * anywhere that has no sequence to resolve against - a setup screen, a preview - it reads as
+     * notation, which is why the two properties below stay total.
      */
     val isRandom: Boolean get() = this == RANDOM
 
-    val showsName: Boolean get() = this != STAFF
+    val showsName: Boolean get() = this == NAME
 
     val showsStaff: Boolean get() = this != NAME
 }
@@ -69,7 +74,7 @@ data class AppSettings(
      */
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
     /** Used by any tool that has not been given a preference of its own. */
-    val noteDisplay: NoteDisplay = NoteDisplay.BOTH,
+    val noteDisplay: NoteDisplay = NoteDisplay.STAFF,
     /** Per-tool choices; a missing entry means the tool follows [noteDisplay]. */
     val noteDisplayOverrides: Map<TrainingTool, NoteDisplay> = emptyMap(),
     /**

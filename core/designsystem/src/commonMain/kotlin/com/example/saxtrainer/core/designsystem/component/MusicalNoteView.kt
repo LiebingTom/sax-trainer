@@ -106,7 +106,7 @@ private fun DrawScope.drawPlainNote(
         geometry = geometry,
         accidental = placement.accidental,
         color = color,
-        centerX = accidentalX(geometry, headX),
+        rightX = accidentalRightX(geometry, headX),
         centerY = geometry.y(placement.stepsFromBottomLine),
     )
 }

@@ -24,15 +24,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.saxtrainer.core.designsystem.component.CurrentAndNextNote
-import com.example.saxtrainer.core.designsystem.component.DEFAULT_STAFF_MARGIN
 import com.example.saxtrainer.core.designsystem.component.IconSource
 import com.example.saxtrainer.core.designsystem.icon.ChooseNotes
 import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
 import com.example.saxtrainer.core.designsystem.component.InlineIcon
 import com.example.saxtrainer.core.designsystem.component.NoteChoiceDialog
 import com.example.saxtrainer.core.designsystem.component.NoteDisplayPicker
-import com.example.saxtrainer.core.designsystem.component.NotePresentation
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.SaxophoneFingeringView
 import com.example.saxtrainer.core.designsystem.component.fingeringHeightOf
@@ -42,7 +39,6 @@ import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
-import com.example.saxtrainer.core.designsystem.component.rememberNoteSlot
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
@@ -52,6 +48,18 @@ import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.settings.NoteDisplay
 import kotlin.math.ceil
+import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
+import com.example.saxtrainer.core.designsystem.component.StaffNoteStyle
+import com.example.saxtrainer.core.designsystem.component.StaffPrefix
+import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.ToneSequence
+import com.example.saxtrainer.core.music.ToneStep
+import com.example.saxtrainer.core.designsystem.component.reservedStepRange
+import androidx.compose.runtime.remember
+import com.example.saxtrainer.core.music.conventionalStyle
+import com.example.saxtrainer.core.designsystem.component.CurrentAndNextNote
+import com.example.saxtrainer.core.designsystem.component.NextNoteName
+import com.example.saxtrainer.core.designsystem.text.toFixed
 
 /** Stateless fingering trainer UI. Everything it needs is in [state]. */
 @Composable
@@ -65,7 +73,9 @@ fun FingeringScreen(
     onApplyCustomNotes: () -> Unit,
     onCancelCustomNotes: () -> Unit,
     onRandomChange: (Boolean) -> Unit,
-    onSecondsChange: (Int) -> Unit,
+    onBeatsChange: (Beats) -> Unit,
+    onTempoChange: (Int) -> Unit,
+    onShowNextNoteChange: (Boolean) -> Unit,
     onCheckPlayingChange: (Boolean) -> Unit,
     onSuccessDelayChange: (Float) -> Unit,
     onNoteDisplayChange: (NoteDisplay) -> Unit,
@@ -76,6 +86,7 @@ fun FingeringScreen(
     onReset: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onAddToLessons: (() -> Unit)? = null,
 ) {
     // The note being read, kept apart from the fingering that answers it.
     val noteSubject: (@Composable ColumnScope.() -> Unit)? =
@@ -102,16 +113,30 @@ fun FingeringScreen(
         Spacer(Modifier.height(Dimens.spaceSm))
 
         when (val phase = state.phase) {
-            is FingeringPhase.Idle -> if (state.isPreconfigured) ReadyPanel(state) else Setup(
-                state = state,
-                onSelectNoteSet = onSelectNoteSet,
-                onEditCustomNotes = onEditCustomNotes,
-                onRandomChange = onRandomChange,
-                onSecondsChange = onSecondsChange,
-                onCheckPlayingChange = onCheckPlayingChange,
-                onSuccessDelayChange = onSuccessDelayChange,
-                onNoteDisplayChange = onNoteDisplayChange,
-            )
+            is FingeringPhase.Idle -> if (state.isPreconfigured) {
+                ReadyPanel(state)
+            } else {
+                Setup(
+                    state = state,
+                    onSelectNoteSet = onSelectNoteSet,
+                    onEditCustomNotes = onEditCustomNotes,
+                    onRandomChange = onRandomChange,
+                    onBeatsChange = onBeatsChange,
+                    onTempoChange = onTempoChange,
+                    onShowNextNoteChange = onShowNextNoteChange,
+                    onCheckPlayingChange = onCheckPlayingChange,
+                    onSuccessDelayChange = onSuccessDelayChange,
+                    onNoteDisplayChange = onNoteDisplayChange,
+                )
+                if (onAddToLessons != null) {
+                    Spacer(Modifier.height(Dimens.spaceMd))
+                    SecondaryButton(
+                        text = "Add to your lessons",
+                        onClick = onAddToLessons,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
 
             is FingeringPhase.CountIn -> CountInPanel(phase.beatsRemaining, state.isPaused)
             is FingeringPhase.Running -> RunningPanel(state, onSkipSuccessDelay)
@@ -139,7 +164,9 @@ private fun Setup(
     onSelectNoteSet: (NoteSet) -> Unit,
     onEditCustomNotes: () -> Unit,
     onRandomChange: (Boolean) -> Unit,
-    onSecondsChange: (Int) -> Unit,
+    onBeatsChange: (Beats) -> Unit,
+    onTempoChange: (Int) -> Unit,
+    onShowNextNoteChange: (Boolean) -> Unit,
     onCheckPlayingChange: (Boolean) -> Unit,
     onSuccessDelayChange: (Float) -> Unit,
     onNoteDisplayChange: (NoteDisplay) -> Unit,
@@ -176,6 +203,45 @@ private fun Setup(
     }
 
     Spacer(Modifier.height(Dimens.spaceSm))
+    SectionHeader("Tempo")
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+    ) {
+        SecondaryButton(text = "-5", onClick = { onTempoChange(state.tempo.bpm - 5) })
+        Text(
+            text = "${state.tempo.bpm} BPM",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+        )
+        SecondaryButton(text = "+5", onClick = { onTempoChange(state.tempo.bpm + 5) })
+    }
+    Text(
+        text = "A beat lasts ${state.tempo.secondsFor(Beats.of(1)).toFixed(1)} s, so each note is " +
+            "shown for ${state.tempo.secondsFor(state.beatsPerNote).toFixed(1)} s.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    Spacer(Modifier.height(Dimens.spaceSm))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "Show next note", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = "The note after this one, as its name. Off, there is nothing to read but " +
+                    "the staff.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = state.showNextNote, onCheckedChange = onShowNextNoteChange)
+    }
+
+    Spacer(Modifier.height(Dimens.spaceSm))
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -195,11 +261,11 @@ private fun Setup(
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("Show each note for")
     Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.secondsOptions.forEach { seconds ->
+        state.beatOptions.forEach { beats ->
             FilterChip(
-                selected = seconds == state.secondsPerNote,
-                onClick = { onSecondsChange(seconds) },
-                label = { Text("$seconds s") },
+                selected = beats == state.beatsPerNote,
+                onClick = { onBeatsChange(beats) },
+                label = { Text(beatsLabelOf(beats), maxLines = 1) },
             )
         }
     }
@@ -402,7 +468,7 @@ private fun ReadyPanel(state: FingeringUiState) {
                 style = MaterialTheme.typography.titleLarge,
             )
             Text(
-                text = "${state.secondsPerNote} seconds per note, " +
+                text = "${beatsLabelOf(state.beatsPerNote)} per note, " +
                     if (state.isRandom) "mixed up" else "in order",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -524,9 +590,7 @@ private fun Actions(
 private fun successDelayLabelOf(seconds: Float): String =
     if (seconds <= 0f) "Straight on" else "${seconds.toInt()} s"
 
-private const val NEXT_NOTE_SCALE = 0.5f
 private val CurrentNoteStaffSpacing = 12.dp
-private val NextNoteStaffSpacing = 6.dp
 private val FingeringWidth = 120.dp
 
 @Preview(showBackground = true)
@@ -539,7 +603,7 @@ private fun FingeringSetupPreview() {
                 availableNotes = notes,
                 customNotes = notes.toSet(),
                 activeNotes = notes,
-                secondsOptions = listOf(3, 5, 8),
+                beatOptions = listOf(3, 5, 8).map(Beats::of),
             ),
             onSelectNoteSet = {},
             onEditCustomNotes = {},
@@ -549,7 +613,9 @@ private fun FingeringSetupPreview() {
             onApplyCustomNotes = {},
             onCancelCustomNotes = {},
             onRandomChange = {},
-            onSecondsChange = {},
+            onBeatsChange = {},
+            onTempoChange = {},
+            onShowNextNoteChange = {},
             onCheckPlayingChange = {},
             onSuccessDelayChange = {},
             onNoteDisplayChange = {},
@@ -574,7 +640,7 @@ private fun FingeringRunningPreview() {
                 availableNotes = notes,
                 customNotes = notes.toSet(),
                 activeNotes = notes,
-                secondsOptions = listOf(3, 5, 8),
+                beatOptions = listOf(3, 5, 8).map(Beats::of),
                 progress = FingeringProgress(
                     noteIndex = 2,
                     noteCount = 10,
@@ -593,7 +659,9 @@ private fun FingeringRunningPreview() {
             onApplyCustomNotes = {},
             onCancelCustomNotes = {},
             onRandomChange = {},
-            onSecondsChange = {},
+            onBeatsChange = {},
+            onTempoChange = {},
+            onShowNextNoteChange = {},
             onCheckPlayingChange = {},
             onSuccessDelayChange = {},
             onNoteDisplayChange = {},
@@ -667,66 +735,58 @@ private fun sessionFractionOf(step: Int, stepCount: Int): Float =
 private fun NoteSubject(state: FingeringUiState) {
     val progress = state.progress ?: return
 
-    // The note itself takes the accent colour the buttons use, whether it is drawn as a letter or
-    // on the staff, and turns green while it is being played correctly.
+    // The note itself takes the accent colour the buttons use, whether it is drawn or written, and
+    // turns green while it is being played correctly.
     val noteColor =
         if (progress.isCorrect) FeedbackColors.correct else MaterialTheme.colorScheme.primary
-    val staffLineColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    // One box per note, big enough for any note of this exercise shown either way, so the row
-    // keeps its shape as the presentation changes from note to note.
-    val nextNameStyle = numericLarge.copy(
-        fontSize = numericLarge.fontSize * NEXT_NOTE_SCALE,
-        lineHeight = numericLarge.lineHeight * NEXT_NOTE_SCALE,
-    )
-    val currentSlot = rememberNoteSlot(
-        notes = state.activeNotes,
-        nameStyle = numericLarge,
-        staffLineSpacing = CurrentNoteStaffSpacing,
-        naming = state.noteNaming,
-        mayShowName = state.noteDisplay.showsName,
-        mayShowStaff = state.noteDisplay.showsStaff,
-        mayShowBothAtOnce = state.noteDisplay == NoteDisplay.BOTH,
-        stepMargin = DEFAULT_STAFF_MARGIN,
-    )
-    val nextSlot = rememberNoteSlot(
-        notes = state.activeNotes,
-        nameStyle = nextNameStyle,
-        staffLineSpacing = NextNoteStaffSpacing,
-        naming = state.noteNaming,
-        mayShowName = state.noteDisplay.showsName,
-        mayShowStaff = state.noteDisplay.showsStaff,
-        mayShowBothAtOnce = state.noteDisplay == NoteDisplay.BOTH,
-        stepMargin = DEFAULT_STAFF_MARGIN,
-    )
+    // One note on the staff, always starting its own bar, so the same length is always written the
+    // same way. This exercise measures a note in seconds and only counts them in beats against the
+    // tempo the player chose, so there is no rhythm here to write down: every note is a plain
+    // quarter, and the staff carries no time signature and no bar line saying otherwise.
+    val note = progress.currentNote
+    val sequence = remember(note) {
+        ToneSequence(
+            steps = listOf(ToneStep(note, SUBJECT_NOTE_BEATS)),
+            // Spelled the way the note is usually written, as the name beside it always was.
+            accidentalStyle = note.conventionalStyle(),
+        )
+    }
+    val nextNote = progress.nextNote.takeIf { state.showNextNote }
 
     CurrentAndNextNote(
-        next = progress.nextNote?.let { next ->
-            {
-                NotePresentation(
-                    note = next,
-                    label = state.nameOf(next),
-                    showName = progress.nextNoteDisplay.showsName,
-                    showStaff = progress.nextNoteDisplay.showsStaff,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    nameStyle = nextNameStyle,
-                    staffLineSpacing = NextNoteStaffSpacing,
-                    slot = nextSlot,
-                )
-            }
-        },
+        modifier = Modifier.fillMaxWidth(),
+        next = nextNote?.let { { NextNoteName(state.nameOf(it)) } },
     ) {
-        NotePresentation(
-            note = progress.currentNote,
-            label = state.nameOf(progress.currentNote),
-            showName = progress.noteDisplay.showsName,
-            showStaff = progress.noteDisplay.showsStaff,
+        MusicalStaffView(
+            sequence = sequence,
+            modifier = Modifier.fillMaxWidth(),
             color = noteColor,
-            staffColor = noteColor,
-            staffLineColor = staffLineColor,
-            nameStyle = numericLarge,
-            staffLineSpacing = CurrentNoteStaffSpacing,
-            slot = currentSlot,
+            staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineSpacing = CurrentNoteStaffSpacing,
+            naming = state.noteNaming,
+            prefix = StaffPrefix.Treble,
+            // The name-or-notation setting reaches the staff as a per-note choice, which is the only
+            // shape the design system understands - it never learns what a setting is.
+            noteStyle = {
+                if (progress.noteDisplay.showsStaff) StaffNoteStyle.HEAD else StaffNoteStyle.NAME
+            },
+            labelBackground = MaterialTheme.colorScheme.surface,
+            fillWidth = true,
+            closingBar = false,
+            centerMusic = true,
+            reserveAccidentals = true,
+            stepRange = reservedStepRange(state.activeNotes),
         )
     }
 }
+
+
+/** How a duration reads on the setup screen. Beats, because that is what it is. */
+private fun beatsLabelOf(beats: Beats): String {
+    val whole = beats.value.toInt()
+    return if (whole == 1) "1 beat" else "$whole beats"
+}
+
+/** What a note of this exercise is written as. Not what it lasts - see [NoteSubject]. */
+private val SUBJECT_NOTE_BEATS = Beats.of(1)

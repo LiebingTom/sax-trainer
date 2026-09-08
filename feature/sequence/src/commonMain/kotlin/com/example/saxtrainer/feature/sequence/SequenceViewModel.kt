@@ -101,7 +101,16 @@ class SequenceViewModel(
         it.copy(tempo = Tempo(bpm.coerceIn(it.tempoRange)))
     }
 
-    fun setMetronome(enabled: Boolean) = updateSetup { it.copy(metronome = enabled) }
+    /**
+     * A click needs somewhere to sound, exactly as reading a setup back does.
+     *
+     * Without the gate the switch could be left on where there is no metronome at all, and what was
+     * written down would then differ from what any later reading of it produced - see the
+     * round-trip test.
+     */
+    fun setMetronome(enabled: Boolean) = updateSetup {
+        it.copy(metronome = enabled && it.metronomeAvailable)
+    }
 
     fun setCheckPitch(enabled: Boolean) = updateSetup {
         it.copy(checkPitch = enabled, checkUnavailable = false)
@@ -128,6 +137,16 @@ class SequenceViewModel(
      * Whether the screen should start without being asked, answered true only once. The screen owns
      * the microphone permission flow, so the decision to start is taken there.
      */
+    /**
+     * Writes the current setup down now, without waiting for it to be changed or started.
+     *
+     * What the setup screen is showing is a practice whether or not the player has touched a
+     * control, so anything outside that wants to keep it - "add to your lessons" - has to be able
+     * to ask for it. Nothing else about when a setup is remembered changes: the untouched defaults
+     * are only written when somebody actually asks for them.
+     */
+    fun rememberSetupNow() = rememberSetup(_uiState.value)
+
     fun consumeAutoStart(): Boolean {
         if (!autoStartPending) return false
         autoStartPending = false
@@ -141,11 +160,9 @@ class SequenceViewModel(
         val state = _uiState.value
         if (!state.canStart) return
 
-        // What the player started with becomes what they are offered next time. A ready-made
-        // exercise is somebody else's decision and is deliberately not remembered as theirs.
-        if (!state.isPreconfigured) {
-            exerciseSetups.remember(Exercise.SEQUENCE, state.toSetup())
-        }
+        // Already written down as it was chosen; this is the setup as it is actually
+        // started.
+        rememberSetup(state)
 
         exerciseJob = viewModelScope.launch(processingDispatcher) { runExercise() }
     }
@@ -343,7 +360,24 @@ class SequenceViewModel(
 
     private fun updateSetup(change: (SequenceUiState) -> SequenceUiState) {
         if (_uiState.value.isRunning) return
-        _uiState.value = change(_uiState.value)
+        val changed = change(_uiState.value)
+        _uiState.value = changed
+        rememberSetup(changed)
+    }
+
+    /**
+     * Writes the setup down, as it is changed rather than only when a run begins.
+     *
+     * The setup screen is left by going back, which throws this ViewModel away: anything not
+     * written down by then is gone. Remembering only at Start therefore lost every choice made by
+     * a player who set the exercise up and then thought better of starting it.
+     *
+     * A ready-made exercise is somebody else's decision and is still never written down as the
+     * player's own. One handed over to be edited is the player's again, and is.
+     */
+    private fun rememberSetup(state: SequenceUiState) {
+        if (state.isPreconfigured) return
+        exerciseSetups.remember(Exercise.SEQUENCE, state.toSetup())
     }
 
     /** Overlays a ready-made exercise. Only this run is configured; nothing is written to settings. */
@@ -357,7 +391,7 @@ class SequenceViewModel(
             metronome = preset.metronome && metronomeAvailable,
             checkPitch = preset.checkPitch && audioCapture != null,
             checkTiming = preset.checkTiming,
-            isPreconfigured = true,
+            isPreconfigured = !preset.editable,
         ).withMaterial()
     }
 

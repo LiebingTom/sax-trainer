@@ -146,9 +146,14 @@ data class ExerciseProgress(
     val exerciseElapsedSeconds: Float,
     val exerciseTotalSeconds: Float,
     /** How this note is presented, already resolved: never [NoteDisplay.RANDOM]. */
-    val noteDisplay: NoteDisplay = NoteDisplay.BOTH,
-    /** How the note after it will be presented, so the preview matches what arrives. */
-    val nextNoteDisplay: NoteDisplay = NoteDisplay.BOTH,
+    val noteDisplay: NoteDisplay = NoteDisplay.STAFF,
+    /**
+     * How the note after it will be presented.
+     *
+     * Kept because the schedule produces it, but no longer shown: a next note is always given as
+     * its name, so that reading ahead by letter cannot replace reading the staff.
+     */
+    val nextNoteDisplay: NoteDisplay = NoteDisplay.STAFF,
 ) {
     val displayPosition: Int get() = noteIndex + 1
 
@@ -178,8 +183,16 @@ data class LongToneUiState(
     val instrumentName: String,
     /** What the note letters are called; a display convention, nothing else. */
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
-    val noteDisplay: NoteDisplay = NoteDisplay.BOTH,
+    val noteDisplay: NoteDisplay = NoteDisplay.STAFF,
     val noteDisplayOptions: List<NoteDisplay> = NoteDisplay.entries,
+    /**
+     * Whether the note after this one is shown.
+     *
+     * Turning it off is a way to practise: the next note is always given as its name, so leaving it
+     * on lets a player read letters instead of notation. Off, there is nothing to read but the
+     * staff.
+     */
+    val showNextNote: Boolean = true,
     val progress: ExerciseProgress? = null,
     val measurements: LongToneMeasurements = LongToneMeasurements(),
     /**
@@ -192,6 +205,13 @@ data class LongToneUiState(
     val countInClick: Boolean = true,
     /** Half width of the cents meter, so the UI does not decide the scale itself. */
     val centsDisplayRange: Float = 50f,
+    /**
+     * True when the exercise arrived ready-made rather than being set up here.
+     *
+     * The setup screen is then skipped: what to practise has already been decided, and offering to
+     * change it would only invite the player to undo somebody else's lesson by accident.
+     */
+    val isPreconfigured: Boolean = false,
 ) {
     val isBusy: Boolean get() = phase is LongTonePhase.Running || phase is LongTonePhase.Countdown
 

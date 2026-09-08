@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -178,12 +177,17 @@ fun NotePresentation(
 }
 
 /**
- * The note being played now and the one after it, told apart by a rule and a caption.
+ * The note being played now, and a cue for the one after it.
  *
- * Without them the two read as one line of music, which is confusing as soon as they are shown
- * differently - a letter beside a note on a staff. Both notes sit in their own column under a
- * caption of the same height, so the two drawings line up however tall the caption is, and the rule
- * runs the full height of the taller column.
+ * The two are not the same kind of thing and are deliberately not drawn as if they were. What is
+ * being played is music: it has a pitch, a length and a place on a staff, and it gets the width to
+ * say so. What comes next is a heads-up so a player can get their fingers ready - it has no length
+ * and no place in the bar yet, because it starts when the player finishes - so it is given as a
+ * name, small, off to one side, with a rule between the two to say they are different things.
+ *
+ * Putting the next note on the staff instead would be a lie about time: the staff is a timeline,
+ * and a note placed on it claims to begin at a particular beat, which makes the same note read
+ * differently depending on what came before it.
  */
 @Composable
 fun CurrentAndNextNote(
@@ -193,34 +197,56 @@ fun CurrentAndNextNote(
     current: @Composable () -> Unit,
 ) {
     Row(
-        modifier = modifier.height(IntrinsicSize.Min),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Caption(text = null)
-            current()
-        }
+        // The music takes whatever width is left over, so the staff runs as far as it can.
+        //
+        // Nothing here may ask this side for an intrinsic height. A staff measures itself against
+        // the width it is offered and so is built on BoxWithConstraints, which cannot answer an
+        // intrinsic measurement at all - it throws. That is why the rule below sizes itself against
+        // the cue beside it rather than against the row as a whole.
+        Box(modifier = Modifier.weight(1f)) { current() }
 
         if (next != null) {
-            VerticalDivider(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .padding(vertical = Dimens.spaceXs),
-            )
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Caption(text = nextLabel)
-                next()
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Min),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
+            ) {
+                VerticalDivider(modifier = Modifier.fillMaxHeight())
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    next()
+                    Caption(text = nextLabel)
+                }
             }
         }
     }
 }
 
-/** An empty caption still takes its line, which is what keeps the two notes on the same baseline. */
+/**
+ * A next note, given as its name.
+ *
+ * The one representation that claims nothing about time, which is why it is the only one a note
+ * that has not started yet is allowed. Deliberately not configurable: if a next note could be shown
+ * as notation, a player could read ahead by letter and never have to read the staff at all.
+ */
 @Composable
-private fun Caption(text: String?) {
+fun NextNoteName(
+    name: String,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    style: TextStyle = MaterialTheme.typography.headlineSmall,
+) {
+    Text(text = name, style = style, color = color, maxLines = 1, modifier = modifier)
+}
+
+/** Says which of the two columns is which, under the one that needs saying. */
+@Composable
+private fun Caption(text: String) {
     Text(
-        text = text.orEmpty(),
+        text = text,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,

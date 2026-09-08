@@ -16,6 +16,7 @@ import com.example.saxtrainer.learning.catalog.steps.fingeringStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
 import com.example.saxtrainer.learning.catalog.steps.sequenceStep
+import com.example.saxtrainer.core.music.Beats
 
 /**
  * The whole first octave, ending on the first thing that sounds like music.
@@ -53,10 +54,10 @@ val octaveUnit = LearningUnit(
                     FingeringPreset(
                         notes = OCTAVE_NOTES,
                         order = NoteOrder.RANDOM,
-                        secondsPerNote = 5,
+                        beatsPerNote = Beats.of(5),
                         rounds = 2,
                         checkPlaying = true,
-                        noteDisplay = NoteDisplay.BOTH,
+                        noteDisplay = NoteDisplay.STAFF,
                     ),
                 ),
             ),

@@ -40,10 +40,11 @@ All six, the guided lessons and the settings are available on both platforms.
 app                    Android entry point only: MainActivity, Application, manifest, icons
 webApp                 web entry point only: main(), ComposeViewport, index.html
 shell                  the application itself: navigation graph, landing page with its
-                       favorites, the Practice and Lessons lists, lesson catalog, AppContainer.
-                       The one module allowed to depend on features.
+                       favorites, the Practice, Lessons and My Lessons lists, lesson catalog,
+                       AppContainer. The one module allowed to depend on features.
 core/designsystem      theme, typography, shapes, Dimens, reusable components, the staff and
-                       fingering renderers - treble clef, notes drawn or written by name -
+                       fingering renderers - clef, heads, flags, accidentals and bar lines traced
+                       from Bravura into BravuraGlyphs.kt, notes drawn or written by name -
                        the icons as ImageVector code
 core/music             Note, NoteName, Transposition, Cents, TrebleStaff placement,
                        Beats/Tempo/TimeSignature, ToneStep/ToneSequence
@@ -55,7 +56,8 @@ core/dsp               WindowFunction, Fft, Spectrum, SpectrumAnalyzer, RmsCalcu
                        SignalGate, YinPitchDetector
 core/audio             AudioCapture, Metronome, MicrophoneAccess, NoteListener, ClickSynth,
                        plus the Android and Web implementation of each
-core/settings          AppSettings + SettingsRepository, with the two stores behind it
+core/settings          AppSettings + SettingsRepository, the setup each exercise was last used
+                       with, and the practices the player saved - with the two stores behind them
 core/testing           shared test fixtures: fake microphone, fake settings, silent metronome,
                        and the browser-test scaffolding
 feature/metronome      timing engine, screen, ViewModel
@@ -122,6 +124,19 @@ The catalog splits along that seam:
   and never touching a preset type.
 
 Adding a trainer never edits a unit; adding a unit never edits a trainer.
+
+**A practice the player saves is a unit like any other.** "Add to your lessons" writes down the
+setup a trainer is currently configured with; `shell/learning/UserLessons.kt` turns each group of
+those into a `LearningUnit` and each saved practice into a one-step `Lesson`, appended to the same
+`Curriculum` the catalog builds. Starting one, walking it, scoring it and drawing its tile are
+therefore the code the built-in lessons already use - there is one lesson system, and ownership is
+the only difference: the catalog's units cannot be edited or deleted, the player's can.
+
+Editing works the same way for both. The trainer opens its own setup screen with the lesson's
+configuration loaded; what differs is only which `ExerciseSetupRepository` it is handed. A saved
+practice gets one that reads and writes that practice, so editing is saving; a built-in lesson gets
+one that outlives nothing, so trying somebody else's lesson your own way changes neither the lesson
+nor what your trainer opens on next time.
 
 ### Adding a training tool
 

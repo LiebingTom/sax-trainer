@@ -9,6 +9,7 @@ import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
 import com.example.saxtrainer.core.audio.metronome.WebMetronome
 import com.example.saxtrainer.core.settings.LocalStorageExerciseSetupRepository
 import com.example.saxtrainer.core.settings.LocalStorageSettingsRepository
+import com.example.saxtrainer.core.settings.LocalStorageUserLessonRepository
 
 /**
  * The web app.
@@ -34,4 +35,5 @@ internal fun webContainer(): AppContainer = AppContainer(
     exerciseSetups = LocalStorageExerciseSetupRepository(),
     audioCapture = WebAudioCapture(),
     newMetronome = MetronomeFactory { WebMetronome() },
+    userLessons = LocalStorageUserLessonRepository(),
 )

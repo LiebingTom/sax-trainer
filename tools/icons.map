@@ -19,9 +19,12 @@
 # The converter refuses anything it would get wrong - transforms, gradients, strokes, non-path
 # shapes - and says which one it found, so a bad export fails loudly instead of shipping crooked.
 #
-# Notation glyphs are not icons and are not listed here. The treble clef lives in
-# core/designsystem/.../component/TrebleClef.kt, written by hand in staff spaces and steps, because
-# it has to be anchored to the G line - something a 24x24 icon viewport cannot say.
+# Notation glyphs are not icons and are not listed here. They are anchored to a staff line rather
+# than to a 24x24 viewport, which is something this pipeline has no way to say, and they are traced
+# from a music font rather than drawn: see tools/bravura_glyphs.py, which writes
+# core/designsystem/.../component/BravuraGlyphs.kt. The shapes are Bravura's, by Steinberg Media
+# Technologies GmbH, under the SIL Open Font License 1.1; only the outlines are used, and no font
+# is shipped or loaded at runtime.
 
 additional/icons/settings.svg     -> core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/Settings.kt
 additional/icons/learning.svg     -> core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/Learning.kt

@@ -12,6 +12,7 @@ import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
 import com.example.saxtrainer.learning.catalog.steps.fingeringStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
+import com.example.saxtrainer.core.music.Beats
 
 /**
  * C to G: recognise them, finger them, play them.
@@ -52,8 +53,8 @@ val firstNotesUnit = LearningUnit(
                     FingeringPreset(
                         notes = FIRST_THREE,
                         order = NoteOrder.ORDERED,
-                        secondsPerNote = 8,
-                        noteDisplay = NoteDisplay.BOTH,
+                        beatsPerNote = Beats.of(8),
+                        noteDisplay = NoteDisplay.STAFF,
                     ),
                 ),
             ),
@@ -67,8 +68,8 @@ val firstNotesUnit = LearningUnit(
                     FingeringPreset(
                         notes = FIRST_NOTES,
                         order = NoteOrder.ORDERED,
-                        secondsPerNote = 5,
-                        noteDisplay = NoteDisplay.BOTH,
+                        beatsPerNote = Beats.of(5),
+                        noteDisplay = NoteDisplay.STAFF,
                     ),
                 ),
             ),

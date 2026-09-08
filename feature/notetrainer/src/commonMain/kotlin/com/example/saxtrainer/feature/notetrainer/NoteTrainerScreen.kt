@@ -47,6 +47,10 @@ import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.ToneSequence
+import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.ToneStep
+import com.example.saxtrainer.core.music.conventionalStyle
+import androidx.compose.runtime.remember
 
 /**
  * The note trainer, stateless.
@@ -69,7 +73,8 @@ fun NoteTrainerScreen(
     onShowFingeringHintChange: (Boolean) -> Unit,
     onShowNoteNameChange: (Boolean) -> Unit,
     onTargetChange: (Int) -> Unit,
-    onHoldChange: (Double) -> Unit,
+    onHoldChange: (Beats) -> Unit,
+    onTempoChange: (Int) -> Unit,
     onStart: () -> Unit,
     onTogglePause: () -> Unit,
     onSkip: () -> Unit,
@@ -77,6 +82,7 @@ fun NoteTrainerScreen(
     onReset: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onAddToLessons: (() -> Unit)? = null,
 ) {
     // The note being read, kept apart from everything that answers it.
     val noteSubject: (@Composable ColumnScope.() -> Unit)? =
@@ -109,7 +115,16 @@ fun NoteTrainerScreen(
                     onShowNoteNameChange = onShowNoteNameChange,
                     onTargetChange = onTargetChange,
                     onHoldChange = onHoldChange,
+                    onTempoChange = onTempoChange,
                 )
+                if (onAddToLessons != null) {
+                    Spacer(Modifier.height(Dimens.spaceMd))
+                    SecondaryButton(
+                        text = "Add to your lessons",
+                        onClick = onAddToLessons,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
             is NoteTrainerPhase.CountIn -> CountInPanel(phase.beatsRemaining, state.isPaused)
@@ -142,7 +157,8 @@ private fun Setup(
     onShowFingeringHintChange: (Boolean) -> Unit,
     onShowNoteNameChange: (Boolean) -> Unit,
     onTargetChange: (Int) -> Unit,
-    onHoldChange: (Double) -> Unit,
+    onHoldChange: (Beats) -> Unit,
+    onTempoChange: (Int) -> Unit,
 ) {
     SectionHeader("Notes")
     state.noteSets.forEach { set ->
@@ -207,18 +223,41 @@ private fun Setup(
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("Hold the note")
-    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.holdOptions.forEach { seconds ->
-            FilterChip(
-                selected = seconds == state.holdSeconds,
-                onClick = { onHoldChange(seconds) },
-                label = { Text(holdLabelOf(seconds)) },
-            )
+    // Two rows on purpose. Four of these in one row leaves the last chip too little width and it
+    // wraps its own label instead; deciding where the break goes keeps every label on one line.
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+        state.holdOptions.chunked(HOLD_OPTIONS_PER_ROW).forEach { options ->
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+                options.forEach { beats ->
+                    FilterChip(
+                        selected = beats == state.holdBeats,
+                        onClick = { onHoldChange(beats) },
+                        label = { Text(holdLabelOf(beats), maxLines = 1) },
+                    )
+                }
+            }
         }
     }
+    Spacer(Modifier.height(Dimens.spaceSm))
+    SectionHeader("Tempo")
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+    ) {
+        SecondaryButton(text = "-5", onClick = { onTempoChange(state.tempo.bpm - 5) })
+        Text(
+            text = "${state.tempo.bpm} BPM",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+        )
+        SecondaryButton(text = "+5", onClick = { onTempoChange(state.tempo.bpm + 5) })
+    }
+
     Text(
         text = "Until correct moves on as soon as you find the note. A hold asks you to keep it " +
-            "sounding, and starts again if you lose it.",
+            "sounding, and starts again if you lose it - " +
+            "${state.tempo.secondsFor(Beats.of(1)).toFixed(1)} s to a beat at this tempo.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -306,6 +345,35 @@ private fun RunningPanel(state: NoteTrainerUiState) {
             )
         }
 
+        Text(
+            // A size up from the rest of the panel: this line is what the player is reading while
+            // they play, from as far away as the horn puts them from the screen.
+            text = feedbackOf(state, progress),
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+            color = when (progress.listening) {
+                Listening.CORRECT -> correctColor
+                Listening.WRONG_PITCH -> wrongColor
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+
+        // How much of the hold is left, which is the one thing the words cannot say.
+        //
+        // Above the fingering rather than below it, and given its strip of screen whether or not
+        // there is a hold running. The hint is a tall diagram and the least important thing here,
+        // so it is what may be scrolled to; what the player is being asked to do right now has to
+        // be on screen without looking for it.
+        if (progress.isHolding && !state.isPaused) {
+            LinearProgressIndicator(
+                progress = { progress.holdFraction ?: 0f },
+                modifier = Modifier.fillMaxWidth().height(HoldBarHeight),
+                color = correctColor,
+            )
+        } else {
+            Spacer(Modifier.height(HoldBarHeight))
+        }
+
         if (state.showFingeringHint) {
             if (progress.fingering != null) {
                 SaxophoneFingeringView(
@@ -317,27 +385,6 @@ private fun RunningPanel(state: NoteTrainerUiState) {
             } else {
                 Spacer(Modifier.height(fingeringHeightOf(HintFingeringWidth)))
             }
-        }
-
-        Text(
-            text = feedbackOf(state, progress),
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center,
-            color = when (progress.listening) {
-                Listening.CORRECT -> correctColor
-                Listening.WRONG_PITCH -> wrongColor
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
-
-        // Only while there is a hold to keep: it says how much of it is left, which is the one
-        // thing the words cannot.
-        if (progress.isHolding && !state.isPaused) {
-            LinearProgressIndicator(
-                progress = { progress.holdFraction ?: 0f },
-                modifier = Modifier.fillMaxWidth().height(HoldBarHeight),
-                color = correctColor,
-            )
         }
     }
 }
@@ -376,8 +423,11 @@ private fun feedbackOf(state: NoteTrainerUiState, progress: NoteTrainerProgress)
 }
 
 /** How a hold reads on the setup screen; zero is no hold at all. */
-private fun holdLabelOf(seconds: Double): String =
-    if (seconds <= 0.0) "Until correct" else "${seconds.toFixed(0)} s"
+private fun holdLabelOf(beats: Beats): String = when {
+    beats <= Beats.ZERO -> "Until correct"
+    beats == Beats.of(1) -> "1 beat"
+    else -> "${beats.value.toInt()} beats"
+}
 
 /** What a ready-made exercise is about to ask for. It was decided elsewhere; nothing to change. */
 @Composable
@@ -523,7 +573,7 @@ private fun NoteTrainerSetupPreview() {
             state = NoteTrainerUiState(
                 activeNotes = listOf(Note(NoteName.C, 4), Note(NoteName.D, 4)),
                 targetOptions = listOf(2, 4, 8),
-                holdOptions = listOf(0.0, 1.0, 2.0, 3.0),
+                holdOptions = listOf(0, 1, 2, 3).map(Beats::of),
             ),
             onSelectNoteSet = {},
             onEditCustomNotes = {},
@@ -538,6 +588,7 @@ private fun NoteTrainerSetupPreview() {
             onShowNoteNameChange = {},
             onTargetChange = {},
             onHoldChange = {},
+            onTempoChange = {},
             onStart = {},
             onTogglePause = {},
             onSkip = {},
@@ -599,6 +650,11 @@ private fun sessionFractionOf(step: Int, stepCount: Int): Float =
  * The height is reserved for the widest note the exercise can ask for, so it does not resize
  * between notes and the player's eye stays where it was.
  *
+ * The written value is the hold the player chose, because that is exactly what a note's length
+ * tells a reader: keep this sounding for two beats and it is a half note. The staff carries no time
+ * signature, though - one note is not a bar of music, and claiming a metre for it would say more
+ * than the exercise knows.
+ *
  * No closing bar: this is a note to read, not a piece that ends. What is being heard is said in
  * words underneath, which is where it has always been said.
  */
@@ -608,8 +664,23 @@ private fun NoteSubject(state: NoteTrainerUiState) {
     val noteColor =
         if (progress.isCorrect) FeedbackColors.correct else MaterialTheme.colorScheme.primary
 
+    val note = progress.currentNote
+    val held = state.holdBeats
+    val sequence = remember(note, held) {
+        if (held > Beats.ZERO) {
+            ToneSequence(
+                steps = listOf(ToneStep(note, held)),
+                accidentalStyle = note.conventionalStyle(),
+            )
+        } else {
+            // "Until correct" asks for no length at all, so the note is written as a plain quarter:
+            // something to read, rather than a claim about how long to keep it.
+            ToneSequence.of(note)
+        }
+    }
+
     MusicalStaffView(
-        sequence = ToneSequence.of(progress.currentNote),
+        sequence = sequence,
         modifier = Modifier.fillMaxWidth(),
         color = noteColor,
         staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -618,6 +689,11 @@ private fun NoteSubject(state: NoteTrainerUiState) {
         prefix = StaffPrefix.Treble,
         fillWidth = true,
         closingBar = false,
+        centerMusic = true,
+        reserveAccidentals = true,
         stepRange = reservedStepRange(state.activeNotes),
     )
 }
+
+/** How many holds go on one line. Two, so the longest label has room to stay on one line. */
+private const val HOLD_OPTIONS_PER_ROW = 2

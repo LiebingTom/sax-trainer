@@ -6,8 +6,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -18,6 +17,7 @@ import com.example.saxtrainer.core.music.AccidentalStyle
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.conventionalStyle
 import com.example.saxtrainer.core.music.StaffPlacement
+import com.example.saxtrainer.core.music.TimeSignature
 import com.example.saxtrainer.core.music.TrebleStaff
 import kotlin.math.max
 import kotlin.math.min
@@ -31,10 +31,15 @@ import kotlin.math.min
  * display.
  *
  * This is an intentionally small engraving engine. It draws heads, stems, flags, beams, dots,
- * accidentals, ledger lines and bar lines - enough for the simple exercises the app ships - plus
- * the treble clef, which lives in `TrebleClef.kt` because it is a letterform rather than a
- * proportion. It does not draw key signatures, rests, ties or tuplets. Where a simplification is
- * made, it is named as this engine's rule rather than dressed up as a general one.
+ * accidentals, ledger lines, bar lines and the clef - enough for the simple exercises the app
+ * ships. It does not draw key signatures, rests, ties or tuplets. Where a simplification is made,
+ * it is named as this engine's rule rather than dressed up as a general one.
+ *
+ * The letterforms - heads, flags, accidentals, dots, bar lines, the clef - are outlines in
+ * [BravuraGlyphs], traced from a music font at build time and drawn here as plain paths. No font is
+ * loaded at runtime. What is left in this file is the part that is proportion rather than shape:
+ * lines, stems, beams, and where each glyph goes. Those proportions are Bravura's own engraving
+ * defaults, so the drawn parts and the traced parts agree about how heavy a line should be.
  */
 internal class StaffGeometry(
     val lowestStep: Int,
@@ -50,7 +55,28 @@ internal class StaffGeometry(
     val lineWidth: Float get() = spacing * LINE_WIDTH_RATIO
     val stemWidth: Float get() = spacing * STEM_WIDTH_RATIO
     val headWidth: Float get() = spacing * HEAD_WIDTH_RATIO
-    val headHeight: Float get() = spacing * HEAD_HEIGHT_RATIO
+}
+
+/**
+ * Draws one traced outline with its own origin put at ([x], [y]).
+ *
+ * The glyphs are in staff spaces, so the only thing between an outline and the screen is the
+ * staff's own scale. The shared [Path] is never touched: the transform is applied to the canvas
+ * around it, which is what lets one parsed outline be drawn at any size for the life of the app.
+ */
+internal fun DrawScope.drawGlyph(
+    geometry: StaffGeometry,
+    path: Path,
+    color: Color,
+    x: Float,
+    y: Float,
+) {
+    withTransform({
+        translate(x, y)
+        scale(geometry.spacing, geometry.spacing, pivot = Offset.Zero)
+    }) {
+        drawPath(path = path, color = color)
+    }
 }
 
 /** The five lines, spanning [startX] to [endX]. */
@@ -70,50 +96,63 @@ internal fun DrawScope.drawStaffLines(
     }
 }
 
-/** The short lines a note outside the staff sits on. */
+/**
+ * The short lines a note outside the staff sits on.
+ *
+ * They reach the same distance past the head whatever head it is, so [headWidthSpaces] has to be
+ * the width of the head actually being drawn - a whole note is wider than the rest.
+ */
 internal fun DrawScope.drawLedgerLines(
     geometry: StaffGeometry,
     placement: StaffPlacement,
     color: Color,
     headX: Float,
+    headWidthSpaces: Float = BravuraGlyphs.NOTEHEAD_WIDTH,
 ) {
-    val overhang = geometry.headWidth * LEDGER_OVERHANG
+    val overhang =
+        geometry.spacing * (headWidthSpaces / 2f + BravuraGlyphs.LEDGER_LINE_EXTENSION)
     for (step in placement.ledgerLinesBelow + placement.ledgerLinesAbove) {
         drawLine(
             color = color,
             start = Offset(headX - overhang, geometry.y(step)),
             end = Offset(headX + overhang, geometry.y(step)),
-            strokeWidth = geometry.lineWidth,
+            strokeWidth = geometry.spacing * BravuraGlyphs.LEDGER_LINE_THICKNESS,
         )
     }
 }
 
-/** A note head, filled for a quarter and shorter, hollow for a half and a whole. */
+/**
+ * A note head, filled for a quarter and shorter, hollow for a half and a whole.
+ *
+ * [headX] is the middle of the head, as it has always been; the outline is placed by its own left
+ * edge, so it is shifted back by half its width. A whole note has a head of its own, wider than the
+ * others and without the opening a stem would meet - hence [whole] as well as [filled].
+ */
 internal fun DrawScope.drawNoteHead(
     geometry: StaffGeometry,
     placement: StaffPlacement,
     color: Color,
     headX: Float,
     filled: Boolean = true,
+    whole: Boolean = false,
 ) {
-    val headY = geometry.y(placement.stepsFromBottomLine)
-    val topLeft = Offset(headX - geometry.headWidth / 2f, headY - geometry.headHeight / 2f)
-    val headSize = Size(geometry.headWidth, geometry.headHeight)
-
-    // Slightly tilted, as in engraved notation.
-    rotate(degrees = HEAD_TILT_DEGREES, pivot = Offset(headX, headY)) {
-        if (filled) {
-            drawOval(color = color, topLeft = topLeft, size = headSize)
-        } else {
-            drawOval(
-                color = color,
-                topLeft = topLeft,
-                size = headSize,
-                style = Stroke(width = geometry.spacing * HOLLOW_HEAD_STROKE_RATIO),
-            )
-        }
+    val glyph = when {
+        filled -> BravuraGlyphs.noteheadBlack
+        whole -> BravuraGlyphs.noteheadWhole
+        else -> BravuraGlyphs.noteheadHalf
     }
+    drawGlyph(
+        geometry = geometry,
+        path = glyph,
+        color = color,
+        x = headX - headWidthOf(whole) * geometry.spacing / 2f,
+        y = geometry.y(placement.stepsFromBottomLine),
+    )
 }
+
+/** How wide the head of a note is, in staff spaces. */
+internal fun headWidthOf(whole: Boolean): Float =
+    if (whole) BravuraGlyphs.NOTEHEAD_WHOLE_WIDTH else BravuraGlyphs.NOTEHEAD_WIDTH
 
 /**
  * Where a stem meets the head, on the side it points to.
@@ -147,9 +186,13 @@ internal fun DrawScope.drawStem(
     endY: Float = stemEndY(geometry, placement, stemUp),
 ) {
     val x = stemX(geometry, headX, stemUp)
+    // Not from the middle of the head: a hollow head would show the stem through it. The font's own
+    // anchor says where a stem meets a head, and that is a little off centre, on the outline.
+    val attach = BravuraGlyphs.STEM_ATTACH_SPACES * geometry.spacing
+    val startY = geometry.y(placement.stepsFromBottomLine) + if (stemUp) -attach else attach
     drawLine(
         color = color,
-        start = Offset(x, geometry.y(placement.stepsFromBottomLine)),
+        start = Offset(x, startY),
         end = Offset(x, endY),
         strokeWidth = geometry.stemWidth,
     )
@@ -158,6 +201,10 @@ internal fun DrawScope.drawStem(
 /**
  * The flags on a note that stands alone. A beamed note has none - the beam is the flag - so this is
  * only called for a group of one.
+ *
+ * One outline carries however many flags the note has, so [count] chooses a shape rather than being
+ * drawn that many times. This engine writes nothing shorter than a sixteenth, so two is the most
+ * there is; anything longer is drawn with the sixteenth's pair rather than silently dropped.
  */
 internal fun DrawScope.drawFlags(
     geometry: StaffGeometry,
@@ -169,22 +216,29 @@ internal fun DrawScope.drawFlags(
     endY: Float = stemEndY(geometry, placement, stemUp),
 ) {
     if (count <= 0) return
-    val x = stemX(geometry, headX, stemUp)
-    val direction = if (stemUp) 1f else -1f
-
-    repeat(count) { index ->
-        val top = endY + direction * index * geometry.spacing * BEAM_PITCH_RATIO
-        val flag = Path().apply {
-            moveTo(x, top)
-            quadraticTo(
-                x + geometry.headWidth * FLAG_REACH,
-                top + direction * geometry.spacing * 0.5f,
-                x + geometry.headWidth * FLAG_REACH * 0.7f,
-                top + direction * geometry.spacing * 1.4f,
-            )
-        }
-        drawPath(path = flag, color = color, style = Stroke(width = geometry.stemWidth * 1.6f))
+    val single = count == 1
+    val glyph = when {
+        stemUp && single -> BravuraGlyphs.flag8thUp
+        stemUp -> BravuraGlyphs.flag16thUp
+        single -> BravuraGlyphs.flag8thDown
+        else -> BravuraGlyphs.flag16thDown
     }
+    val attach = when {
+        stemUp && single -> BravuraGlyphs.FLAG_8_UP_ATTACH
+        stemUp -> BravuraGlyphs.FLAG_16_UP_ATTACH
+        single -> BravuraGlyphs.FLAG_8_DOWN_ATTACH
+        else -> BravuraGlyphs.FLAG_16_DOWN_ATTACH
+    }
+
+    // A flag hangs off the side of the stem the stem itself is drawn on, so it starts at the
+    // stem's own edge rather than its centre line, at the height the font's anchor asks for.
+    drawGlyph(
+        geometry = geometry,
+        path = glyph,
+        color = color,
+        x = stemX(geometry, headX, stemUp) - geometry.stemWidth / 2f,
+        y = endY - attach * geometry.spacing,
+    )
 }
 
 /** Augmentation dots, always to the right of the head and never on a line. */
@@ -201,13 +255,13 @@ internal fun DrawScope.drawDots(
     val dotY = geometry.y(placement.stepsFromBottomLine) - if (onLine) geometry.stepHeight else 0f
 
     repeat(count) { index ->
-        drawCircle(
+        drawGlyph(
+            geometry = geometry,
+            path = BravuraGlyphs.augmentationDot,
             color = color,
-            radius = geometry.spacing * DOT_RADIUS_RATIO,
-            center = Offset(
-                x = headX + geometry.headWidth * (DOT_GAP + index * DOT_PITCH),
-                y = dotY,
-            ),
+            x = headX + geometry.headWidth * (DOT_GAP + index * DOT_PITCH) -
+                BravuraGlyphs.DOT_WIDTH * geometry.spacing / 2f,
+            y = dotY,
         )
     }
 }
@@ -239,91 +293,176 @@ internal fun DrawScope.drawBeam(
     )
 }
 
-/** A bar line, drawn the full height of the staff. Pass [thick] for the double bar at the end. */
+/**
+ * The tie joining one head to the next: the same note, still sounding.
+ *
+ * Drawn on the side away from the stems, from just clear of one head to just clear of the other, so
+ * it never runs into a stem or a bar line it crosses - and it does cross bar lines, which is the
+ * whole point of it. Thick in the middle and drawn to nothing at both ends, as an engraved tie is:
+ * two curves of slightly different height with the space between them filled.
+ */
+internal fun DrawScope.drawTie(
+    geometry: StaffGeometry,
+    color: Color,
+    fromX: Float,
+    toX: Float,
+    step: Int,
+    below: Boolean,
+) {
+    val spacing = geometry.spacing
+    val direction = if (below) 1f else -1f
+    val startX = fromX + geometry.headWidth / 2f + spacing * TIE_END_GAP
+    val endX = toX - geometry.headWidth / 2f - spacing * TIE_END_GAP
+    if (endX <= startX) return
+
+    val y = geometry.y(step) + direction * spacing * TIE_LIFT
+    val midX = (startX + endX) / 2f
+    // A quadratic reaches half its control height, so the control point is twice the rise wanted.
+    val outer = y + direction * spacing * (TIE_RISE * 2f + BravuraGlyphs.TIE_MIDPOINT_THICKNESS)
+    val inner = y + direction * spacing * TIE_RISE * 2f
+
+    val tie = Path().apply {
+        moveTo(startX, y)
+        quadraticTo(midX, outer, endX, y)
+        quadraticTo(midX, inner, startX, y)
+        close()
+    }
+    drawPath(path = tie, color = color)
+}
+
+/** Which of the three bar lines is meant. */
+internal enum class BarLineStyle {
+    /** One thin line: the end of a bar. */
+    SINGLE,
+
+    /** Two thin lines: the end of a section. Nothing asks for one yet. */
+    DOUBLE,
+
+    /** Thin then thick: the end of the music. */
+    FINAL,
+}
+
+/**
+ * A bar line, drawn the full height of the staff and centred on [x].
+ *
+ * Centred rather than hung to the left of [x] because that is where the layout has always put one,
+ * and a final bar line that shifted the end of the music would be a layout change wearing a
+ * drawing's clothes.
+ */
 internal fun DrawScope.drawBarLine(
     geometry: StaffGeometry,
     color: Color,
     x: Float,
-    thick: Boolean = false,
+    style: BarLineStyle = BarLineStyle.SINGLE,
 ) {
-    val width = geometry.lineWidth * if (thick) BAR_LINE_THICK_RATIO else BAR_LINE_RATIO
-    drawRect(
+    val (glyph, width) = when (style) {
+        BarLineStyle.SINGLE -> BravuraGlyphs.barlineSingle to BravuraGlyphs.BAR_LINE_SINGLE_WIDTH
+        BarLineStyle.DOUBLE -> BravuraGlyphs.barlineDouble to BravuraGlyphs.BAR_LINE_DOUBLE_WIDTH
+        BarLineStyle.FINAL -> BravuraGlyphs.barlineFinal to BravuraGlyphs.BAR_LINE_FINAL_WIDTH
+    }
+    drawGlyph(
+        geometry = geometry,
+        path = glyph,
         color = color,
-        topLeft = Offset(x - width / 2f, geometry.y(TOP_LINE_STEP)),
-        size = Size(width, geometry.y(0) - geometry.y(TOP_LINE_STEP)),
+        x = x - width * geometry.spacing / 2f,
+        // The glyph stands on the bottom line and reaches the four spaces up to the top one.
+        y = geometry.y(0),
     )
 }
 
-/** Accidentals are drawn as shapes rather than glyphs, so they never depend on font coverage. */
+/**
+ * An accidental, hung to the left of the head it belongs to.
+ *
+ * Placed by its right edge, not its middle: a flat is narrower than a sharp, and aligning their
+ * centres would leave the flat further from its note than the sharp is from its own. [rightX] is
+ * where the accidental ends and the gap before the head begins.
+ */
 internal fun DrawScope.drawAccidental(
     geometry: StaffGeometry,
     accidental: Accidental,
     color: Color,
-    centerX: Float,
+    rightX: Float,
     centerY: Float,
 ) {
-    if (accidental == Accidental.NONE) return
+    val (glyph, width) = when (accidental) {
+        Accidental.NONE -> return
+        Accidental.SHARP -> BravuraGlyphs.accidentalSharp to BravuraGlyphs.SHARP_WIDTH
+        Accidental.FLAT -> BravuraGlyphs.accidentalFlat to BravuraGlyphs.FLAT_WIDTH
+        Accidental.NATURAL -> BravuraGlyphs.accidentalNatural to BravuraGlyphs.NATURAL_WIDTH
+    }
+    drawGlyph(
+        geometry = geometry,
+        path = glyph,
+        color = color,
+        x = rightX - width * geometry.spacing,
+        y = centerY,
+    )
+}
 
-    val spacing = geometry.spacing
-    val strokeWidth = spacing * ACCIDENTAL_STROKE_RATIO
-    val halfWidth = spacing * 0.3f
-    val halfHeight = spacing * 0.75f
+/**
+ * A time signature, its two numbers stacked in the staff.
+ *
+ * Each digit is two staff spaces tall and centred on a line, so the top number fills the upper half
+ * of the staff and the bottom number the lower half - which is why they are drawn at steps 6 and 2
+ * and need no measuring. The two are centred on each other, since "12" over "8" is the usual case
+ * of one being wider than the other.
+ *
+ * Nothing here knows 4/4 from 6/8: both numbers are read off [TimeSignature] a digit at a time.
+ */
+internal fun DrawScope.drawTimeSignature(
+    geometry: StaffGeometry,
+    timeSignature: TimeSignature,
+    color: Color,
+    leftX: Float,
+) {
+    val top = timeSignature.beatsPerBar.toString()
+    val bottom = timeSignature.beatUnit.toString()
+    val width = maxOf(digitsWidth(top), digitsWidth(bottom))
 
-    when (accidental) {
-        Accidental.SHARP, Accidental.NATURAL -> {
-            // Two uprights crossed by two bars; the natural sign simply staggers the uprights.
-            val leftTopOffset = if (accidental == Accidental.SHARP) 0f else halfHeight * 0.35f
-            val rightBottomOffset = if (accidental == Accidental.SHARP) 0f else halfHeight * 0.35f
-            drawLine(
-                color = color,
-                start = Offset(centerX - halfWidth, centerY - halfHeight + leftTopOffset),
-                end = Offset(centerX - halfWidth, centerY + halfHeight),
-                strokeWidth = strokeWidth,
-            )
-            drawLine(
-                color = color,
-                start = Offset(centerX + halfWidth, centerY - halfHeight),
-                end = Offset(centerX + halfWidth, centerY + halfHeight - rightBottomOffset),
-                strokeWidth = strokeWidth,
-            )
-            for (bar in listOf(-0.3f, 0.3f)) {
-                val tilt = if (accidental == Accidental.SHARP) halfHeight * 0.12f else 0f
-                drawLine(
-                    color = color,
-                    start = Offset(centerX - halfWidth * 1.4f, centerY + halfHeight * bar + tilt),
-                    end = Offset(centerX + halfWidth * 1.4f, centerY + halfHeight * bar - tilt),
-                    strokeWidth = strokeWidth,
-                )
-            }
-        }
+    drawDigits(geometry, top, color, leftX + (width - digitsWidth(top)) / 2f * geometry.spacing,
+        TIME_SIGNATURE_TOP_STEP)
+    drawDigits(geometry, bottom, color,
+        leftX + (width - digitsWidth(bottom)) / 2f * geometry.spacing,
+        TIME_SIGNATURE_BOTTOM_STEP)
+}
 
-        Accidental.FLAT -> {
-            // An upright with a loop hanging off its lower half.
-            drawLine(
-                color = color,
-                start = Offset(centerX - halfWidth, centerY - halfHeight * 1.2f),
-                end = Offset(centerX - halfWidth, centerY + halfHeight * 0.8f),
-                strokeWidth = strokeWidth,
-            )
-            val loop = Path().apply {
-                moveTo(centerX - halfWidth, centerY + halfHeight * 0.8f)
-                quadraticTo(
-                    centerX + halfWidth * 1.6f,
-                    centerY + halfHeight * 0.2f,
-                    centerX - halfWidth,
-                    centerY - halfHeight * 0.2f,
-                )
-            }
-            drawPath(path = loop, color = color, style = Stroke(width = strokeWidth))
-        }
-
-        Accidental.NONE -> Unit
+private fun DrawScope.drawDigits(
+    geometry: StaffGeometry,
+    digits: String,
+    color: Color,
+    leftX: Float,
+    step: Int,
+) {
+    var x = leftX
+    digits.forEach { character ->
+        val digit = character - '0'
+        drawGlyph(
+            geometry = geometry,
+            path = BravuraGlyphs.timeSignatureDigits[digit],
+            color = color,
+            x = x,
+            y = geometry.y(step),
+        )
+        x += BravuraGlyphs.timeSignatureDigitWidths[digit] * geometry.spacing
     }
 }
 
-/** Where an accidental's centre goes for a head at [headX]. */
-internal fun accidentalX(geometry: StaffGeometry, headX: Float): Float =
-    headX - geometry.headWidth * ACCIDENTAL_GAP
+private fun digitsWidth(digits: String): Float =
+    digits.sumOf { BravuraGlyphs.timeSignatureDigitWidths[it - '0'].toDouble() }.toFloat()
+
+/** How much room a time signature takes, in staff spaces. */
+internal fun timeSignatureWidthSpaces(timeSignature: TimeSignature): Float = maxOf(
+    digitsWidth(timeSignature.beatsPerBar.toString()),
+    digitsWidth(timeSignature.beatUnit.toString()),
+)
+
+/** The line each number is centred on: the staff's upper half, then its lower half. */
+private const val TIME_SIGNATURE_TOP_STEP = 6
+private const val TIME_SIGNATURE_BOTTOM_STEP = 2
+
+/** Where an accidental ends, for a head at [headX]: just short of the head's left edge. */
+internal fun accidentalRightX(geometry: StaffGeometry, headX: Float): Float =
+    headX - geometry.headWidth / 2f - geometry.spacing * ACCIDENTAL_GAP_SPACES
 
 /**
  * A note's name, written where its head would have been.
@@ -371,11 +510,11 @@ internal fun DrawScope.drawNoteLabel(
 internal fun extentOf(placements: List<StaffPlacement>): IntRange {
     val lowest = min(
         0,
-        placements.minOf { it.stepsFromBottomLine - if (it.stemUp) 1 else STEM_STEPS + 1 },
+        placements.minOf { it.stepsFromBottomLine - if (it.stemUp) 1 else STEM_STEPS },
     )
     val highest = max(
         TOP_LINE_STEP,
-        placements.maxOf { it.stepsFromBottomLine + if (it.stemUp) STEM_STEPS + 1 else 1 },
+        placements.maxOf { it.stepsFromBottomLine + if (it.stemUp) STEM_STEPS else 1 },
     )
     return lowest..highest
 }
@@ -435,24 +574,41 @@ fun staffWidthOf(lineSpacing: Dp, reserveSecondaryWidth: Boolean = false): Dp =
 // --- proportions ---------------------------------------------------------------------------------
 
 internal const val TOP_LINE_STEP = 8
-internal const val STEM_STEPS = 6
-internal const val HEAD_WIDTH_RATIO = 1.25f
-internal const val HEAD_HEIGHT_RATIO = 0.92f
-internal const val HEAD_TILT_DEGREES = -20f
-internal const val HOLLOW_HEAD_STROKE_RATIO = 0.13f
-internal const val LINE_WIDTH_RATIO = 0.08f
-internal const val STEM_WIDTH_RATIO = 0.1f
-internal const val LEDGER_OVERHANG = 0.85f
-internal const val ACCIDENTAL_GAP = 1.15f
-internal const val ACCIDENTAL_STROKE_RATIO = 0.1f
-internal const val BEAM_THICKNESS_RATIO = 0.45f
-internal const val BEAM_PITCH_RATIO = 0.62f
-internal const val FLAG_REACH = 0.9f
-internal const val DOT_RADIUS_RATIO = 0.12f
+/**
+ * How far a stem reaches from its head, in steps: three and a half staff spaces.
+ *
+ * The length is not free. A flag is one shape drawn for a stem of the usual length, so a
+ * shorter stem would pull the flag's tail down over the head it belongs to.
+ */
+internal const val STEM_STEPS = 7
+/**
+ * The width of an ordinary head, which is also the distance between the two sides a stem can be
+ * drawn on, and so the unit several other placements are measured in.
+ */
+internal const val HEAD_WIDTH_RATIO = BravuraGlyphs.NOTEHEAD_WIDTH
+
+// The drawn parts take their weight from the same font the outlines came from, so a stem and a
+// flag, or a staff line and a bar line, are not two people's idea of how heavy a line should be.
+internal const val LINE_WIDTH_RATIO = BravuraGlyphs.STAFF_LINE_THICKNESS
+internal const val STEM_WIDTH_RATIO = BravuraGlyphs.STEM_THICKNESS
+internal const val BEAM_THICKNESS_RATIO = BravuraGlyphs.BEAM_THICKNESS
+internal const val BEAM_PITCH_RATIO = BravuraGlyphs.BEAM_THICKNESS + BravuraGlyphs.BEAM_SPACING
+
+/**
+ * Air between an accidental and the head it belongs to.
+ *
+ * Wider than an engraver would set it. These are read at a glance while playing rather than studied
+ * on paper, and at the sizes the app draws, a sharp that merely comes close to its head reads as
+ * touching it. The room the layout already reserves covers this, so nothing moves.
+ */
+internal const val ACCIDENTAL_GAP_SPACES = 0.45f
+
+/** How far a tie starts from the head it leaves, how far it sits off it, and how high it arches. */
+internal const val TIE_END_GAP = 0.2f
+internal const val TIE_LIFT = 0.55f
+internal const val TIE_RISE = 0.35f
 internal const val DOT_GAP = 0.85f
 internal const val DOT_PITCH = 0.5f
-internal const val BAR_LINE_RATIO = 1.4f
-internal const val BAR_LINE_THICK_RATIO = 4f
 internal const val LABEL_PADDING_RATIO = 0.18f
 internal const val LABEL_CORNER_RATIO = 0.3f
 internal const val SINGLE_WIDTH_SPACES = 4f

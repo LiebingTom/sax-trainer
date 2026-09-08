@@ -66,9 +66,9 @@ data class NotatedDuration(val value: NoteValue, val dots: Int = 0) {
          * How [beats] is written in a bar whose beat is [beatUnit], or null when no single note head
          * says it.
          *
-         * Null is a real answer, not a failure: a five-beat long tone is a tie in engraved music, and
-         * this engine does not write ties yet. A caller that only needs something on the page can
-         * fall back to a plain head; a caller that needs to be correct can refuse.
+         * Null is a real answer, not a failure: a five-beat long tone is a whole note tied to a
+         * quarter, and no single head says it. Ask [ToneSequence.notatedReading] for a duration
+         * written out in full, ties and bar lines included; this only ever answers about one head.
          */
         fun of(beats: Beats, beatUnit: Int = QUARTER_BEAT_UNIT): NotatedDuration? {
             if (beats.value <= 0.0) return null

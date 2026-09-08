@@ -6,6 +6,7 @@ import com.example.saxtrainer.core.audio.metronome.MetronomeEngine
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
 import com.example.saxtrainer.core.settings.SharedPreferencesExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SharedPreferencesSettingsRepository
+import com.example.saxtrainer.core.settings.SharedPreferencesUserLessonRepository
 
 /**
  * Where the Android app is assembled: the four things `AppContainer` cannot build for itself, each
@@ -22,6 +23,7 @@ class SaxTrainerApplication : Application() {
             exerciseSetups = SharedPreferencesExerciseSetupRepository(this),
             audioCapture = AudioRecordCapture(this),
             newMetronome = MetronomeFactory { MetronomeEngine() },
+            userLessons = SharedPreferencesUserLessonRepository(this),
         )
     }
 }

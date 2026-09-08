@@ -23,7 +23,7 @@ class ExerciseSetupTest {
         assertEquals(3, setup.int("rounds", 1))
         assertEquals(1.5, setup.double("hold", 0.0))
         assertTrue(setup.boolean("mixed", false))
-        assertEquals(NoteDisplay.NAME, setup.enum("naming", NoteDisplay.entries, NoteDisplay.BOTH))
+        assertEquals(NoteDisplay.NAME, setup.enum("naming", NoteDisplay.entries, NoteDisplay.STAFF))
         assertEquals(listOf(60, 62, 64), setup.ints("notes"))
     }
 
@@ -36,7 +36,7 @@ class ExerciseSetupTest {
         assertEquals(4, setup.int("rounds", 4))
         assertEquals(2.0, setup.double("hold", 2.0))
         assertTrue(setup.boolean("mixed", true))
-        assertEquals(NoteDisplay.BOTH, setup.enum("naming", NoteDisplay.entries, NoteDisplay.BOTH))
+        assertEquals(NoteDisplay.STAFF, setup.enum("naming", NoteDisplay.entries, NoteDisplay.STAFF))
         assertNull(setup.ints("notes"), "never chosen is not the same as chosen and empty")
     }
 
@@ -55,7 +55,7 @@ class ExerciseSetupTest {
         assertEquals(1, setup.int("rounds", 1))
         assertEquals(0.0, setup.double("hold", 0.0))
         assertTrue(setup.boolean("mixed", true))
-        assertEquals(NoteDisplay.BOTH, setup.enum("naming", NoteDisplay.entries, NoteDisplay.BOTH))
+        assertEquals(NoteDisplay.STAFF, setup.enum("naming", NoteDisplay.entries, NoteDisplay.STAFF))
         assertEquals(listOf(60, 64), setup.ints("notes"), "the readable notes survive the rest")
     }
 
@@ -81,6 +81,36 @@ class ExerciseSetupTest {
         assertEquals(96, restored.int("tempo", 0))
         assertEquals(false, restored.boolean("check", true))
         assertEquals(listOf(58, 60), restored.ints("notes"))
+    }
+
+    @Test
+    fun `a chosen set of notes survives being written down and read back`() {
+        // What a note-picking dialog produces: a handful of notes, or none at all.
+        val chosen = listOf(58, 60, 62, 63, 65, 67, 69, 70, 72)
+
+        val restored = StoredExerciseSetup.decode(
+            StoredExerciseSetup.encode(exerciseSetup { putInts("custom_notes", chosen) }),
+        )
+        val emptied = StoredExerciseSetup.decode(
+            StoredExerciseSetup.encode(exerciseSetup { putInts("custom_notes", emptyList()) }),
+        )
+
+        assertEquals(chosen, restored.ints("custom_notes"), "in the order they were written")
+        assertEquals(emptyList(), emptied.ints("custom_notes"), "no notes chosen is still a choice")
+    }
+
+    @Test
+    fun `two exercises keep their own notes`() {
+        val repository = InMemoryExerciseSetupRepository()
+
+        repository.remember(Exercise.LONG_TONES, exerciseSetup { putInts("custom_notes", listOf(60)) })
+        repository.remember(
+            Exercise.NOTE_TRAINER,
+            exerciseSetup { putInts("custom_notes", listOf(62, 64)) },
+        )
+
+        assertEquals(listOf(60), repository.setupOf(Exercise.LONG_TONES).ints("custom_notes"))
+        assertEquals(listOf(62, 64), repository.setupOf(Exercise.NOTE_TRAINER).ints("custom_notes"))
     }
 
     @Test

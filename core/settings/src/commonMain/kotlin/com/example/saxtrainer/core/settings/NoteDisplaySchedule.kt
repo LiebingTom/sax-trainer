@@ -36,5 +36,5 @@ fun noteDisplaySchedule(
  */
 fun List<NoteDisplay>.displayAt(
     index: Int,
-    fallback: NoteDisplay = NoteDisplay.BOTH,
+    fallback: NoteDisplay = NoteDisplay.STAFF,
 ): NoteDisplay = getOrElse(index) { fallback }

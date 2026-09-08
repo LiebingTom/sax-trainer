@@ -26,6 +26,7 @@ import com.example.saxtrainer.core.testing.runScreenTest
 import com.example.saxtrainer.core.testing.shows
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import com.example.saxtrainer.core.music.Beats
 
 /**
  * The fingering trainer, running in a browser.
@@ -106,7 +107,7 @@ class FingeringOnWasmTest {
 private fun twoNotes(checkPlaying: Boolean = false, autoStart: Boolean = true) = FingeringPreset(
     notes = listOf(Note(NoteName.C, 4), Note(NoteName.D, 4)),
     order = NoteOrder.ORDERED,
-    secondsPerNote = 4,
+    beatsPerNote = Beats.of(4),
     checkPlaying = checkPlaying,
     autoStart = autoStart,
 )

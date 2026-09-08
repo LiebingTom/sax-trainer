@@ -4,6 +4,7 @@ import com.example.saxtrainer.core.learning.Curriculum
 import com.example.saxtrainer.learning.catalog.units.accidentalsUnit
 import com.example.saxtrainer.learning.catalog.units.firstNotesUnit
 import com.example.saxtrainer.learning.catalog.units.octaveUnit
+import com.example.saxtrainer.learning.catalog.units.upperOctaveUnit
 
 /**
  * Everything the app teaches, as units of a topic.
@@ -22,5 +23,6 @@ val SaxTrainerCurriculum: Curriculum = Curriculum(
         firstNotesUnit,
         octaveUnit,
         accidentalsUnit,
+        upperOctaveUnit,
     ),
 )

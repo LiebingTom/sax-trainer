@@ -5,23 +5,30 @@ import com.example.saxtrainer.core.audio.listening.NoteListener
 import com.example.saxtrainer.core.fingering.FingeringChart
 import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Tempo
+import com.example.saxtrainer.core.music.Beats
 
 /**
  * Settings of the fingering exercise.
  *
- * The trainer talks to the player in seconds, which is all a beginner needs, but the exercise itself
- * is still built from musical durations: seconds are converted at [tempo], which stays fixed because
- * there is nothing here for a tempo control to do.
+ * How long a note lasts is a number of beats, as it is everywhere else in the app. What that comes
+ * to in seconds is worked out from [tempo] at the moment it is needed and nowhere else, so there is
+ * one duration here rather than a musical one and a clock one that have to be kept in step.
  */
 data class FingeringConfig(
     val chart: FingeringChart = SaxophoneFingerings,
     /** How long a note is worked on before the fingering is shown; offered on the setup screen. */
-    val secondsOptions: List<Int> = listOf(3, 5, 8),
-    val defaultSeconds: Int = 5,
+    val beatOptions: List<Int> = listOf(3, 5, 8),
+    val defaultBeats: Int = 5,
     /** How often the selected notes are worked through, unless a preset says otherwise. */
     val defaultRounds: Int = 1,
-    /** Reference tempo used to turn seconds into beats; not shown to the player. */
-    val tempo: Tempo = Tempo(60),
+    /**
+     * The speed this exercise counts at, and what the player can change it to.
+     *
+     * Offered rather than fixed, because a length in beats says nothing on its own: five beats is
+     * five seconds at 60 and half that at 120, and the player is the one who has to know which.
+     */
+    val defaultTempo: Tempo = Tempo(60),
+    val tempoRange: IntRange = Tempo.SUPPORTED_RANGE,
     /** How often the remaining time is refreshed. */
     val tickIntervalMs: Long = 50,
     /** Listening is off by default: the trainer must work in silence. */
@@ -47,4 +54,7 @@ data class FingeringConfig(
     val defaultSuccessDelaySeconds: Float = 1f,
     val capture: AudioCaptureConfig = AudioCaptureConfig(),
     val listening: NoteListener.ListeningSettings = NoteListener.ListeningSettings(),
-)
+) {
+    /** [beatOptions] as durations, which is what everything past the setup screen deals in. */
+    val beatChoices: List<Beats> get() = beatOptions.map(Beats::of)
+}

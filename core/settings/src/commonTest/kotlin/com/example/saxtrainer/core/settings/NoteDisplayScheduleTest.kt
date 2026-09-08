@@ -6,12 +6,13 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.random.Random
+import kotlin.test.assertNull
 
 class NoteDisplayScheduleTest {
 
     @Test
     fun `a fixed presentation is used for every note`() {
-        listOf(NoteDisplay.NAME, NoteDisplay.STAFF, NoteDisplay.BOTH).forEach { display ->
+        listOf(NoteDisplay.NAME, NoteDisplay.STAFF).forEach { display ->
             assertEquals(List(4) { display }, noteDisplaySchedule(display, stepCount = 4))
         }
     }
@@ -21,7 +22,7 @@ class NoteDisplayScheduleTest {
         // The same generator must be left where it was, so switching the option on is the only
         // thing that changes any other draw in an exercise.
         val random = Random(7)
-        noteDisplaySchedule(NoteDisplay.BOTH, stepCount = 50, random = random)
+        noteDisplaySchedule(NoteDisplay.STAFF, stepCount = 50, random = random)
 
         assertEquals(Random(7).nextInt(), random.nextInt())
     }
@@ -56,7 +57,7 @@ class NoteDisplayScheduleTest {
         val schedule = noteDisplaySchedule(NoteDisplay.NAME, stepCount = 2)
 
         assertEquals(NoteDisplay.NAME, schedule.displayAt(1))
-        assertEquals(NoteDisplay.BOTH, schedule.displayAt(2))
+        assertEquals(NoteDisplay.STAFF, schedule.displayAt(2))
         assertEquals(NoteDisplay.STAFF, schedule.displayAt(9, fallback = NoteDisplay.STAFF))
     }
 
@@ -71,23 +72,34 @@ class NoteDisplayScheduleTest {
     @Test
     fun `only random has to be resolved`() {
         assertTrue(NoteDisplay.RANDOM.isRandom)
-        listOf(NoteDisplay.NAME, NoteDisplay.STAFF, NoteDisplay.BOTH).forEach {
+        listOf(NoteDisplay.NAME, NoteDisplay.STAFF).forEach {
             assertFalse(it.isRandom)
         }
     }
 
     @Test
-    fun `an unresolved random falls back to showing both`() {
-        // Setup screens and previews have no exercise to resolve against.
-        assertTrue(NoteDisplay.RANDOM.showsName)
+    fun `an unresolved random reads as notation`() {
+        // Setup screens and previews have no exercise to resolve against, and there is no longer a
+        // both to fall back to: one presentation at a time, and unresolved means the staff.
+        assertFalse(NoteDisplay.RANDOM.showsName)
         assertTrue(NoteDisplay.RANDOM.showsStaff)
     }
 
     @Test
-    fun `a stored preference survives the new option`() {
-        // The persisted value is the enum name, so RANDOM must not disturb the existing ones.
-        listOf("NAME", "STAFF", "BOTH", "RANDOM").forEach { stored ->
-            assertTrue(NoteDisplay.entries.any { it.name == stored })
+    fun `never two presentations at once`() {
+        NoteDisplay.entries.forEach {
+            assertFalse(it.showsName && it.showsStaff, "$it shows a note twice over")
         }
+    }
+
+    @Test
+    fun `a stored preference survives the option that was removed`() {
+        // The persisted value is the enum name. Name and notation together used to be one of them;
+        // whoever chose it wanted to read notation, so that is what they get rather than a reset.
+        assertEquals(NoteDisplay.STAFF, StoredSettings.noteDisplayOverrideOf("BOTH"))
+        listOf("NAME", "STAFF", "RANDOM").forEach { stored ->
+            assertEquals(stored, StoredSettings.noteDisplayOverrideOf(stored)?.name)
+        }
+        assertNull(StoredSettings.noteDisplayOverrideOf("SOMETHING_ELSE"))
     }
 }

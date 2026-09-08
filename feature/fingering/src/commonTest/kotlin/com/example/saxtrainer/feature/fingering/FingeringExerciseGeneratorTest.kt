@@ -26,15 +26,14 @@ class FingeringExerciseGeneratorTest {
     private fun generate(
         selection: List<Note> = notes,
         order: NoteOrder = NoteOrder.RANDOM,
-        seconds: Int = 5,
+        beats: Int = 5,
         rounds: Int = 1,
         random: Random = Random(seed = 1),
     ) = FingeringExerciseGenerator.generate(
         notes = selection,
         order = order,
-        secondsPerNote = seconds,
+        beatsPerNote = Beats.of(beats),
         rounds = rounds,
-        tempo = tempo,
         random = random,
     )
 
@@ -114,15 +113,14 @@ class FingeringExerciseGeneratorTest {
     }
 
     @Test
-    fun `note length follows the chosen seconds at the reference tempo`() {
-        val threeSeconds = generate(seconds = 3).steps.first().duration
-        val eightSeconds = generate(seconds = 8).steps.first().duration
+    fun `note length is the chosen number of beats`() {
+        val threeBeats = generate(beats = 3).steps.first().duration
+        val eightBeats = generate(beats = 8).steps.first().duration
 
-        assertEquals(tempo.beatsFor(3.0), threeSeconds)
-        assertEquals(Beats.of(3), threeSeconds)
-        assertEquals(Beats.of(8), eightSeconds)
+        assertEquals(Beats.of(3), threeBeats)
+        assertEquals(Beats.of(8), eightBeats)
         // The conversion is the shared one, so the sequence is usable by anything musical.
-        assertEquals(3.0, tempo.secondsFor(threeSeconds), 1e-9)
+        assertEquals(3.0, tempo.secondsFor(threeBeats), 1e-9)
     }
 
     @Test
@@ -138,14 +136,14 @@ class FingeringExerciseGeneratorTest {
     @Test
     fun `nonsensical settings are rejected`() {
         assertFailsWith<IllegalArgumentException> { generate(rounds = 0) }
-        assertFailsWith<IllegalArgumentException> { generate(seconds = 0) }
+        assertFailsWith<IllegalArgumentException> { generate(beats = 0) }
     }
 
     @Test
     fun `every step carries the same length`() {
-        val steps = generate(seconds = 5, rounds = 2).steps
+        val steps = generate(beats = 5, rounds = 2).steps
 
         assertTrue(steps.all { it.duration == Beats.of(5) })
-        assertEquals(50.0, generate(seconds = 5, rounds = 2).totalBeats.value, 1e-9)
+        assertEquals(50.0, generate(beats = 5, rounds = 2).totalBeats.value, 1e-9)
     }
 }

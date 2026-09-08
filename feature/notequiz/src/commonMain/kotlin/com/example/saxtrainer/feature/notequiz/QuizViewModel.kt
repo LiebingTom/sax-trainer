@@ -100,6 +100,16 @@ class QuizViewModel(
     }
 
     /** Whether the screen should start without being asked, answered true only once. */
+    /**
+     * Writes the current setup down now, without waiting for it to be changed or started.
+     *
+     * What the setup screen is showing is a practice whether or not the player has touched a
+     * control, so anything outside that wants to keep it - "add to your lessons" - has to be able
+     * to ask for it. Nothing else about when a setup is remembered changes: the untouched defaults
+     * are only written when somebody actually asks for them.
+     */
+    fun rememberSetupNow() = rememberSetup(_uiState.value)
+
     fun consumeAutoStart(): Boolean {
         if (!autoStartPending) return false
         autoStartPending = false
@@ -110,11 +120,9 @@ class QuizViewModel(
         val state = _uiState.value
         if (state.isRunning || !state.canStart) return
 
-        // What the player started with becomes what they are offered next time. A ready-made run
-        // is somebody else's decision and is deliberately not remembered as theirs.
-        if (!state.isPreconfigured) {
-            exerciseSetups.remember(Exercise.NOTE_QUIZ, state.toSetup())
-        }
+        // Already written down as it was chosen; this is the setup as it is actually
+        // started.
+        rememberSetup(state)
 
         revealJob?.cancel()
         answers.clear()
@@ -242,7 +250,24 @@ class QuizViewModel(
 
     private fun updateSetup(change: (QuizUiState) -> QuizUiState) {
         if (_uiState.value.isRunning) return
-        _uiState.value = change(_uiState.value)
+        val changed = change(_uiState.value)
+        _uiState.value = changed
+        rememberSetup(changed)
+    }
+
+    /**
+     * Writes the setup down, as it is changed rather than only when a run begins.
+     *
+     * The setup screen is left by going back, which throws this ViewModel away: anything not
+     * written down by then is gone. Remembering only at Start therefore lost every choice made by
+     * a player who set the exercise up and then thought better of starting it.
+     *
+     * A ready-made exercise is somebody else's decision and is still never written down as the
+     * player's own. One handed over to be edited is the player's again, and is.
+     */
+    private fun rememberSetup(state: QuizUiState) {
+        if (state.isPreconfigured) return
+        exerciseSetups.remember(Exercise.NOTE_QUIZ, state.toSetup())
     }
 
     private fun QuizUiState.withNoteSet(noteSet: NoteSet) = copy(
@@ -252,15 +277,24 @@ class QuizViewModel(
 
     /**
      * Overlays a ready-made quiz. Only the run is configured: nothing is written back to the
-     * player's settings, and the setup screen is skipped rather than pre-filled.
+     * player's settings.
+     *
+     * The setup screen is skipped rather than pre-filled, unless the preset asks to be edited - and
+     * then the note set has to be filled in too, or the screen would claim a set it is not asking
+     * about: a preset names notes, so as something to edit it is always a custom set.
      */
-    private fun QuizUiState.withPreset(preset: QuizPreset) = copy(
-        activeNotes = preset.notes.filter(config.chart::supports),
-        mode = preset.mode,
-        questionCount = preset.questionCount,
-        successDelaySeconds = preset.successDelaySeconds,
-        isPreconfigured = true,
-    )
+    private fun QuizUiState.withPreset(preset: QuizPreset): QuizUiState {
+        val notes = preset.notes.filter(config.chart::supports)
+        return copy(
+            noteSet = if (preset.editable) NoteSet.CUSTOM else noteSet,
+            customNotes = if (preset.editable) notes.toSet() else customNotes,
+            activeNotes = notes,
+            mode = preset.mode,
+            questionCount = preset.questionCount,
+            successDelaySeconds = preset.successDelaySeconds,
+            isPreconfigured = !preset.editable,
+        )
+    }
 
     private fun initialState(): QuizUiState {
         val notes = config.chart.supportedNotes

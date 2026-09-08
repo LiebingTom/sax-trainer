@@ -1,5 +1,6 @@
 package com.example.saxtrainer.feature.longtones
 
+import com.example.saxtrainer.core.exercise.SequenceCatalog
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.Tempo
@@ -18,6 +19,7 @@ internal fun LongToneUiState.toSetup(): ExerciseSetup = exerciseSetup {
     put(KEY_ROOT_NOTE, selection.rootNote.midiNumber)
     put(KEY_BEATS_PER_NOTE, selection.beatsPerNote.value)
     put(KEY_TEMPO, selection.tempo.bpm)
+    put(KEY_SHOW_NEXT_NOTE, showNextNote)
 }
 
 /**
@@ -42,6 +44,7 @@ internal fun LongToneUiState.withSetup(setup: ExerciseSetup): LongToneUiState {
         ?: selection.beatsPerNote
 
     return copy(
+        showNextNote = setup.boolean(KEY_SHOW_NEXT_NOTE, showNextNote),
         selection = selection.copy(
             pattern = pattern,
             rootNote = root,
@@ -51,7 +54,47 @@ internal fun LongToneUiState.withSetup(setup: ExerciseSetup): LongToneUiState {
     )
 }
 
+/**
+ * The same setup, offered back as a ready-made exercise.
+ *
+ * The other way out of a stored setup: [withSetup] opens the setup screen on it, this starts it.
+ * Both read the same keys, so what is practised cannot depend on which door was used - see the
+ * round-trip test. What this build no longer offers is left to the trainer to fall back from, since
+ * only the trainer knows what it offers.
+ *
+ * Null where the setup names no pattern at all, which is the one thing this cannot make up.
+ */
+fun longTonePresetOf(
+    setup: ExerciseSetup,
+    autoStart: Boolean = true,
+    editable: Boolean = false,
+): LongTonePreset? {
+    val pattern = setup.string(KEY_PATTERN)?.takeIf { it.isNotBlank() } ?: return null
+    val root = setup.int(KEY_ROOT_NOTE, NO_ROOT)
+    if (root == NO_ROOT) return null
+
+    return LongTonePreset(
+        patternId = pattern,
+        rootNote = Note.fromMidi(root),
+        beatsPerNote = Beats(
+            setup.double(KEY_BEATS_PER_NOTE, SequenceCatalog.singleNote.defaultBeatsPerNote.value)
+                .coerceAtLeast(1.0),
+        ),
+        tempo = Tempo(setup.int(KEY_TEMPO, DEFAULT_TEMPO)),
+        showNextNote = setup.boolean(KEY_SHOW_NEXT_NOTE, true),
+        autoStart = autoStart,
+        editable = editable,
+    )
+}
+
+/** No pitch is a negative MIDI number, so this cannot be mistaken for a stored root. */
+private const val NO_ROOT = -1
+
+/** What the setup screen itself starts at, so a key that was never written reads the same either way. */
+private const val DEFAULT_TEMPO = 60
+
 private const val KEY_PATTERN = "pattern"
 private const val KEY_ROOT_NOTE = "root_note"
 private const val KEY_BEATS_PER_NOTE = "beats_per_note"
 private const val KEY_TEMPO = "tempo"
+private const val KEY_SHOW_NEXT_NOTE = "show_next_note"

@@ -21,6 +21,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.assertNotNull
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
+import com.example.saxtrainer.core.settings.ExerciseSetupRepository
+import com.example.saxtrainer.core.settings.Exercise
+import com.example.saxtrainer.core.settings.ExerciseSetup
 
 /** Running a quiz: a question, an answer, the next question. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -42,8 +47,10 @@ class QuizViewModelTest {
         private fun TestScope.viewModel(
         seed: Int = 1,
         preset: QuizPreset? = null,
+        setups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
     ) = QuizViewModel(
         settingsRepository = FakeSettingsRepository(),
+        exerciseSetups = setups,
         preset = preset,
         config = config,
         random = Random(seed),
@@ -433,4 +440,84 @@ class QuizViewModelTest {
         assertFalse(state.activeNotes.contains(Note(NoteName.C, 2)))
         assertEquals(2, state.activeNotes.size)
     }
+
+    // --- the round trip ---------------------------------------------------------------------
+
+    /** Puts exactly these notes into the custom set and switches to it, as the dialog would. */
+    private fun QuizViewModel.selectOnly(vararg notes: Note) {
+        editCustomNotes()
+        clearCustomNotes()
+        notes.forEach(::toggleCustomNote)
+        applyCustomNotes()
+    }
+
+    /**
+     * Every choice the setup screen offers survives being written down, turned back into a
+     * ready-made quiz, and written down again.
+     *
+     * A stored setup has two ways out - one opens the setup screen on it, the other starts it - and
+     * they have to agree. Where they do not, the difference shows only in a quiz somebody saved,
+     * and only once it is started, which is the worst place to find it.
+     */
+    @Test
+    fun `every choice survives being written down and started again`() = runTest(dispatcher) {
+        val configured = viewModel()
+        configured.selectOnly(
+            c4,
+            Note(NoteName.D, 4),
+            Note(NoteName.E, 4),
+            Note(NoteName.F, 4),
+        )
+        configured.selectMode(QuizMode.FINGERING_TO_NOTE)
+        configured.selectQuestionCount(15)
+        configured.selectSuccessDelaySeconds(2.0)
+        val written = configured.uiState.value.toSetup()
+
+        val preset = assertNotNull(quizPresetOf(written, editable = true))
+        val started = viewModel(preset = preset)
+
+        assertEquals(written, started.uiState.value.toSetup())
+    }
+
+    @Test
+    fun `too few notes to choose between is not a quiz that can be started`() =
+        runTest(dispatcher) {
+            val configured = viewModel()
+            configured.selectOnly(c4)
+
+            assertNull(quizPresetOf(configured.uiState.value.toSetup()))
+        }
+
+
+    /**
+     * A practice nobody has touched is still a practice.
+     *
+     * The setup is written down as it is changed, so an exercise opened and left on its defaults
+     * has nothing on record - and "add to your lessons" would have found nothing to save. Asking
+     * for it writes it.
+     */
+    @Test
+    fun `an untouched setup is written down when it is asked for`() = runTest(dispatcher) {
+        val setups = InMemoryExerciseSetupRepository()
+
+        viewModel(setups = setups).rememberSetupNow()
+
+        assertFalse(setups.setupOf(Exercise.NOTE_QUIZ).isEmpty)
+    }
+
+
+    /**
+     * A setup nobody has written yet is still a practice.
+     *
+     * Nothing is on record until a control is changed, so an exercise saved straight off its
+     * defaults arrives here as an empty setup - and reading that as "no notes chosen" would save a
+     * lesson that then quietly refuses to start.
+     */
+    @Test
+    fun `an empty setup is the beginner's notes rather than none at all`() {
+        val preset = assertNotNull(quizPresetOf(ExerciseSetup()))
+
+        assertTrue(preset.notes.size >= QuizQuestionGenerator.MIN_OPTIONS)
+    }
+
 }

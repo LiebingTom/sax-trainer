@@ -5,6 +5,7 @@ import com.example.saxtrainer.core.audio.listening.NoteListener
 import com.example.saxtrainer.core.fingering.FingeringChart
 import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Tempo
+import com.example.saxtrainer.core.music.Beats
 
 /**
  * Settings of the note trainer that the player never sees.
@@ -30,19 +31,31 @@ data class NoteTrainerConfig(
      */
     val requiredCorrectSeconds: Double = 0.25,
     /**
-     * Holds the setup screen offers, in seconds; zero is "until it is right", with no hold at all.
+     * Holds the setup screen offers, in beats; zero is "until it is right", with no hold at all.
      *
      * A hold turns the exercise from finding a note into finding it and keeping it, which is a
-     * different practice and the reason it is the player's to choose rather than a constant.
+     * different practice and the reason it is the player's to choose rather than a constant. It is
+     * the one duration here that is music - the player is being asked to sound a note for a length
+     * of it - so it is counted in beats and turned into seconds against [tempo]. The waits either
+     * side of it are not music and stay in seconds.
      */
-    val holdOptions: List<Double> = listOf(0.0, 1.0, 2.0, 3.0),
-    val defaultHoldSeconds: Double = 0.0,
+    val holdBeatOptions: List<Int> = listOf(0, 1, 2, 3),
+    val defaultHoldBeats: Int = 0,
     /** How long a wrong note has to sound before it is called one, rather than an unsettled attack. */
     val wrongPitchSeconds: Double = 0.15,
     /** How long the note stays up as correct before the next one. */
     val successSeconds: Double = 0.6,
-    /** Reference tempo for the count-in; this trainer has no tempo of its own. */
-    val tempo: Tempo = Tempo(60),
+    /**
+     * The speed this trainer counts at: the count-in, and the hold a player is asked to keep.
+     *
+     * Offered rather than fixed, because a hold in beats says nothing on its own - two beats is two
+     * seconds at 60 and one at 120, and the player is the one who has to know which.
+     */
+    val defaultTempo: Tempo = Tempo(60),
+    val tempoRange: IntRange = Tempo.SUPPORTED_RANGE,
     val capture: AudioCaptureConfig = AudioCaptureConfig(),
     val listening: NoteListener.ListeningSettings = NoteListener.ListeningSettings(),
-)
+) {
+    /** [holdBeatOptions] as durations, which is what the rest of the trainer deals in. */
+    val holdChoices: List<Beats> get() = holdBeatOptions.map(Beats::of)
+}

@@ -15,7 +15,11 @@ local.properties
 # Gradle build output of every module
 build/
 
-additional/
+# Private reference material (scores, charts, PDFs). Only the icon sources are shared: they are
+# what tools/icons.map converts, see additional/icons/README.md.
+/additional/*
+!/additional/icons/
+
 # The Kotlin Gradle plugin writes per-project caches here.
 .kotlin/
 

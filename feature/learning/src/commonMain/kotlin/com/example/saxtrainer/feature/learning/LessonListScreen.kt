@@ -121,7 +121,7 @@ private fun LessonListPreview() {
         id = LessonId(id),
         title = title,
         subtitle = subtitle,
-        steps = listOf(LessonStep(TrainerId.FINGERING, launch)),
+        steps = listOf(LessonStep(TrainerId.NOTE_QUIZ, launch)),
     )
 
     SaxTrainerTheme {

@@ -10,7 +10,6 @@ package com.example.saxtrainer.core.settings
  */
 enum class Exercise {
     NOTE_TRAINER,
-    FINGERING,
     LONG_TONES,
     NOTE_QUIZ,
     SEQUENCE,

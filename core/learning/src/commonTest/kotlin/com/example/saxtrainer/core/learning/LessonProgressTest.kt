@@ -80,7 +80,7 @@ class LessonProgressTest {
 
     @Test
     fun `lessons are counted for a path summary`() {
-        val steps = listOf(LessonStep(TrainerId.FINGERING, object : TrainerLaunch {}))
+        val steps = listOf(LessonStep(TrainerId.NOTE_QUIZ, object : TrainerLaunch {}))
         val lessons = listOf(
             Lesson(LessonId("l1"), "1", "", steps),
             Lesson(LessonId("l2"), "2", "", steps),

@@ -13,7 +13,7 @@ import com.example.saxtrainer.learning.catalog.units.upperOctaveUnit
  *
  * One line per unit, in the order they are meant to be worked through. A unit is a group of notes
  * or a skill, never a trainer: its lessons use whichever trainers the topic needs, and a lesson may
- * use more than one. A new trainer adds a step adapter beside `catalog/steps/FingeringSteps.kt` and
+ * use more than one. A new trainer adds a step adapter beside `catalog/steps/NoteQuizSteps.kt` and
  * appears in whichever units want it; a new unit adds a file beside `catalog/units/OctaveUnit.kt`
  * and a line here. Neither touches the other.
  *

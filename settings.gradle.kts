@@ -74,7 +74,8 @@ include(":core:settings")
 include(":core:testing")
 include(":feature:metronome")
 include(":feature:longtones")
-include(":feature:fingering")
+// :feature:fingering is deprecated and deliberately not included: the Fingering Trainer is kept in
+// the repository for reference only. See feature/fingering/DEPRECATED.md.
 include(":feature:learning")
 include(":feature:sequence")
 include(":feature:notequiz")

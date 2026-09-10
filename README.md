@@ -8,21 +8,20 @@ entry point differ per platform, and each of those is one interface with two imp
 
 The tools are built around one ladder:
 
-> **Note Quiz** (recognise the note) -> **Fingering Trainer** (learn the grip) ->
-> **Note Trainer** (play it on sight) -> **Sequence Trainer** (play a line in time)
+> **Note Quiz** (recognise the note) -> **Note Trainer** (play it on sight) ->
+> **Sequence Trainer** (play a line in time)
 
 Each practice tool answers one question, and the separation between them is deliberate:
 
 | Tool | Question | Microphone |
 |---|---|---|
 | Note Quiz | "Which grip is this note?" / "Which note is this grip?" | never |
-| Fingering Trainer | "How is this note fingered?" | optional |
 | Note Trainer | "Can you play this note on sight?" | always |
 | Long Tones | "Can you hold it steady and in tune?" | always |
 | Sequence Trainer | "Can you play this line in time?" | optional |
 | Metronome | - | - |
 
-All six, the guided lessons and the settings are available on both platforms.
+All five, the guided lessons and the settings are available on both platforms.
 
 ## Platforms
 
@@ -63,7 +62,7 @@ core/testing           shared test fixtures: fake microphone, fake settings, sil
 feature/metronome      timing engine, screen, ViewModel
 feature/longtones      exercise state machine, DSP processing, screen, ViewModel
 feature/notequiz       note <-> fingering multiple choice, no audio at all
-feature/fingering      written note to fingering, optionally played and checked
+feature/fingering      DEPRECATED, not built: the old Fingering Trainer, kept for reference
 feature/notetrainer    read a note, play it, be told what was heard
 feature/sequence       scales and patterns in time, engraved on a staff
 feature/learning       the lesson list of one unit
@@ -279,8 +278,8 @@ on a real dispatcher and gives the thread back.
   never on the landing page, and never before a count-in has finished, so a click cannot be heard as
   a played note.
 - **Written pitch is what the player reads.** Long Tones stores concert pitch; everything built
-  around reading and fingering - the quiz, the fingering trainer, the note trainer, the sequence
-  trainer - stores the written note, because a written G is the same grip on every saxophone.
+  around reading and fingering - the quiz, the note trainer, the sequence trainer - stores the
+  written note, because a written G is the same grip on every saxophone.
   `Transposition` is applied at exactly one point, the comparison with the microphone, and nowhere
   else. The instrument is chosen in Settings (tenor Bb by default).
 - **The theme is one file** and takes no dynamic colour, so both platforms draw the same palette - a

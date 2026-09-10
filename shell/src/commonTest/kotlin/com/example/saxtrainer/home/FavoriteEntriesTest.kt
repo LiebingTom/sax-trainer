@@ -40,9 +40,17 @@ class FavoriteEntriesTest {
 
     @Test
     fun `a name no tool has is passed over rather than failing`() {
-        val entries = favoriteEntriesOf(setOf("EAR_TRAINING", TrainerId.FINGERING.name))
+        val entries = favoriteEntriesOf(setOf("EAR_TRAINING", TrainerId.NOTE_QUIZ.name))
 
-        assertEquals(listOf(TrainerId.FINGERING), entries.map { it.trainerId })
+        assertEquals(listOf(TrainerId.NOTE_QUIZ), entries.map { it.trainerId })
+    }
+
+    @Test
+    fun `a star left on the retired fingering trainer is passed over`() {
+        // Stored by a version that still had the tool; the name now resolves to nothing.
+        val entries = favoriteEntriesOf(setOf("FINGERING", TrainerId.NOTE_QUIZ.name))
+
+        assertEquals(listOf(TrainerId.NOTE_QUIZ), entries.map { it.trainerId })
     }
 
     @Test

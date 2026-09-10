@@ -4,15 +4,12 @@ import com.example.saxtrainer.core.learning.ExerciseOutcome
 import com.example.saxtrainer.core.learning.asLessonOutcome
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
-import com.example.saxtrainer.feature.fingering.FingeringResult
-import com.example.saxtrainer.feature.fingering.PractisedNote
 import com.example.saxtrainer.feature.notequiz.AnsweredQuestion
 import com.example.saxtrainer.feature.notequiz.QuizResult
 import com.example.saxtrainer.feature.notetrainer.NoteAttempt
 import com.example.saxtrainer.feature.notetrainer.NoteTrainerResult
 import com.example.saxtrainer.feature.sequence.NoteAttempt as SequenceNoteAttempt
 import com.example.saxtrainer.feature.sequence.SequenceResult
-import com.example.saxtrainer.learning.catalog.steps.fingeringOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.sequenceOutcomeOf
@@ -45,30 +42,6 @@ class LessonOutcomeMappingTest {
     @Test
     fun `a quiz stopped early does not complete a lesson`() {
         assertFalse(noteQuizOutcomeOf(quiz(answered = 3, planned = 10, right = 3)).completed)
-    }
-
-    // --- the fingering trainer -------------------------------------------------------------------
-
-    private fun fingering(played: Int, planned: Int, checked: Boolean, right: Int = 0) =
-        FingeringResult(
-            notes = List(played) { PractisedNote(c4, playedCorrectly = checked && it < right) },
-            plannedNoteCount = planned,
-            checked = checked,
-        )
-
-    @Test
-    fun `reaching the last note completes a fingering lesson`() {
-        val outcome = fingeringOutcomeOf(fingering(played = 8, planned = 8, checked = false))
-
-        assertTrue(outcome.completed)
-        assertNull(outcome.score, "nothing was listened to, so nothing is scored")
-    }
-
-    @Test
-    fun `a fingering lesson that listened is scored on what it heard`() {
-        val outcome = fingeringOutcomeOf(fingering(8, planned = 8, checked = true, right = 6))
-
-        assertEquals(0.75f, outcome.score!!, 1e-6f)
     }
 
     // --- the note trainer ------------------------------------------------------------------------

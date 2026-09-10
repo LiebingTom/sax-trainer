@@ -4,7 +4,6 @@ import com.example.saxtrainer.core.fingering.TenorSaxophoneFingerings
 import com.example.saxtrainer.core.learning.LessonProgressState
 import com.example.saxtrainer.core.learning.LessonStep
 import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.learning.catalog.steps.fingeringPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
 import com.example.saxtrainer.learning.catalog.steps.sequencePresetOf
@@ -44,7 +43,6 @@ class CurriculumStructureTest {
     /** Every way a step can be read, so a step read by two of them would be caught. */
     private val readers: List<Pair<String, (LessonStep) -> Any?>> = listOf(
         "note quiz" to ::noteQuizPresetOf,
-        "fingering" to ::fingeringPresetOf,
         "note trainer" to ::noteTrainerPresetOf,
         "sequence" to ::sequencePresetOf,
     )
@@ -52,7 +50,6 @@ class CurriculumStructureTest {
     /** The notes a step practises, whichever trainer it belongs to. */
     private fun notesOf(step: LessonStep): List<Note> = listOfNotNull(
         noteQuizPresetOf(step)?.notes,
-        fingeringPresetOf(step)?.notes,
         noteTrainerPresetOf(step)?.notes,
     ).flatten()
 
@@ -84,7 +81,6 @@ class CurriculumStructureTest {
         steps.forEach { step ->
             val preset = when (step.trainerId) {
                 com.example.saxtrainer.core.learning.TrainerId.NOTE_QUIZ -> noteQuizPresetOf(step)
-                com.example.saxtrainer.core.learning.TrainerId.FINGERING -> fingeringPresetOf(step)
                 com.example.saxtrainer.core.learning.TrainerId.NOTE_TRAINER ->
                     noteTrainerPresetOf(step)
 

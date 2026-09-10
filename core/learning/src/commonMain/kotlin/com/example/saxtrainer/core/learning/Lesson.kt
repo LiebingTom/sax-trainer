@@ -10,7 +10,6 @@ import kotlin.jvm.JvmInline
  */
 enum class TrainerId {
     NOTE_QUIZ,
-    FINGERING,
     NOTE_TRAINER,
     SEQUENCE,
     LONG_TONES,

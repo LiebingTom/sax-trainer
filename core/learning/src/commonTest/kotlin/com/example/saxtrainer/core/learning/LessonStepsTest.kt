@@ -47,8 +47,8 @@ class LessonStepsTest {
 
     @Test
     fun `there is no step past the last one, which is how a lesson says it is over`() {
-        assertNull(lesson(step(TrainerId.FINGERING)).stepAt(1))
-        assertNull(lesson(step(TrainerId.FINGERING)).stepAt(-1))
+        assertNull(lesson(step(TrainerId.NOTE_QUIZ)).stepAt(1))
+        assertNull(lesson(step(TrainerId.NOTE_QUIZ)).stepAt(-1))
     }
 
     @Test

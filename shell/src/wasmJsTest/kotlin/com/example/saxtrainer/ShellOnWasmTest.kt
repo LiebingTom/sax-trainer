@@ -58,7 +58,6 @@ class ShellOnWasmTest {
         listOf(
             // Every practice tool, microphone or not.
             "Note Quiz",
-            "Fingering Trainer",
             "Note Trainer",
             "Long Tones",
             "Sequence Trainer",
@@ -95,7 +94,6 @@ class ShellOnWasmTest {
         scrolledTo("Practice").performClick()
         waitUntil("the catalogue", BROWSER_TIMEOUT_MS) { shows("Know your notes") }
         openAndReturn(card = "Note Quiz", shownThere = "How many")
-        openAndReturn(card = "Fingering Trainer", shownThere = "Play the notes")
         openAndReturn(card = "Note Trainer", shownThere = "Show the fingering")
         openAndReturn(card = "Long Tones", shownThere = "Starting note")
         openAndReturn(card = "Sequence Trainer", shownThere = "Add inverse")
@@ -152,14 +150,14 @@ class ShellOnWasmTest {
 
         scrolledTo("Lessons").performClick()
         waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("The whole octave") }
-        scrolledTo("Your first five notes").performClick()
-        waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Finger them") }
+        scrolledTo("The whole octave").performClick()
+        waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Play the octave") }
 
-        onNodeWithText("Finger them").performClick()
+        onNodeWithText("Play the octave").performClick()
 
         // A ready-made exercise that starts by itself, so reaching the running trainer is the whole
-        // path: the lesson's preset, the fingering destination and the microphone behind it.
-        awaitInRealTime("the fingering exercise") { shows("Stop") }
+        // path: the lesson's preset, the note trainer destination and the microphone behind it.
+        awaitInRealTime("the note trainer exercise") { shows("Stop") }
     }
 }
 

@@ -5,15 +5,11 @@ import com.example.saxtrainer.core.exercise.SequenceLibrary
 import com.example.saxtrainer.core.learning.LearningUnit
 import com.example.saxtrainer.core.learning.Lesson
 import com.example.saxtrainer.core.learning.LessonId
-import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Tempo
-import com.example.saxtrainer.core.settings.NoteDisplay
-import com.example.saxtrainer.feature.fingering.FingeringPreset
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.feature.notequiz.QuizPreset
 import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
 import com.example.saxtrainer.feature.sequence.SequencePreset
-import com.example.saxtrainer.learning.catalog.steps.fingeringStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
 import com.example.saxtrainer.learning.catalog.steps.sequenceStep
@@ -23,9 +19,9 @@ import com.example.saxtrainer.learning.catalog.steps.sequenceStep
  *
  * The topic is one key rather than nine new grips. Every note here is a grip the player already
  * owns with the octave key added - D5 is D4 and the thumb, C6 is C5 and the thumb - which is why
- * the register is introduced a handful of notes at a time and then finished off across both
- * octaves at once. The reading is the other half of it: these notes sit on and above the top line
- * and are the first the player meets on ledger lines.
+ * the register is read, then played with the grip shown, and then finished off across both octaves
+ * at once. The reading is the other half of it: these notes sit on and above the top line and are
+ * the first the player meets on ledger lines.
  */
 const val UPPER_OCTAVE_UNIT_ID = "upper-octave"
 
@@ -34,38 +30,6 @@ val upperOctaveUnit = LearningUnit(
     title = "The octave key",
     description = "D to C above the staff: the grips you know, one octave up.",
     lessons = listOf(
-        Lesson(
-            id = LessonId("octave-key-first"),
-            title = "Add the octave key",
-            subtitle = "D, E, F and G again, with the thumb key",
-            steps = listOf(
-                fingeringStep(
-                    FingeringPreset(
-                        notes = OCTAVE_KEY_FIRST,
-                        order = NoteOrder.ORDERED,
-                        // Long, like the first lesson of all: the grip is known, the key is not.
-                        beatsPerNote = Beats.of(8),
-                        noteDisplay = NoteDisplay.STAFF,
-                    ),
-                ),
-            ),
-        ),
-        Lesson(
-            id = LessonId("octave-key-notes"),
-            title = "Up to top C",
-            subtitle = "The rest of the register, played as you go",
-            steps = listOf(
-                fingeringStep(
-                    FingeringPreset(
-                        notes = OCTAVE_KEY_NOTES,
-                        order = NoteOrder.ORDERED,
-                        beatsPerNote = Beats.of(5),
-                        checkPlaying = true,
-                        noteDisplay = NoteDisplay.STAFF,
-                    ),
-                ),
-            ),
-        ),
         Lesson(
             id = LessonId("upper-octave-read"),
             title = "Read them",

@@ -8,12 +8,10 @@ import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.core.settings.ExerciseSetup
 import com.example.saxtrainer.core.settings.UserLesson
 import com.example.saxtrainer.core.settings.UserLessonBook
-import com.example.saxtrainer.feature.fingering.fingeringPresetOf
 import com.example.saxtrainer.feature.longtones.longTonePresetOf
 import com.example.saxtrainer.feature.notequiz.quizPresetOf
 import com.example.saxtrainer.feature.notetrainer.noteTrainerPresetOf
 import com.example.saxtrainer.feature.sequence.sequencePresetOf
-import com.example.saxtrainer.learning.catalog.steps.fingeringStep
 import com.example.saxtrainer.learning.catalog.steps.longToneStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
@@ -81,7 +79,6 @@ private fun stepOf(saved: UserLesson): LessonStep? {
 
     return when (trainer) {
         TrainerId.NOTE_TRAINER -> noteTrainerPresetOf(setup)?.let(::noteTrainerStep)
-        TrainerId.FINGERING -> fingeringPresetOf(setup)?.let(::fingeringStep)
         TrainerId.NOTE_QUIZ -> quizPresetOf(setup)?.let(::noteQuizStep)
         TrainerId.SEQUENCE -> sequencePresetOf(setup)?.let(::sequenceStep)
         TrainerId.LONG_TONES -> longTonePresetOf(setup)?.let(::longToneStep)
@@ -101,7 +98,6 @@ fun trainerNameOf(trainerId: String): String? =
 
 private fun subtitleOf(trainer: TrainerId): String = when (trainer) {
     TrainerId.NOTE_QUIZ -> "Note Quiz"
-    TrainerId.FINGERING -> "Fingering Trainer"
     TrainerId.NOTE_TRAINER -> "Note Trainer"
     TrainerId.SEQUENCE -> "Sequence Trainer"
     TrainerId.LONG_TONES -> "Long Tones"

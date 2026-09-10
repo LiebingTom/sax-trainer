@@ -83,15 +83,6 @@ private val noteQuiz = HomeEntry(
     trainerId = TrainerId.NOTE_QUIZ,
 )
 
-private val fingering = HomeEntry(
-    id = "fingering",
-    title = "Fingering Trainer",
-    description = "Learn which keys to press for each written note.",
-    icon = IconSource.Vector(SaxTrainerIcons.Fingering),
-    route = SaxTrainerDestination.FINGERING,
-    trainerId = TrainerId.FINGERING,
-)
-
 private val noteTrainer = HomeEntry(
     id = "notetrainer",
     title = "Note Trainer",
@@ -131,12 +122,12 @@ private val metronome = HomeEntry(
 /**
  * The practice tools, grouped by the skill they train.
  *
- * Six cards in a flat list would say nothing about which tool answers which question, and the
- * difference between them is the whole point: recognise the note, learn the grip, play the note,
- * play a line. The headings are what make that visible without anybody reading a description.
+ * Five cards in a flat list would say nothing about which tool answers which question, and the
+ * difference between them is the whole point: recognise the note, play the note, play a line. The
+ * headings are what make that visible without anybody reading a description.
  */
 val practiceGroups: List<HomeGroup> = listOf(
-    HomeGroup("Know your notes", listOf(noteQuiz, fingering)),
+    HomeGroup("Know your notes", listOf(noteQuiz)),
     HomeGroup("Play your notes", listOf(noteTrainer, longTones)),
     HomeGroup("Play in time", listOf(sequence, metronome)),
 )
@@ -161,7 +152,7 @@ val appEntries: List<HomeEntry> = listOf(
     HomeEntry(
         id = "practice",
         title = "Practice",
-        description = "All six practice tools, grouped by what they train.",
+        description = "All five practice tools, grouped by what they train.",
         icon = IconSource.Vector(SaxTrainerIcons.NoteTrainer),
         route = SaxTrainerDestination.PRACTICE,
     ),

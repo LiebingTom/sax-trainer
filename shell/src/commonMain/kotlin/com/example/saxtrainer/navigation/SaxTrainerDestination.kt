@@ -9,7 +9,6 @@ object SaxTrainerDestination {
     const val METRONOME = "metronome"
     const val LONG_TONES = "longtones"
     const val NOTE_QUIZ = "notequiz"
-    const val FINGERING = "fingering"
     const val NOTE_TRAINER = "notetrainer"
     const val SEQUENCE = "sequence"
     const val SETTINGS = "settings"
@@ -30,7 +29,7 @@ object SaxTrainerDestination {
     const val LEARNING_UNIT = "learning/{$UNIT_ID_ARG}"
 
     /**
-     * The fingering trainer, optionally carrying the lesson step that asked for it.
+     * The note quiz, optionally carrying the lesson step that asked for it.
      *
      * Only the lesson's id, the step's position and whether it is being edited travel in the route:
      * the app resolves them back to a configuration from its own catalog, so nothing has to be
@@ -41,22 +40,18 @@ object SaxTrainerDestination {
      * Nothing in this layer escapes anything, so only ids the app generates may travel here. A
      * lesson the player saved is reached by its generated id; the name they typed never is.
      *
-     * Navigating to plain [FINGERING] matches this pattern with no lesson, which is the freely
+     * Navigating to plain [NOTE_QUIZ] matches this pattern with no lesson, which is the freely
      * configurable Practice entry.
      */
-    const val FINGERING_PATTERN = "$FINGERING?$LESSON_QUERY"
-
-    /** The other preset-carrying trainers, on the same terms as [FINGERING_PATTERN]. */
     const val NOTE_QUIZ_PATTERN = "$NOTE_QUIZ?$LESSON_QUERY"
+
+    /** The other preset-carrying trainers, on the same terms as [NOTE_QUIZ_PATTERN]. */
     const val NOTE_TRAINER_PATTERN = "$NOTE_TRAINER?$LESSON_QUERY"
     const val SEQUENCE_PATTERN = "$SEQUENCE?$LESSON_QUERY"
     const val LONG_TONES_PATTERN = "$LONG_TONES?$LESSON_QUERY"
 
     fun noteQuiz(lessonId: LessonId? = null, stepIndex: Int = 0, edit: Boolean = false): String =
         withLesson(NOTE_QUIZ, lessonId, stepIndex, edit)
-
-    fun fingering(lessonId: LessonId? = null, stepIndex: Int = 0, edit: Boolean = false): String =
-        withLesson(FINGERING, lessonId, stepIndex, edit)
 
     fun noteTrainer(lessonId: LessonId? = null, stepIndex: Int = 0, edit: Boolean = false): String =
         withLesson(NOTE_TRAINER, lessonId, stepIndex, edit)

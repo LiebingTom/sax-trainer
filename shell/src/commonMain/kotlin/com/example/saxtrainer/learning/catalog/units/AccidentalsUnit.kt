@@ -4,15 +4,11 @@ import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.learning.LearningUnit
 import com.example.saxtrainer.core.learning.Lesson
 import com.example.saxtrainer.core.learning.LessonId
-import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.feature.notequiz.QuizPreset
-import com.example.saxtrainer.feature.fingering.FingeringPreset
 import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
-import com.example.saxtrainer.learning.catalog.steps.fingeringStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
-import com.example.saxtrainer.core.music.Beats
 
 /**
  * B flat and F sharp: the two accidentals that turn up immediately, and the two grips that are
@@ -35,25 +31,6 @@ val accidentalsUnit = LearningUnit(
                         notes = ACCIDENTAL_NOTES,
                         mode = QuizMode.MIXED,
                         questionCount = 15,
-                    ),
-                ),
-            ),
-        ),
-        Lesson(
-            id = LessonId("fingering-4"),
-            title = "Finger them",
-            subtitle = "Read it either way: name or notation, at random",
-            steps = listOf(
-                fingeringStep(
-                    FingeringPreset(
-                        notes = ACCIDENTAL_NOTES,
-                        order = NoteOrder.RANDOM,
-                        beatsPerNote = Beats.of(5),
-                        rounds = 2,
-                        checkPlaying = true,
-                        // Each note comes up as its letter or on the staff, decided as the exercise
-                        // is built: the point of the lesson is that neither can be relied on.
-                        noteDisplay = NoteDisplay.RANDOM,
                     ),
                 ),
             ),

@@ -44,7 +44,6 @@ class UserLessonsTest {
     fun `every trainer that can be configured can be saved`() {
         val savable = listOf(
             TrainerId.NOTE_TRAINER to notes,
-            TrainerId.FINGERING to notes,
             TrainerId.NOTE_QUIZ to notes,
             TrainerId.SEQUENCE to exerciseSetup { put("sequence", "stepwise-up") },
             TrainerId.LONG_TONES to exerciseSetup {
@@ -69,6 +68,16 @@ class UserLessonsTest {
             .plusLesson("Ear training", UserLessonBook.DEFAULT_GROUP.id, "EAR_TRAINING", notes)
 
         assertEquals(emptyList(), userUnitsOf(book))
+    }
+
+    @Test
+    fun `a practice saved for the retired fingering trainer is passed over`() {
+        // Saved by a version that still had the trainer: not offered, and not an error.
+        val book = UserLessonBook()
+            .plusLesson("Old grips", UserLessonBook.DEFAULT_GROUP.id, "FINGERING", notes)
+
+        assertEquals(emptyList(), userUnitsOf(book))
+        assertEquals(null, trainerNameOf("FINGERING"))
     }
 
     @Test
@@ -138,7 +147,7 @@ class UserLessonsTest {
      */
     @Test
     fun `a practice saved before anything was changed is still startable`() {
-        val untouched = listOf(TrainerId.NOTE_TRAINER, TrainerId.FINGERING, TrainerId.NOTE_QUIZ)
+        val untouched = listOf(TrainerId.NOTE_TRAINER, TrainerId.NOTE_QUIZ)
 
         untouched.forEach { trainer ->
             val units = userUnitsOf(bookWith(trainer, ExerciseSetup.EMPTY))

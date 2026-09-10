@@ -23,7 +23,6 @@ import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.core.settings.Exercise
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
-import com.example.saxtrainer.feature.fingering.FingeringRoute
 import com.example.saxtrainer.feature.learning.LearningRoute
 import com.example.saxtrainer.feature.longtones.LongToneRoute
 import com.example.saxtrainer.feature.metronome.MetronomeRoute
@@ -38,8 +37,6 @@ import com.example.saxtrainer.home.MyLessonsScreen
 import com.example.saxtrainer.home.PracticeScreen
 import com.example.saxtrainer.home.learningEntriesOf
 import com.example.saxtrainer.learning.SavedSetupRepository
-import com.example.saxtrainer.learning.catalog.steps.fingeringOutcomeOf
-import com.example.saxtrainer.learning.catalog.steps.fingeringPresetOf
 import com.example.saxtrainer.learning.catalog.steps.longToneOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.longTonePresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizOutcomeOf
@@ -168,26 +165,6 @@ fun SaxTrainerNavHost(
             )
         }
         lessonStep(
-            pattern = SaxTrainerDestination.FINGERING_PATTERN,
-            container = container,
-            curriculum = curriculum,
-            navController = navController,
-        ) { step ->
-            // No lesson argument is the freely configurable Practice entry, which is what every
-            // default in FingeringRoute describes.
-            FingeringRoute(
-                settingsRepository = container.settingsRepository,
-                exerciseSetups = step.exerciseSetups,
-                audioCapture = container.audioCapture,
-                newMetronome = container.newMetronome,
-                preset = step.stepOf(::fingeringPresetOf)
-                    ?.copy(autoStart = !step.editing, editable = step.editing),
-                onAddToLessons = step.addToLessons(navController, Exercise.FINGERING),
-                onExerciseFinished = { result -> step.finish(fingeringOutcomeOf(result)) },
-                onBack = { navController.popBackStack() },
-            )
-        }
-        lessonStep(
             pattern = SaxTrainerDestination.NOTE_TRAINER_PATTERN,
             container = container,
             curriculum = curriculum,
@@ -286,7 +263,6 @@ private fun AppContainer.star(trainerId: TrainerId, favorite: Boolean) {
 /** Which trainer an exercise's setup belongs to. The other half of [Exercise]'s own naming. */
 private fun trainerFor(exercise: Exercise): TrainerId = when (exercise) {
     Exercise.NOTE_TRAINER -> TrainerId.NOTE_TRAINER
-    Exercise.FINGERING -> TrainerId.FINGERING
     Exercise.LONG_TONES -> TrainerId.LONG_TONES
     Exercise.NOTE_QUIZ -> TrainerId.NOTE_QUIZ
     Exercise.SEQUENCE -> TrainerId.SEQUENCE
@@ -468,7 +444,6 @@ private fun NavHostController.finishStep(
 private fun routeForStep(lesson: Lesson, stepIndex: Int, edit: Boolean = false): String? =
     when (lesson.stepAt(stepIndex)?.trainerId) {
         TrainerId.NOTE_QUIZ -> SaxTrainerDestination.noteQuiz(lesson.id, stepIndex, edit)
-        TrainerId.FINGERING -> SaxTrainerDestination.fingering(lesson.id, stepIndex, edit)
         TrainerId.NOTE_TRAINER -> SaxTrainerDestination.noteTrainer(lesson.id, stepIndex, edit)
         TrainerId.SEQUENCE -> SaxTrainerDestination.sequence(lesson.id, stepIndex, edit)
         TrainerId.LONG_TONES -> SaxTrainerDestination.longTones(lesson.id, stepIndex, edit)

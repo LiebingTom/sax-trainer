@@ -58,7 +58,6 @@ kotlin {
 
             // The trainers, all of which the catalog configures by name: a lesson step carries the
             // trainer's own preset type, so these are part of this module's surface.
-            api(project(":feature:fingering"))
             api(project(":feature:longtones"))
             api(project(":feature:notequiz"))
             api(project(":feature:notetrainer"))

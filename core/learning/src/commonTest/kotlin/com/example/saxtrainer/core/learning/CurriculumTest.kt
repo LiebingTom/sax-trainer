@@ -14,7 +14,7 @@ class CurriculumTest {
     private fun lesson(
         id: String,
         requires: String? = null,
-        vararg trainers: TrainerId = arrayOf(TrainerId.FINGERING),
+        vararg trainers: TrainerId = arrayOf(TrainerId.NOTE_QUIZ),
     ) = Lesson(
         id = LessonId(id),
         title = id,

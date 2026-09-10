@@ -6,22 +6,18 @@ import com.example.saxtrainer.core.learning.LearningUnit
 import com.example.saxtrainer.core.learning.Lesson
 import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.music.Tempo
-import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.feature.notequiz.QuizPreset
-import com.example.saxtrainer.feature.fingering.FingeringPreset
 import com.example.saxtrainer.feature.sequence.SequencePreset
 import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
-import com.example.saxtrainer.learning.catalog.steps.fingeringStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
 import com.example.saxtrainer.learning.catalog.steps.sequenceStep
-import com.example.saxtrainer.core.music.Beats
 
 /**
  * The whole first octave, ending on the first thing that sounds like music.
  *
- * The same four skills as the first unit, on eight notes instead of five, and then C major in time -
+ * The same skills as the first unit, on eight notes instead of five, and then C major in time -
  * which is what the notes were for.
  */
 const val OCTAVE_UNIT_ID = "octave"
@@ -41,23 +37,6 @@ val octaveUnit = LearningUnit(
                         notes = OCTAVE_NOTES,
                         mode = QuizMode.MIXED,
                         questionCount = 15,
-                    ),
-                ),
-            ),
-        ),
-        Lesson(
-            id = LessonId("fingering-3"),
-            title = "Finger the octave",
-            subtitle = "All eight notes, mixed up, played as you go",
-            steps = listOf(
-                fingeringStep(
-                    FingeringPreset(
-                        notes = OCTAVE_NOTES,
-                        order = NoteOrder.RANDOM,
-                        beatsPerNote = Beats.of(5),
-                        rounds = 2,
-                        checkPlaying = true,
-                        noteDisplay = NoteDisplay.STAFF,
                     ),
                 ),
             ),

@@ -1,6 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="jar" name="learning-wasm-js">
-    <output-path>$PROJECT_DIR$/feature/learning/build/libs</output-path>
-    <root id="archive" name="learning-wasm-js.jar" />
-  </artifact>
-</component>

@@ -1,12 +1,10 @@
 *.iml
 .gradle
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+# Android Studio / IntelliJ project files: machine-specific, and rewritten on every Gradle sync.
+# Only the shared code style is kept under version control.
+/.idea/*
+!/.idea/codeStyles/
 .DS_Store
 /build
 /captures

@@ -1,8 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="jar" name="music-wasm-js">
-    <output-path>$PROJECT_DIR$/core/music/build/libs</output-path>
-    <root id="archive" name="music-wasm-js.jar">
-      <element id="module-output" name="sax-trainer.core.music.wasmJsMain" />
-    </root>
-  </artifact>
-</component>

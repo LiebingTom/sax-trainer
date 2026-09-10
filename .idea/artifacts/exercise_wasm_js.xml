@@ -1,6 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="jar" name="exercise-wasm-js">
-    <output-path>$PROJECT_DIR$/core/exercise/build/libs</output-path>
-    <root id="archive" name="exercise-wasm-js.jar" />
-  </artifact>
-</component>

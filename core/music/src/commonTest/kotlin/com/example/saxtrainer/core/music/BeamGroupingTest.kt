@@ -93,4 +93,24 @@ class BeamGroupingTest {
         assertEquals(0, sequence.beamCountOf(0))
         assertEquals(null, sequence.notatedDurationOf(0))
     }
+
+    /** Eighths, some of them silent: a rest has no stem for a beam to reach. */
+    private fun withRests(vararg beamed: Boolean) = ToneSequence(
+        steps = beamed.mapIndexed { index, sounds ->
+            if (sounds) ToneStep(note(index), eighth.beats()) else ToneStep.rest(eighth.beats())
+        },
+    )
+
+    @Test
+    fun `a rest breaks the beam it stands in`() {
+        // Eighth, rest, eighth, eighth: the first is left alone in its beat and keeps its flag,
+        // and only the pair in the second beat is joined.
+        assertEquals(listOf(2..3), withRests(true, false, true, true).beamGroups())
+    }
+
+    @Test
+    fun `two eighths either side of a rest are not one group`() {
+        assertEquals(emptyList<IntRange>(), withRests(true, false).beamGroups())
+    }
+
 }

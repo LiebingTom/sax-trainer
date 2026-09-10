@@ -101,6 +101,7 @@ class LessonOutcomeMappingTest {
             sequenceName = "C Major",
             attempts = List(8) { SequenceNoteAttempt(it, c4, pitchCorrect = null, timing = null) },
             plannedNoteCount = 8,
+            completed = true,
             checkedPitch = false,
             checkedTiming = false,
         )

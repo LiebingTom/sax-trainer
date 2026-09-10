@@ -14,9 +14,9 @@ import com.example.saxtrainer.core.music.ToneStep
  * Data, deliberately outside any feature: adding a scale is one entry here and nothing else. Notes
  * are written pitch, so these are the scales as they appear on the player's own part.
  *
- * No note crosses a bar line in any of these - nor in any of them played back down or repeated -
- * because writing one that does needs a tie and this app does not write ties yet. That is a limit of
- * the engraving, not of the model.
+ * No note crosses a bar line in any of these - nor in any of them played back down or repeated - so
+ * none of them needs a tie. That is how they happen to be written rather than a limit: the notation
+ * ties a note over a bar line where one asks for it.
  *
  * There is no "up and down" entry: playing a scale back down is a setting the trainer offers for
  * every sequence here, which is strictly more than one more entry would give.
@@ -33,6 +33,9 @@ object SequenceLibrary {
     private fun note(name: NoteName, octave: Int) = Note(name, octave)
 
     private infix fun Note.lasting(duration: NotatedDuration) = ToneStep(this, duration.beats())
+
+    /** A beat of silence, counted like any other beat. */
+    private val REST = ToneStep.rest(QUARTER.beats())
 
     /** Every note the same length, which is how a scale is normally practised. */
     private fun List<Note>.each(duration: NotatedDuration) = map { it lasting duration }
@@ -129,6 +132,42 @@ object SequenceLibrary {
         suggestedTempo = Tempo(66),
     )
 
+    /**
+     * `| C D E G | G E D C | C rest D E | G rest E rest |`
+     *
+     * Four bars of quarter notes with rests in the second half, on the five notes a beginner meets
+     * first. The rests are the point: counting through a bar where nothing is played is a different
+     * skill from playing one, and it is easier to learn on notes that need no thinking about.
+     */
+    val restsAndSteps = SequenceDefinition(
+        id = "rests_and_steps",
+        name = "Rests and steps",
+        description = "Four bars on the first five notes, with rests to count through.",
+        category = SequenceCategory.PATTERN,
+        steps = listOf(
+            note(NoteName.C, 4) lasting QUARTER,
+            note(NoteName.D, 4) lasting QUARTER,
+            note(NoteName.E, 4) lasting QUARTER,
+            note(NoteName.G, 4) lasting QUARTER,
+
+            note(NoteName.G, 4) lasting QUARTER,
+            note(NoteName.E, 4) lasting QUARTER,
+            note(NoteName.D, 4) lasting QUARTER,
+            note(NoteName.C, 4) lasting QUARTER,
+
+            note(NoteName.C, 4) lasting QUARTER,
+            REST,
+            note(NoteName.D, 4) lasting QUARTER,
+            note(NoteName.E, 4) lasting QUARTER,
+
+            note(NoteName.G, 4) lasting QUARTER,
+            REST,
+            note(NoteName.E, 4) lasting QUARTER,
+            REST,
+        ),
+        suggestedTempo = Tempo(72),
+    )
+
     /** Everything, in the order a menu should offer it. */
     val all: List<SequenceDefinition> = listOf(
         cMajorUp,
@@ -136,6 +175,7 @@ object SequenceLibrary {
         fMajorUp,
         upAndBack,
         dottedSteps,
+        restsAndSteps,
     )
 
     val byCategory: Map<SequenceCategory, List<SequenceDefinition>> = all.groupBy { it.category }

@@ -103,6 +103,14 @@ data class StaffNotePlacement(
     val notated: NotatedDuration?,
     val style: StaffNoteStyle = StaffNoteStyle.HEAD,
     /**
+     * True where this is a silence rather than a note.
+     *
+     * A rest still has a [placement] - the line it is registered on - because that is where it is
+     * drawn, and it still takes its room in the line, because that is what a rest is for. What it
+     * has no part in is anything that belongs to a pitch: no accidental, no stem, no beam, no tie.
+     */
+    val isRest: Boolean = false,
+    /**
      * True when the head after this one is the same sounding note still going.
      *
      * A held note that crosses a bar line is written as two heads with a tie between them, so
@@ -183,7 +191,10 @@ object StaffLayoutBuilder {
         var nextBarBeat = beatsPerBar
 
         written.forEachIndexed { position, piece ->
-            val spelling = TrebleStaff.placementOf(piece.note, sequence.accidentalStyle)
+            val spelling = piece.note?.let { TrebleStaff.placementOf(it, sequence.accidentalStyle) }
+                // A rest is registered on the middle line whatever is around it: it says how long
+                // the silence is, not how high it is.
+                ?: StaffPlacement(REST_LINE_STEP, Accidental.NONE)
             // The far end of a tie is the same note still sounding, so it does not say its
             // accidental again - the first head already did, and repeating it would read as a
             // second alteration.
@@ -201,7 +212,9 @@ object StaffLayoutBuilder {
                 while (nextBarBeat <= startBeat + BEAT_TOLERANCE) nextBarBeat += beatsPerBar
             }
 
-            val style = styleOf(piece.stepIndex)
+            // A rest is always drawn. Writing a note as its name is a display choice about a
+            // pitch, and a rest has no pitch to have a name.
+            val style = if (piece.note == null) StaffNoteStyle.HEAD else styleOf(piece.stepIndex)
             // A written name carries its own accidental in its letters and has no dots to hang off
             // it, so it needs neither of those rooms - only a box of its own to sit in the middle of.
             val accidentalRoom = when {
@@ -222,6 +235,7 @@ object StaffLayoutBuilder {
                 notated = piece.notated,
                 style = style,
                 tiedToNext = piece.tiedToNext,
+                isRest = piece.note == null,
             )
 
             val dots = piece.notated?.dots ?: 0
@@ -235,12 +249,19 @@ object StaffLayoutBuilder {
             }
         }
 
-        // Beams reach past the end of a stem, so the drawing needs a little more room than the notes
-        // strictly ask for; padding the range keeps every note the same size whatever is beamed.
-        val extent = staffStepRange(sequence.notes, sequence.accidentalStyle)
+        // A row of a page can be a bar of nothing but rests, which asks for no room of its own:
+        // the plain staff is exactly what it needs.
+        val extent = if (sequence.notes.isEmpty()) {
+            0..TOP_LINE_STEP
+        } else {
+            staffStepRange(sequence.notes, sequence.accidentalStyle)
+        }
         // A written name is taller than the head it stands in for, and a clef reaches past both
         // outer lines. Either one clipped is the easiest way to get this wrong, so both are asked.
         val nameRoom = if (notes.any { it.style == StaffNoteStyle.NAME }) LABEL_HEADROOM_STEPS else 0
+        // Beams reach past the end of a stem, so the drawing needs a little more room than the
+        // notes strictly ask for; padding the range keeps every note the same size whatever is
+        // beamed.
         val stepRange = ((extent.first - BEAM_HEADROOM_STEPS - nameRoom)..
             (extent.last + BEAM_HEADROOM_STEPS + nameRoom)).including(prefix.stepRange)
 
@@ -269,6 +290,7 @@ object StaffLayoutBuilder {
     ): List<NotatedNote> {
         return sequence.notatedReading().mapNotNull { piece ->
             when {
+                piece.note == null -> piece
                 styleOf(piece.stepIndex) == StaffNoteStyle.HEAD -> piece
                 piece.continuesPrevious -> null
                 else -> piece.copy(
@@ -302,7 +324,8 @@ object StaffLayoutBuilder {
             if (!piece.continuesPrevious) positionOfStep.getOrPut(piece.stepIndex) { position }
         }
         val drawnAt = { position: Int ->
-            styleOf(written[position].stepIndex) == StaffNoteStyle.HEAD
+            written[position].note != null &&
+                styleOf(written[position].stepIndex) == StaffNoteStyle.HEAD
         }
 
         return sequence.beamGroups().mapNotNull { steps ->
@@ -344,6 +367,9 @@ object StaffLayoutBuilder {
     private const val DURATION_ADVANCE = 2.6
     private const val DURATION_EXPONENT = 0.7
     private const val BEAM_HEADROOM_STEPS = 2
+
+    /** The middle line, which is what every rest but the whole rest is registered on. */
+    private const val REST_LINE_STEP = 4
 
     /** A name written on the line it belongs to overhangs it; one step either side covers that. */
     private const val LABEL_HEADROOM_STEPS = 1

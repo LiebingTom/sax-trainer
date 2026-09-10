@@ -24,6 +24,10 @@ sealed interface SequencePhase {
 /**
  * How one note of the sequence turned out.
  *
+ * There is no attempt for a rest. A silence is not something a player gets right or wrong, so it is
+ * not graded at all - which is why [index] is carried explicitly: it numbers the step in the whole
+ * sequence, and rests leave gaps in the numbering.
+ *
  * Pitch and timing are separate answers to separate questions, and either can be null because the
  * check was switched off - which is not the same as failing it. "Right note, late" is a normal thing
  * to be told, and so is "nothing was measured".
@@ -39,12 +43,15 @@ data class NoteAttempt(
 
 data class SequenceResult(
     val sequenceName: String,
+    /** One per note reached, rests left out; [NoteAttempt.index] says which step each one was. */
     val attempts: List<NoteAttempt>,
+    /** Notes the sequence asks for, rests not counted: nobody plays a rest. */
     val plannedNoteCount: Int,
+    /** True when the sequence ran to its end, rather than being stopped part way through. */
+    val completed: Boolean,
     val checkedPitch: Boolean,
     val checkedTiming: Boolean,
 ) {
-    val completed: Boolean get() = attempts.size == plannedNoteCount
 
     val correctCount: Int get() = attempts.count { it.pitchCorrect == true }
 
@@ -58,7 +65,8 @@ data class SequenceProgress(
     /** Which time through, counted from zero, and how many times in all. */
     val passIndex: Int,
     val passCount: Int,
-    val currentNote: Note,
+    /** The note being played, or null while the sequence is resting. */
+    val currentNote: Note?,
     val elapsedBeats: Beats,
     val totalBeats: Beats,
     /** Where the note on screen starts and ends, so its own share of the run can be drawn. */

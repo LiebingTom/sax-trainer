@@ -14,7 +14,9 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.Dp
 import com.example.saxtrainer.core.music.Accidental
 import com.example.saxtrainer.core.music.AccidentalStyle
+import com.example.saxtrainer.core.music.NotatedDuration
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.NoteValue
 import com.example.saxtrainer.core.music.conventionalStyle
 import com.example.saxtrainer.core.music.StaffPlacement
 import com.example.saxtrainer.core.music.TimeSignature
@@ -31,8 +33,8 @@ import kotlin.math.min
  * display.
  *
  * This is an intentionally small engraving engine. It draws heads, stems, flags, beams, dots,
- * accidentals, ledger lines, bar lines and the clef - enough for the simple exercises the app
- * ships. It does not draw key signatures, rests, ties or tuplets. Where a simplification is made,
+ * accidentals, ledger lines, bar lines, rests, ties and the clef - enough for the simple exercises
+ * the app ships. It does not draw key signatures or tuplets. Where a simplification is made,
  * it is named as this engine's rule rather than dressed up as a general one.
  *
  * The letterforms - heads, flags, accidentals, dots, bar lines, the clef - are outlines in
@@ -330,6 +332,40 @@ internal fun DrawScope.drawTie(
     drawPath(path = tie, color = color)
 }
 
+/**
+ * A rest, centred on [centerX].
+ *
+ * Which shape says how long the silence is, exactly as a head's shape says how long a note is, so
+ * this reads the written value and nothing else. A duration with no single written form is drawn as
+ * a quarter rest: the same honesty the heads have, where an unwritable length is drawn as the plain
+ * shape rather than guessed at with dots and flags.
+ *
+ * Rests are registered on the middle line, which is where they are drawn - except the whole rest,
+ * which hangs under the line above it, as it does on any printed page.
+ */
+internal fun DrawScope.drawRest(
+    geometry: StaffGeometry,
+    notated: NotatedDuration?,
+    color: Color,
+    centerX: Float,
+) {
+    val (glyph, width) = when (notated?.value) {
+        NoteValue.WHOLE -> BravuraGlyphs.restWhole to BravuraGlyphs.REST_WHOLE_WIDTH
+        NoteValue.HALF -> BravuraGlyphs.restHalf to BravuraGlyphs.REST_HALF_WIDTH
+        NoteValue.EIGHTH -> BravuraGlyphs.rest8th to BravuraGlyphs.REST_8TH_WIDTH
+        NoteValue.SIXTEENTH -> BravuraGlyphs.rest16th to BravuraGlyphs.REST_16TH_WIDTH
+        NoteValue.QUARTER, null -> BravuraGlyphs.restQuarter to BravuraGlyphs.REST_QUARTER_WIDTH
+    }
+    val step = if (notated?.value == NoteValue.WHOLE) WHOLE_REST_STEP else REST_STEP
+    drawGlyph(
+        geometry = geometry,
+        path = glyph,
+        color = color,
+        x = centerX - width * geometry.spacing / 2f,
+        y = geometry.y(step),
+    )
+}
+
 /** Which of the three bar lines is meant. */
 internal enum class BarLineStyle {
     /** One thin line: the end of a bar. */
@@ -455,6 +491,12 @@ internal fun timeSignatureWidthSpaces(timeSignature: TimeSignature): Float = max
     digitsWidth(timeSignature.beatsPerBar.toString()),
     digitsWidth(timeSignature.beatUnit.toString()),
 )
+
+/** The middle line: where a rest is registered, and so where its glyph is anchored. */
+private const val REST_STEP = 4
+
+/** The fourth line, which a whole rest hangs under rather than sits on. */
+private const val WHOLE_REST_STEP = 6
 
 /** The line each number is centred on: the staff's upper half, then its lower half. */
 private const val TIME_SIGNATURE_TOP_STEP = 6

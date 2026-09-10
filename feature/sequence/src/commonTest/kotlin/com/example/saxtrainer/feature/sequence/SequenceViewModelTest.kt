@@ -41,6 +41,7 @@ import kotlin.test.assertNotNull
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.Exercise
+import com.example.saxtrainer.core.music.soundedNote
 
 /**
  * The trainer, driven by virtual time.
@@ -356,7 +357,7 @@ class SequenceViewModelTest {
         viewModel.setTempo(60)
 
         // A written C4 on a tenor sounds a whole tone and an octave lower.
-        microphone.frequencyHz = soundingFrequencyOf(viewModel.uiState.value.sequence.steps[0].note)
+        microphone.frequencyHz = soundingFrequencyOf(viewModel.uiState.value.sequence.steps[0].soundedNote)
 
         viewModel.start()
         advanceTimeBy(400)
@@ -378,7 +379,7 @@ class SequenceViewModelTest {
         viewModel.setTempo(60)
 
         // The fifth note of the scale, played while the first is being asked for.
-        microphone.frequencyHz = soundingFrequencyOf(viewModel.uiState.value.sequence.steps[4].note)
+        microphone.frequencyHz = soundingFrequencyOf(viewModel.uiState.value.sequence.steps[4].soundedNote)
 
         viewModel.start()
         advanceTimeBy(400)
@@ -435,7 +436,7 @@ class SequenceViewModelTest {
             viewModel.setTempo(60)
 
             val steps = viewModel.uiState.value.sequence.steps
-            microphone.frequencyHz = soundingFrequencyOf(steps[0].note)
+            microphone.frequencyHz = soundingFrequencyOf(steps[0].soundedNote)
 
             viewModel.start()
             advanceTimeBy(300)
@@ -483,7 +484,7 @@ class SequenceViewModelTest {
             viewModel.start()
             // The second note is due one second in; play it four tenths late.
             advanceTimeBy(1_400)
-            microphone.frequencyHz = soundingFrequencyOf(steps[1].note)
+            microphone.frequencyHz = soundingFrequencyOf(steps[1].soundedNote)
             advanceTimeBy(300)
             microphone.frequencyHz = null
             advanceUntilIdle()
@@ -687,7 +688,7 @@ class SequenceViewModelTest {
         val viewModel = viewModel(settings = settings)
         advanceUntilIdle()
 
-        val b = viewModel.uiState.value.sequence.steps[6].note
+        val b = viewModel.uiState.value.sequence.steps[6].soundedNote
         assertEquals("B4", viewModel.uiState.value.nameOf(b))
 
         settings.setNoteNaming(NoteNaming.GERMAN)
@@ -703,7 +704,7 @@ class SequenceViewModelTest {
         viewModel.selectSequence(SequenceLibrary.fMajorUp.id)
         advanceUntilIdle()
 
-        val fourth = viewModel.uiState.value.sequence.steps[3].note
+        val fourth = viewModel.uiState.value.sequence.steps[3].soundedNote
         assertEquals("B♭4", viewModel.uiState.value.nameOf(fourth))
 
         settings.setNoteNaming(NoteNaming.GERMAN)
@@ -719,7 +720,7 @@ class SequenceViewModelTest {
         viewModel.selectSequence(SequenceLibrary.gMajorUp.id)
         advanceUntilIdle()
 
-        val seventh = viewModel.uiState.value.sequence.steps[6].note
+        val seventh = viewModel.uiState.value.sequence.steps[6].soundedNote
         assertEquals("F♯5", viewModel.uiState.value.nameOf(seventh))
 
         settings.setNoteNaming(NoteNaming.GERMAN)
@@ -778,6 +779,75 @@ class SequenceViewModelTest {
         viewModel(setups = setups).rememberSetupNow()
 
         assertFalse(setups.setupOf(Exercise.SEQUENCE).isEmpty)
+    }
+
+
+    // --- rests ------------------------------------------------------------------------------------
+
+    @Test
+    fun `a rest is a step to walk through, not a note to play`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.selectSequence(SequenceLibrary.restsAndSteps.id)
+        viewModel.playOnce()
+        viewModel.setTempo(120)
+
+        viewModel.start()
+        advanceUntilIdle()
+
+        val result = (viewModel.uiState.value.phase as SequencePhase.Finished).result
+        assertTrue(result.completed, "the clock ran to the end")
+        assertEquals(13, result.attempts.size, "thirteen notes, three rests")
+        assertEquals(13, result.plannedNoteCount, "nobody is asked to play a silence")
+        assertEquals(
+            listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 14),
+            result.attempts.map { it.index },
+            "attempts are numbered by step, so the rests leave gaps at 9, 13 and 15",
+        )
+    }
+
+    @Test
+    fun `the cursor stops on a rest and says so`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.selectSequence(SequenceLibrary.restsAndSteps.id)
+        viewModel.playOnce()
+        viewModel.setTempo(60)
+
+        viewModel.start()
+        // Nine quarters at sixty is nine seconds, which lands on the rest at step nine.
+        advanceTimeBy(9_500)
+
+        val progress = assertNotNull(viewModel.uiState.value.progress)
+        assertEquals(9, progress.noteIndex)
+        assertNull(progress.currentNote, "there is no note to name during a rest")
+        assertFalse(progress.isCorrect, "and nothing to get right")
+
+        viewModel.stop()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `playing through a rest is not credited to it`() = runTest(dispatcher) {
+        val microphone = FakeMicrophone(frameDurationMs = 20)
+        val viewModel = viewModel(microphone)
+        viewModel.selectSequence(SequenceLibrary.restsAndSteps.id)
+        viewModel.playOnce()
+        viewModel.setCheckPitch(true)
+        viewModel.setTempo(60)
+
+        viewModel.start()
+        advanceTimeBy(8_200)
+        // The note before the rest, held straight through the silence that follows it.
+        microphone.frequencyHz =
+            soundingFrequencyOf(viewModel.uiState.value.sequence.steps[8].soundedNote)
+        advanceTimeBy(2_000)
+        viewModel.stop()
+        advanceUntilIdle()
+
+        val result = (viewModel.uiState.value.phase as SequencePhase.Finished).result
+        assertTrue(
+            result.attempts.none { it.index == 9 },
+            "step nine is a rest and is never an attempt",
+        )
     }
 
 }

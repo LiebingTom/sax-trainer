@@ -28,7 +28,7 @@ class SequenceShapingTest {
 
         assertEquals(
             listOf("C4", "D4", "E4", "D4", "C4"),
-            there.steps.map { it.note.label },
+            there.steps.map { it.soundedNote.label },
         )
     }
 
@@ -101,7 +101,7 @@ class SequenceShapingTest {
         assertEquals(10, shaped.steps.size)
         assertEquals(
             listOf("C4", "D4", "E4", "D4", "C4", "C4", "D4", "E4", "D4", "C4"),
-            shaped.steps.map { it.note.label },
+            shaped.steps.map { it.soundedNote.label },
         )
     }
 }

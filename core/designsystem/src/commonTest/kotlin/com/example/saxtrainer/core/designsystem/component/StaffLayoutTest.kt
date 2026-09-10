@@ -338,4 +338,97 @@ class StaffLayoutTest {
         /** A stand-in for a measured name; the layout only ever gets a number. */
         const val LABEL_WIDTH = 3f
     }
+
+    // --- rests ----------------------------------------------------------------------------------
+
+    /** The middle line, where every rest but the whole rest is registered. */
+    private val restLine = 4
+
+    @Test
+    fun `a rest is placed on the middle line and says nothing about pitch`() {
+        val layout = StaffLayoutBuilder.of(
+            ToneSequence(
+                steps = listOf(
+                    ToneStep(note(NoteName.C), quarter.beats()),
+                    ToneStep.rest(quarter.beats()),
+                ),
+            )
+        )
+
+        val rest = layout.notes[1]
+        assertTrue(rest.isRest)
+        assertEquals(restLine, rest.placement.stepsFromBottomLine)
+        assertEquals(Accidental.NONE, rest.placement.accidental)
+        assertEquals(NoteValue.QUARTER, rest.notated!!.value, "a rest is written as a length")
+        assertFalse(rest.tiedToNext, "a silence is never held over")
+    }
+
+    @Test
+    fun `a rest takes exactly the room a note of the same length takes`() {
+        val played = StaffLayoutBuilder.of(
+            sequence(note(NoteName.C) to quarter, note(NoteName.D) to quarter),
+        )
+        val rested = StaffLayoutBuilder.of(
+            ToneSequence(
+                steps = listOf(
+                    ToneStep(note(NoteName.C), quarter.beats()),
+                    ToneStep.rest(quarter.beats()),
+                ),
+            )
+        )
+
+        assertEquals(played.widthSpaces, rested.widthSpaces)
+        assertEquals(played.notes[1].headXSpaces, rested.notes[1].headXSpaces)
+    }
+
+    @Test
+    fun `a bar of nothing but rests still gets a staff to draw them on`() {
+        // A row of a page can be exactly this, and asking a piece with no notes in it how much
+        // vertical room its notes need is the easiest way to fall over.
+        val layout = StaffLayoutBuilder.of(
+            ToneSequence(steps = List(4) { ToneStep.rest(quarter.beats()) }),
+        )
+
+        assertEquals(4, layout.notes.size)
+        assertTrue(layout.notes.all { it.isRest })
+        assertTrue(layout.stepRange.first <= 0 && layout.stepRange.last >= 8, "the five lines fit")
+    }
+
+    @Test
+    fun `a rest is drawn as a rest even where the notes are written as names`() {
+        val layout = StaffLayoutBuilder.of(
+            sequence = ToneSequence(
+                steps = listOf(
+                    ToneStep(note(NoteName.C), quarter.beats()),
+                    ToneStep.rest(quarter.beats()),
+                ),
+            ),
+            styles = listOf(StaffNoteStyle.NAME, StaffNoteStyle.NAME),
+            labelWidthSpaces = 3f,
+        )
+
+        assertEquals(StaffNoteStyle.NAME, layout.notes[0].style)
+        assertEquals(
+            StaffNoteStyle.HEAD,
+            layout.notes[1].style,
+            "a rest has no pitch, so it has no name to be written as",
+        )
+    }
+
+    @Test
+    fun `a rest breaks a beam rather than joining it`() {
+        val layout = StaffLayoutBuilder.of(
+            ToneSequence(
+                steps = listOf(
+                    ToneStep(note(NoteName.C), eighth.beats()),
+                    ToneStep.rest(eighth.beats()),
+                    ToneStep(note(NoteName.D), eighth.beats()),
+                    ToneStep(note(NoteName.E), eighth.beats()),
+                ),
+            )
+        )
+
+        assertEquals(listOf(2..3), layout.beamGroups)
+    }
+
 }

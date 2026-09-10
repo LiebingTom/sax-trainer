@@ -37,9 +37,14 @@ fun ToneSequence.beamGroups(): List<IntRange> {
     return groups
 }
 
-/** How many beams or flags the step at [index] carries; zero for a quarter note or longer. */
+/**
+ * How many beams or flags the step at [index] carries; zero for a quarter note or longer.
+ *
+ * Zero for a rest whatever its length. A rest has no stem for a beam to reach, so a rest inside a
+ * run of eighths breaks the beam rather than joining it - which is what [beamGroups] then does.
+ */
 fun ToneSequence.beamCountOf(index: Int): Int =
-    notatedDurationOf(index)?.value?.beamCount ?: 0
+    if (steps[index].isRest) 0 else notatedDurationOf(index)?.value?.beamCount ?: 0
 
 /**
  * How the step at [index] is written, or null when no single note head says it.

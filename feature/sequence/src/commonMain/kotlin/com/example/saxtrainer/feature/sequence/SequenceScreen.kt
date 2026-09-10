@@ -21,7 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
+import com.example.saxtrainer.core.designsystem.component.MusicalPageView
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.ScreenHeader
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
@@ -165,7 +165,8 @@ private fun Setup(
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = "Repeat", style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    text = "${state.repeats} times through, ${state.sequence.steps.size} notes in all",
+                    text = "${state.repeats} times through, " +
+                        "${state.sequence.notes.size} notes in all",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -247,10 +248,13 @@ private fun ReadyPanel(state: SequenceUiState) {
             text = state.sequence.name ?: "Ready",
             style = MaterialTheme.typography.titleMedium,
         )
-        MusicalStaffView(
+        MusicalPageView(
             sequence = state.sequence,
             modifier = Modifier.fillMaxWidth(),
             naming = state.noteNaming,
+            // Nothing is being played yet, so there is no note to turn the page to: all of it is
+            // shown, and the screen scrolls if the piece is a long one.
+            systemsPerPage = Int.MAX_VALUE,
         )
         Text(
             text = "${state.tempo.bpm} BPM",
@@ -273,11 +277,10 @@ private fun CountInPanel(state: SequenceUiState, phase: SequencePhase.CountIn) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        MusicalStaffView(
+        MusicalPageView(
             sequence = state.sequence,
             modifier = Modifier.fillMaxWidth(),
             naming = state.noteNaming,
-            autoScrollToHighlight = false,
         )
     }
 }
@@ -291,7 +294,7 @@ private fun RunningPanel(state: SequenceUiState) {
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
     ) {
-        MusicalStaffView(
+        MusicalPageView(
             sequence = state.sequence,
             modifier = Modifier.fillMaxWidth(),
             naming = state.noteNaming,
@@ -307,8 +310,10 @@ private fun RunningPanel(state: SequenceUiState) {
 
         Text(
             text = buildString {
-                append(state.nameOf(progress.currentNote))
-                if (state.checkPitch) {
+                // A rest is a thing to be doing, not an absence of one: it is said so plainly,
+                // and nothing is held up against it.
+                append(progress.currentNote?.let(state::nameOf) ?: "Rest")
+                if (state.checkPitch && progress.currentNote != null) {
                     append("  -  ")
                     val heard = progress.detectedNote
                     append(if (heard == null) "nothing heard" else "heard ${state.nameOf(heard)}")
@@ -363,13 +368,16 @@ private fun ResultPanel(state: SequenceUiState, result: SequenceResult) {
         }
 
         val wrongColor = MaterialTheme.colorScheme.error
-        MusicalStaffView(
+        MusicalPageView(
             sequence = state.sequence,
             modifier = Modifier.fillMaxWidth(),
             naming = state.noteNaming,
-            autoScrollToHighlight = false,
+            // The whole piece, so the player can look over everything they just played.
+            systemsPerPage = Int.MAX_VALUE,
             noteColor = { index ->
-                result.attempts.getOrNull(index)?.let { attempt ->
+                // By step, not by position in the list: rests are not graded, so they leave gaps
+                // in the numbering of what is.
+                result.attempts.firstOrNull { it.index == index }?.let { attempt ->
                     when (attempt.pitchCorrect) {
                         true -> correctColor
                         false -> wrongColor

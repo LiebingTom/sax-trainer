@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlin.random.Random
+import com.example.saxtrainer.core.music.soundedNote
 
 /**
  * Drives a long tone exercise: count-in, recording, live feedback and result.
@@ -218,7 +219,7 @@ class LongToneViewModel(
 
         try {
             countIn()
-            processor.startStep(runner.currentStep.note.frequencyHz())
+            processor.startStep(runner.currentStep.soundedNote.frequencyHz())
             _uiState.value = _uiState.value.copy(
                 phase = LongTonePhase.Running,
                 progress = progressOf(runner, displays, selection, stepElapsed = 0f, exerciseElapsed = 0f),
@@ -318,7 +319,7 @@ class LongToneViewModel(
                         if (noteFinished(processor, runner, selection)) {
                             results += processor.stepResult(runner.currentStep, completed = true)
                             if (runner.advance()) {
-                                processor.startStep(runner.currentStep.note.frequencyHz())
+                                processor.startStep(runner.currentStep.soundedNote.frequencyHz())
                                 lastUiUpdateSeconds = -config.uiUpdateIntervalMs / MILLIS_PER_SECOND
                                 publishProgress(runner, displays, processor, selection)
                                 null
@@ -380,8 +381,8 @@ class LongToneViewModel(
         return ExerciseProgress(
             noteIndex = sequenceProgress.stepIndex,
             noteCount = sequenceProgress.stepCount,
-            currentNote = runner.currentStep.note,
-            upcomingNotes = runner.upcoming(UPCOMING_NOTES).map { it.note },
+            currentNote = runner.currentStep.soundedNote,
+            upcomingNotes = runner.upcoming(UPCOMING_NOTES).map { it.soundedNote },
             noteElapsedSeconds = stepElapsed,
             noteTargetSeconds = selection.tempo.secondsFor(runner.currentStep.duration).toFloat(),
             exerciseElapsedSeconds = exerciseElapsed,

@@ -1,14 +1,38 @@
 package com.example.saxtrainer.core.music
 
-/** One note of a sequence, with its length in musical time. */
+/**
+ * One event of a sequence, with its length in musical time: a note, or a silence.
+ *
+ * A rest is a step with no note. Modelled that way rather than as a type of its own because a rest
+ * is not a different kind of thing to a reader or to a clock - it takes its beats, it fills its part
+ * of a bar, and the cursor walks onto it like anything else. The only difference is that there is no
+ * pitch to play, hear or grade, and a null [note] is exactly that fact.
+ */
 data class ToneStep(
-    val note: Note,
+    /** The pitch to play, or null for a rest. */
+    val note: Note?,
     val duration: Beats,
 ) {
     init {
         require(duration > Beats.ZERO) { "a step must last at least some beats" }
     }
+
+    val isRest: Boolean get() = note == null
+
+    companion object {
+        /** A silence of [duration]. */
+        fun rest(duration: Beats): ToneStep = ToneStep(note = null, duration = duration)
+    }
 }
+
+/**
+ * The pitch of a step that is known to have one.
+ *
+ * For material built out of notes - long tones, the fingering drill - where a rest cannot occur and
+ * a null would only ever be a bug in whoever built the sequence.
+ */
+val ToneStep.soundedNote: Note
+    get() = requireNotNull(note) { "this step is a rest, and a rest has no note to sound" }
 
 /**
  * An ordered series of notes with their durations - the musical material of an exercise.
@@ -39,7 +63,8 @@ data class ToneSequence(
         require(steps.isNotEmpty()) { "a sequence needs at least one note" }
     }
 
-    val notes: List<Note> get() = steps.map { it.note }
+    /** The notes to be played, rests left out: a rest has no pitch to be one of these. */
+    val notes: List<Note> get() = steps.mapNotNull { it.note }
 
     val totalBeats: Beats
         get() = steps.fold(Beats.ZERO) { total, step -> total + step.duration }

@@ -60,8 +60,8 @@ import com.example.saxtrainer.core.music.NoteNaming
  * row or anything else that measures intrinsics.
  *
  * The engraving is deliberately limited; see `StaffDrawing.kt` for exactly how far it goes. Notably
- * there are no rests, ties or key signatures, beams are horizontal, and a duration with no single
- * written form is drawn as a plain hollow head rather than guessed at.
+ * there are no key signatures, beams are horizontal, and a duration with no single written form is
+ * drawn as a plain hollow head rather than guessed at.
  */
 @Composable
 fun MusicalStaffView(
@@ -128,7 +128,7 @@ fun MusicalStaffView(
     // Every written name is given the room of the widest name in the sequence, not its own, so the
     // line does not reflow when one note's presentation changes. The same rule [NoteSlot] follows.
     val labelWidthSpaces = remember(sequence, styles, labelStyle, lineSpacing, naming, density) {
-        if (styles.none { it == StaffNoteStyle.NAME }) {
+        if (styles.none { it == StaffNoteStyle.NAME } || sequence.notes.isEmpty()) {
             0f
         } else {
             widestLabelSpaces(sequence, measurer, labelStyle, naming, lineSpacing, density)
@@ -155,8 +155,8 @@ fun MusicalStaffView(
         scrollState.animateScrollTo(target)
     }
 
-    val description = sequence.steps.joinToString(" ") {
-        naming.labelOf(it.note, sequence.accidentalStyle)
+    val description = sequence.steps.joinToString(" ") { step ->
+        step.note?.let { naming.labelOf(it, sequence.accidentalStyle) } ?: "rest"
     }
 
     // Outside the scroll on purpose: inside it the width offered is infinite and says nothing.
@@ -218,17 +218,25 @@ fun MusicalStaffView(
                     layout.notes.forEachIndexed { position, note ->
                         val paint = noteColor(note.index)
                             ?: if (note.index == highlightIndex) highlightColor else color
-                        when (note.style) {
-                            StaffNoteStyle.HEAD ->
+                        when {
+                            note.isRest -> drawRest(
+                                geometry = geometry,
+                                notated = note.notated,
+                                color = paint,
+                                centerX = note.headXSpaces * space,
+                            )
+
+                            note.style == StaffNoteStyle.HEAD ->
                                 drawNote(geometry, note, paint, stemming[position]!!, position, layout)
 
-                            StaffNoteStyle.NAME -> drawNoteLabel(
+                            else -> drawNoteLabel(
                                 geometry = geometry,
                                 measurer = measurer,
-                                text = naming.labelOf(
-                                    sequence.steps[note.index].note,
-                                    sequence.accidentalStyle,
-                                ),
+                                // A rest is never written as a name - the layout draws it as a
+                                // rest - so there is always a pitch here to name.
+                                text = sequence.steps[note.index].note
+                                    ?.let { naming.labelOf(it, sequence.accidentalStyle) }
+                                    .orEmpty(),
                                 style = labelStyle,
                                 color = paint,
                                 background = labelBackground,
@@ -253,7 +261,7 @@ fun MusicalStaffView(
 
                         // Only beside the head the note starts on: one reading of one pitch, not
                         // one for every head a held note happens to be written with.
-                        val heard = if (note.continuesPrevious(layout, position)) {
+                        val heard = if (note.isRest || note.continuesPrevious(layout, position)) {
                             null
                         } else {
                             secondaryNote(note.index)
@@ -292,8 +300,8 @@ private fun widestLabelSpaces(
     lineSpacing: Dp,
     density: Density,
 ): Float {
-    val widestPx = sequence.steps.maxOf {
-        val label = naming.labelOf(it.note, sequence.accidentalStyle)
+    val widestPx = sequence.steps.mapNotNull { it.note }.maxOf {
+        val label = naming.labelOf(it, sequence.accidentalStyle)
         measurer.measure(AnnotatedString(label), labelStyle).size.width
     }
     val spacingPx = with(density) { lineSpacing.toPx() }

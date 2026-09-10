@@ -75,3 +75,45 @@ internal val OCTAVE_KEY_FIRST = OCTAVE_KEY_NATURALS.take(4)
 
 /** Everything taught so far, both octaves of it. */
 internal val UPPER_OCTAVE_NOTES = (ACCIDENTAL_NOTES + OCTAVE_KEY_NOTES).sortedBy { it.midiNumber }
+
+// --- keys -----------------------------------------------------------------------------------------
+//
+// A scale is not another rung of the ladder above: it is the same notes looked at as a key, in the
+// order the key puts them in. So these are written as the scales they are rather than derived from
+// the sets above, and a unit built on one of them teaches a key rather than a new set of grips.
+
+/** C major, the octave that is already the whole of [OCTAVE_NOTES]. */
+internal val C_MAJOR_LOWER = OCTAVE_NOTES
+
+/** The same scale an octave up, which is the same eight grips with the octave key added. */
+internal val C_MAJOR_UPPER = listOf(
+    note(NoteName.C, 5),
+    note(NoteName.D, 5),
+    note(NoteName.E, 5),
+    note(NoteName.F, 5),
+    note(NoteName.G, 5),
+    note(NoteName.A, 5),
+    note(NoteName.B, 5),
+    note(NoteName.C, 6),
+)
+
+/** Both octaves of C major, C4 up to C6, with the C in the middle counted once. */
+internal val C_MAJOR_BOTH = (C_MAJOR_LOWER + C_MAJOR_UPPER).distinct().sortedBy { it.midiNumber }
+
+/**
+ * G major, one octave, G4 up to G5.
+ *
+ * Only one: the next octave would end on G6, and the chart stops at F sharp 6. The one octave is
+ * enough to be the point of the key anyway - it starts in the first register, crosses into the
+ * second half way up, and carries the F sharp that makes it G major rather than C.
+ */
+internal val G_MAJOR = listOf(
+    note(NoteName.G, 4),
+    note(NoteName.A, 4),
+    note(NoteName.B, 4),
+    note(NoteName.C, 5),
+    note(NoteName.D, 5),
+    note(NoteName.E, 5),
+    note(NoteName.F_SHARP, 5),
+    note(NoteName.G, 5),
+)

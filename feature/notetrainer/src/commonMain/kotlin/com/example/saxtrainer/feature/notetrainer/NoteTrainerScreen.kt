@@ -51,6 +51,10 @@ import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.ToneStep
 import com.example.saxtrainer.core.music.conventionalStyle
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.unit.Dp
+import com.example.saxtrainer.core.designsystem.component.fingeringWidthOf
 
 /**
  * The note trainer, stateless.
@@ -88,61 +92,71 @@ fun NoteTrainerScreen(
     val noteSubject: (@Composable ColumnScope.() -> Unit)? =
         if (state.phase is NoteTrainerPhase.Running) ({ NoteSubject(state) }) else null
 
-    ScreenScaffold(
-        title = "Note Trainer",
-        onBack = onBack,
-        modifier = modifier,
-        header = headerOf(state),
-        subject = noteSubject,
-        timing = timingOf(state),
-        actions = {
-            Actions(state, onStart, onTogglePause, onSkip, onStop, onReset)
-        },
-    ) {
-        Spacer(Modifier.height(Dimens.spaceSm))
+    // The fingering hint is sized from the screen rather than fixed, so it cannot be the thing that
+    // pushes what the player is being asked to do off the bottom. Measured out here, once, because
+    // the panel it is drawn in sits inside a column that scrolls - and a scrolling column has no
+    // height to offer anybody.
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val hintWidth = fingeringWidthOf(
+            (maxHeight * HintHeightShare).coerceIn(MinHintHeight, MaxHintHeight),
+        )
 
-        when (val phase = state.phase) {
-            is NoteTrainerPhase.Idle -> if (state.isPreconfigured) {
-                ReadyPanel(state)
-            } else {
-                Setup(
-                    state = state,
-                    onSelectNoteSet = onSelectNoteSet,
-                    onEditCustomNotes = onEditCustomNotes,
-                    onRandomChange = onRandomChange,
-                    onRoundsChange = onRoundsChange,
-                    onShowFingeringHintChange = onShowFingeringHintChange,
-                    onShowNoteNameChange = onShowNoteNameChange,
-                    onTargetChange = onTargetChange,
-                    onHoldChange = onHoldChange,
-                    onTempoChange = onTempoChange,
-                )
-                if (onAddToLessons != null) {
-                    Spacer(Modifier.height(Dimens.spaceMd))
-                    SecondaryButton(
-                        text = "Add to your lessons",
-                        onClick = onAddToLessons,
-                        modifier = Modifier.fillMaxWidth(),
+        ScreenScaffold(
+            title = "Note Trainer",
+            onBack = onBack,
+            modifier = modifier,
+            header = headerOf(state),
+            subject = noteSubject,
+            timing = timingOf(state),
+            actions = {
+                Actions(state, onStart, onTogglePause, onSkip, onStop, onReset)
+            },
+        ) {
+            Spacer(Modifier.height(Dimens.spaceSm))
+
+            when (val phase = state.phase) {
+                is NoteTrainerPhase.Idle -> if (state.isPreconfigured) {
+                    ReadyPanel(state)
+                } else {
+                    Setup(
+                        state = state,
+                        onSelectNoteSet = onSelectNoteSet,
+                        onEditCustomNotes = onEditCustomNotes,
+                        onRandomChange = onRandomChange,
+                        onRoundsChange = onRoundsChange,
+                        onShowFingeringHintChange = onShowFingeringHintChange,
+                        onShowNoteNameChange = onShowNoteNameChange,
+                        onTargetChange = onTargetChange,
+                        onHoldChange = onHoldChange,
+                        onTempoChange = onTempoChange,
                     )
+                    if (onAddToLessons != null) {
+                        Spacer(Modifier.height(Dimens.spaceMd))
+                        SecondaryButton(
+                            text = "Add to your lessons",
+                            onClick = onAddToLessons,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
+
+                is NoteTrainerPhase.CountIn -> CountInPanel(phase.beatsRemaining, state.isPaused)
+                is NoteTrainerPhase.Running -> RunningPanel(state, hintWidth)
+                is NoteTrainerPhase.Finished -> ResultCard(state, phase.result)
             }
 
-            is NoteTrainerPhase.CountIn -> CountInPanel(phase.beatsRemaining, state.isPaused)
-            is NoteTrainerPhase.Running -> RunningPanel(state)
-            is NoteTrainerPhase.Finished -> ResultCard(state, phase.result)
-        }
-
-        if (state.isEditingCustomNotes) {
-            NoteChoiceDialog(
-                notes = state.availableNotes,
-                chosen = state.customNotesDraft.orEmpty(),
-                label = state::nameOf,
-                onToggle = onToggleCustomNote,
-                onSelectAll = onSelectAllCustomNotes,
-                onClearAll = onClearCustomNotes,
-                onApply = onApplyCustomNotes,
-                onCancel = onCancelCustomNotes,
-            )
+            if (state.isEditingCustomNotes) {
+                NoteChoiceDialog(
+                    notes = state.availableNotes,
+                    chosen = state.customNotesDraft.orEmpty(),
+                    label = state::nameOf,
+                    onToggle = onToggleCustomNote,
+                    onSelectAll = onSelectAllCustomNotes,
+                    onClearAll = onClearCustomNotes,
+                    onApply = onApplyCustomNotes,
+                    onCancel = onCancelCustomNotes,
+                )
+            }
         }
     }
 }
@@ -325,7 +339,7 @@ private fun CountInPanel(beatsRemaining: Int, paused: Boolean) {
 
 /** One note, as large as it will go, and as little else as possible. */
 @Composable
-private fun RunningPanel(state: NoteTrainerUiState) {
+private fun RunningPanel(state: NoteTrainerUiState, hintWidth: Dp) {
     val progress = state.progress ?: return
 
     val correctColor = FeedbackColors.correct
@@ -378,12 +392,12 @@ private fun RunningPanel(state: NoteTrainerUiState) {
             if (progress.fingering != null) {
                 SaxophoneFingeringView(
                     fingering = progress.fingering,
-                    width = HintFingeringWidth,
+                    width = hintWidth,
                     pressedColor = MaterialTheme.colorScheme.onSurface,
                     contentDescription = "Fingering for ${state.nameOf(progress.currentNote)}",
                 )
             } else {
-                Spacer(Modifier.height(fingeringHeightOf(HintFingeringWidth)))
+                Spacer(Modifier.height(fingeringHeightOf(hintWidth)))
             }
         }
     }
@@ -559,8 +573,19 @@ private fun RowScope.PauseButton(state: NoteTrainerUiState, onTogglePause: () ->
 }
 
 private val NoteStaffSpacing = 22.dp
-private val HintFingeringWidth = 96.dp
 private val HoldBarHeight = 6.dp
+
+/**
+ * How much of the screen the fingering hint may take.
+ *
+ * It is the least important thing on the panel - the note is on the staff above it and the words in
+ * between say what is being heard - so it gets a share of the screen rather than a size of its own.
+ * The floor keeps it readable on a small phone; the ceiling stops it swelling into the whole of a
+ * tablet.
+ */
+private const val HintHeightShare = 0.22f
+private val MinHintHeight = 110.dp
+private val MaxHintHeight = 200.dp
 
 /** What says the note landed. A mark rather than a word, so it reads before it is read. */
 private const val SuccessTick = "✓"

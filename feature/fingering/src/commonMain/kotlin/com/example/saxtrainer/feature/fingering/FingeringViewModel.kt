@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Tempo
+import com.example.saxtrainer.core.music.soundedNote
 
 /**
  * Runs a fingering exercise: show a note with its fingering, hold it for the chosen time, move on.
@@ -311,7 +312,7 @@ class FingeringViewModel(
                 .mapNotNull { elapsed ->
                     val noteSeconds = noteSecondsOf(runner)
                     val elapsedInNote = elapsed - noteStartSeconds
-                    val written = runner.currentStep.note
+                    val written = runner.currentStep.soundedNote
 
                     val hearing = if (listening) heard.value else Hearing.Silent
                     val state = _uiState.value
@@ -470,7 +471,7 @@ class FingeringViewModel(
         correct: Boolean = false,
         landed: Boolean = false,
     ) {
-        val note = runner.currentStep.note
+        val note = runner.currentStep.soundedNote
         val noteSeconds = noteSecondsOf(runner)
         val state = _uiState.value
         val sounding = (hearing as? Hearing.Pitched)?.detected?.note

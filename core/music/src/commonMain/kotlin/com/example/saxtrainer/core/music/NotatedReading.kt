@@ -13,14 +13,20 @@ import kotlin.math.floor
 data class NotatedNote(
     /** Which step of the sequence this is part of. Several written notes can share one step. */
     val stepIndex: Int,
-    val note: Note,
+    /** The pitch written here, or null where this is a rest. */
+    val note: Note?,
     /** Where this written note begins, in beats from the start of the sequence. */
     val startBeat: Beats,
     /** How long this written note is, which is its own value's length rather than the step's. */
     val duration: Beats,
     /** How it is written, or null where even this piece has no single head of its own. */
     val notated: NotatedDuration?,
-    /** True when the note after it continues the same sounding note, so a tie joins them. */
+    /**
+     * True when the note after it continues the same sounding note, so a tie joins them.
+     *
+     * Never true of a rest: two rests either side of a bar line are two silences, and tying them
+     * would say a silence is being held, which is not something notation says.
+     */
     val tiedToNext: Boolean,
     /** True when it continues the note before it: the far end of a tie. */
     val continuesPrevious: Boolean,
@@ -31,6 +37,10 @@ data class NotatedNote(
  *
  * Timing stays in beats and stays the source of truth; this is a reading of it, derived on demand
  * and stored nowhere. Two things happen here, in this order, and both are what an engraver does:
+ *
+ * Rests are read the same way as notes: cut at a bar line, written with the values that exist, and
+ * told apart only by having no pitch. What they do not get is a tie, since a silence is not held
+ * over anything.
  *
  * 1. **A note is cut at every bar line it crosses.** A bar line is a fact about the metre, not a
  *    thing that appears only when it is convenient, so a five-beat tone becomes four beats and one
@@ -74,8 +84,8 @@ fun ToneSequence.notatedReading(): List<NotatedNote> {
                 startBeat = Beats(start),
                 duration = Beats(length),
                 notated = NotatedDuration.of(Beats(length), timeSignature.beatUnit),
-                tiedToNext = piece < lengths.lastIndex,
-                continuesPrevious = piece > 0,
+                tiedToNext = !step.isRest && piece < lengths.lastIndex,
+                continuesPrevious = !step.isRest && piece > 0,
             )
         }
         sequenceBeat += step.duration.value

@@ -9,6 +9,7 @@ import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.ToneStep
 import kotlin.math.abs
 import kotlin.math.sqrt
+import com.example.saxtrainer.core.music.soundedNote
 
 /**
  * Long-tone specific analysis: it drives the generic DSP components and aggregates their output
@@ -133,7 +134,7 @@ class LongToneProcessor(
 
     /** Summary of the note that has just finished. */
     fun stepResult(toneStep: ToneStep, completed: Boolean): LongToneStepResult = LongToneStepResult(
-        note = toneStep.note,
+        note = toneStep.soundedNote,
         targetBeats = toneStep.duration,
         heldSeconds = analyzedSeconds,
         soundingSeconds = soundingSeconds,

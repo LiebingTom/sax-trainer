@@ -15,6 +15,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import com.example.saxtrainer.core.music.soundedNote
+import com.example.saxtrainer.core.music.bars
 
 /** The predefined material, checked as music rather than as data. */
 class SequenceLibraryTest {
@@ -22,7 +24,7 @@ class SequenceLibraryTest {
     private fun labels(
         definition: SequenceDefinition,
         naming: NoteNaming = NoteNaming.INTERNATIONAL,
-    ) = definition.steps.map { naming.labelOf(it.note, definition.accidentalStyle) }
+    ) = definition.steps.map { naming.labelOf(it.soundedNote, definition.accidentalStyle) }
 
     @Test
     fun `every entry is complete and uniquely named`() {
@@ -51,7 +53,7 @@ class SequenceLibraryTest {
     fun `played back down, a scale comes back to where it started`() {
         val sequence = SequenceLibrary.cMajorUp.build(addInverse = true)
         val notes = sequence.steps.map {
-            NoteNaming.INTERNATIONAL.labelOf(it.note, sequence.accidentalStyle)
+            NoteNaming.INTERNATIONAL.labelOf(it.soundedNote, sequence.accidentalStyle)
         }
 
         assertEquals(15, notes.size)
@@ -99,7 +101,7 @@ class SequenceLibraryTest {
         assertEquals(listOf("F4", "G4", "A4", "B♭4", "C5", "D5", "E5", "F5"), labels(definition))
 
         // And it is drawn where a B flat belongs: on the B line, with a flat in front of it.
-        val flatNote = definition.steps[3].note
+        val flatNote = definition.steps[3].soundedNote
         val placement = TrebleStaff.placementOf(flatNote, definition.accidentalStyle)
         val bNatural = TrebleStaff.placementOf(Note(NoteName.B, 4), definition.accidentalStyle)
         assertEquals(Accidental.FLAT, placement.accidental)
@@ -150,7 +152,7 @@ class SequenceLibraryTest {
 
     @Test
     fun `every note has a written form`() {
-        // Nothing in the library needs a tie, which this app cannot yet draw.
+        // Nothing in the library needs a tie: every step is one plain written value.
         SequenceLibrary.all.forEach { definition ->
             val sequence = definition.build()
             sequence.steps.indices.forEach { index ->
@@ -164,7 +166,7 @@ class SequenceLibraryTest {
 
     @Test
     fun `written straight through, no note is split across a bar line`() {
-        // Splitting one needs a tie, which this app does not write, so the material avoids it.
+        // The notation would tie one across the line; the material simply does not ask it to.
         SequenceLibrary.all.forEach { definition ->
             val sequence = definition.build()
             val beatsPerBar = sequence.timeSignature.beatsPerBar
@@ -236,4 +238,48 @@ class SequenceLibraryTest {
         assertTrue(SequenceLibrary.byCategory.containsKey(SequenceCategory.PATTERN))
         assertEquals(SequenceLibrary.all.size, SequenceLibrary.byCategory.values.sumOf { it.size })
     }
+
+    // --- rests ----------------------------------------------------------------------------------
+
+    /** Names for a line that has silence in it: a rest is not a note and has no name of its own. */
+    private fun read(definition: SequenceDefinition) = definition.steps.map { step ->
+        step.note?.let {
+            NoteNaming.INTERNATIONAL.labelOf(it, definition.accidentalStyle)
+        } ?: "-"
+    }
+
+    @Test
+    fun `the rests exercise reads as it is written`() {
+        assertEquals(
+            listOf(
+                "C4", "D4", "E4", "G4",
+                "G4", "E4", "D4", "C4",
+                "C4", "-", "D4", "E4",
+                "G4", "-", "E4", "-",
+            ),
+            read(SequenceLibrary.restsAndSteps),
+        )
+    }
+
+    @Test
+    fun `the rests exercise is four full bars of four-four`() {
+        val sequence = SequenceLibrary.restsAndSteps.build()
+
+        assertEquals(16.0, sequence.totalBeats.value, 1e-9)
+        assertEquals(4, sequence.bars().size)
+        sequence.bars().forEach { bar ->
+            val beats = bar.sumOf { sequence.steps[it].duration.value }
+            assertEquals(4.0, beats, 1e-9, "a bar of four-four holds four beats")
+        }
+    }
+
+    @Test
+    fun `a rest counts against the bar without being a note`() {
+        val definition = SequenceLibrary.restsAndSteps
+
+        assertEquals(16, definition.noteCount, "sixteen steps in all")
+        assertEquals(3, definition.steps.count { it.isRest }, "one in the third bar, two in the last")
+        assertEquals(13, definition.build().notes.size, "thirteen of them are played")
+    }
+
 }

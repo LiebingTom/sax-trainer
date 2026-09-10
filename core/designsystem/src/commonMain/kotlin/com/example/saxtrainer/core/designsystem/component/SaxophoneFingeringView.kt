@@ -47,6 +47,14 @@ import com.example.saxtrainer.core.music.NoteName
  */
 fun fingeringHeightOf(width: Dp): Dp = width * SaxophoneDiagramMetrics.HEIGHT_RATIO
 
+/**
+ * The other way round: how wide a diagram has to be to come out [height] tall.
+ *
+ * A saxophone diagram is nearly three times as tall as it is wide, so height is what runs out
+ * first. A screen with a fixed amount of room left for one asks in the units it actually has.
+ */
+fun fingeringWidthOf(height: Dp): Dp = height / SaxophoneDiagramMetrics.HEIGHT_RATIO
+
 @Composable
 fun SaxophoneFingeringView(
     fingering: Fingering,

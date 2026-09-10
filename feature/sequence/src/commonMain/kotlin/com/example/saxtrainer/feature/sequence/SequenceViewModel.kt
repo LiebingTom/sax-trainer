@@ -284,7 +284,9 @@ class SequenceViewModel(
 
         val candidate = (runner.currentIndex - 1..runner.currentIndex + 1)
             .filter { it in sequence.steps.indices && it !in onsets }
-            .filter { state.soundingNoteOf(sequence.steps[it].note) == sounding }
+            // A rest has nothing to attribute a pitch to: playing during one is not an early
+            // attack on it, it is simply not part of the exercise.
+            .filter { sequence.steps[it].note?.let(state::soundingNoteOf) == sounding }
             .filter {
                 config.timing.belongsToNote(sequence.expectedSecondsOf(it, tempo), nowSeconds)
             }
@@ -301,10 +303,12 @@ class SequenceViewModel(
         checkedPitch: Boolean,
         checkedTiming: Boolean,
     ) {
-        val attempts = (0 until notesReached.coerceAtMost(sequence.steps.size)).map { index ->
+        val reached = notesReached.coerceAtMost(sequence.steps.size)
+        val attempts = (0 until reached).mapNotNull { index ->
+            val note = sequence.steps[index].note ?: return@mapNotNull null
             NoteAttempt(
                 index = index,
-                note = sequence.steps[index].note,
+                note = note,
                 pitchCorrect = if (checkedPitch) index in onsets else null,
                 timing = if (checkedTiming && checkedPitch) {
                     config.timing.judge(sequence.expectedSecondsOf(index, tempo), onsets[index])
@@ -319,7 +323,8 @@ class SequenceViewModel(
                 SequenceResult(
                     sequenceName = sequence.name.orEmpty(),
                     attempts = attempts,
-                    plannedNoteCount = sequence.steps.size,
+                    plannedNoteCount = sequence.steps.count { !it.isRest },
+                    completed = reached >= sequence.steps.size,
                     checkedPitch = checkedPitch,
                     checkedTiming = checkedTiming && checkedPitch,
                 )
@@ -336,6 +341,8 @@ class SequenceViewModel(
         onsets: Map<Int, Double>,
     ) {
         val state = _uiState.value
+        // Null while the sequence is resting, which is what the screen says and what nothing
+        // grades.
         val current = runner.currentStep.note
         val written = detected?.let { state.writtenNoteOf(it.note) }
         val perPass = state.notesPerPass.coerceAtLeast(1)
@@ -352,7 +359,7 @@ class SequenceViewModel(
                 noteStartBeats = sequence.startBeatOf(runner.currentIndex),
                 noteEndBeats = sequence.endBeatOf(runner.currentIndex),
                 detectedNote = written,
-                isCorrect = written == current,
+                isCorrect = current != null && written == current,
                 playedCorrectly = onsets.keys.toSet(),
             ),
         )

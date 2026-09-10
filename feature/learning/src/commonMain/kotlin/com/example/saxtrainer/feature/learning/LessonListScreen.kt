@@ -5,11 +5,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.saxtrainer.core.designsystem.component.ActionIconButton
+import com.example.saxtrainer.core.designsystem.component.IconSource
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
+import com.example.saxtrainer.core.designsystem.icon.Edit
+import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
@@ -68,7 +71,7 @@ fun LessonListScreen(
                 trailing = if (onEditLesson == null) {
                     null
                 } else {
-                    { EditButton(enabled = item.unlocked) { onEditLesson(item.id) } }
+                    { EditButton(item.title, enabled = item.unlocked) { onEditLesson(item.id) } }
                 },
             )
         }
@@ -76,11 +79,15 @@ fun LessonListScreen(
     }
 }
 
+/** The pen: opens the lesson on its trainer's setup screen, to be tried another way. */
 @Composable
-private fun EditButton(enabled: Boolean, onClick: () -> Unit) {
-    TextButton(onClick = onClick, enabled = enabled) {
-        Text(text = "Edit", style = MaterialTheme.typography.labelLarge)
-    }
+private fun EditButton(title: String, enabled: Boolean, onClick: () -> Unit) {
+    ActionIconButton(
+        icon = IconSource.Vector(SaxTrainerIcons.Edit),
+        contentDescription = "Edit $title",
+        onClick = onClick,
+        enabled = enabled,
+    )
 }
 
 /** What has happened to this lesson so far, or what it is going to ask for. */

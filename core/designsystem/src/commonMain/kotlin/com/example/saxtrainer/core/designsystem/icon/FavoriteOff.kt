@@ -2,21 +2,14 @@ package com.example.saxtrainer.core.designsystem.icon
 
 import androidx.compose.ui.graphics.vector.ImageVector
 
-/**
- * The same star as [Favorite], hollow: one outline with a second, smaller one wound the other way,
- * which is what makes the middle a hole rather than a second star drawn on top of the first.
- *
- * Drawn by hand; no SVG source yet - see `tools/icons.map`.
- */
+/** Generated from `additional/icons/star_no_fill.svg` - see `tools/icons.map`. */
 val SaxTrainerIcons.FavoriteOff: ImageVector get() = favoriteOff
 
 private val favoriteOff: ImageVector by lazy(LazyThreadSafetyMode.NONE) {
     saxIcon(
         "FavoriteOff",
-        viewport = 24f,
-        "M12,2.4L14.16,9.03L21.13,9.03L15.49,13.13L17.64,19.77L12,15.67" +
-            "L6.36,19.77L8.51,13.13L2.87,9.03L9.84,9.03Z" +
-            "M11.22,10.93L8.72,10.93L10.75,12.41L9.97,14.79L12,13.32" +
-            "L14.03,14.79L13.25,12.41L15.28,10.93L12.78,10.93L12,8.55Z",
+        viewport = 960f,
+        "m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143Zm126 18L314-169q-11 7-23 6t-21-8q-9-7-14-17.5t-2-23.5l44-189-147-127q-10-9-12.5-20.5T140-571q4-11 12-18t22-9l194-17 75-178q5-12 15.5-18t21.5-6q11 0 21.5 6t15.5 18l75 178 194 17q14 2 22 9t12 18q4 11 1.5 22.5T809-528L662-401l44 189q3 13-2 23.5T690-171q-9 7-21 8t-23-6L480-269Zm0-201Z",
+        translateY = 960f,
     )
 }

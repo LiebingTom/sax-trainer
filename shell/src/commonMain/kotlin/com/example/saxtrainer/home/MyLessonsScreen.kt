@@ -17,10 +17,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.example.saxtrainer.core.designsystem.component.ActionIconButton
+import com.example.saxtrainer.core.designsystem.component.IconSource
 import com.example.saxtrainer.core.designsystem.component.ScreenHeader
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
+import com.example.saxtrainer.core.designsystem.icon.Delete
+import com.example.saxtrainer.core.designsystem.icon.Edit
+import com.example.saxtrainer.core.designsystem.icon.MoveDown
+import com.example.saxtrainer.core.designsystem.icon.MoveUp
+import com.example.saxtrainer.core.designsystem.icon.Rename
+import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.settings.UserLesson
@@ -184,9 +192,18 @@ private fun GroupHeading(
     ) {
         SectionHeader(text = group.name, modifier = Modifier.weight(1f))
         if (managing) {
-            MoveButtons(canMoveUp, canMoveDown, onMove)
-            TextButton(onClick = onRename) { Text("Rename") }
-            TextButton(onClick = onDelete, enabled = canDelete) { Text("Delete") }
+            MoveButtons(group.name, canMoveUp, canMoveDown, onMove)
+            ActionIconButton(
+                icon = IconSource.Vector(SaxTrainerIcons.Rename),
+                contentDescription = "Rename ${group.name}",
+                onClick = onRename,
+            )
+            ActionIconButton(
+                icon = IconSource.Vector(SaxTrainerIcons.Delete),
+                contentDescription = "Delete ${group.name}",
+                onClick = onDelete,
+                enabled = canDelete,
+            )
         }
     }
 }
@@ -214,11 +231,19 @@ private fun SavedLessonCard(
         trailing = {
             if (managing) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    MoveButtons(canMoveUp, canMoveDown, onMove)
-                    TextButton(onClick = onDelete) { Text("Delete") }
+                    MoveButtons(lesson.name, canMoveUp, canMoveDown, onMove)
+                    ActionIconButton(
+                        icon = IconSource.Vector(SaxTrainerIcons.Delete),
+                        contentDescription = "Delete ${lesson.name}",
+                        onClick = onDelete,
+                    )
                 }
             } else if (trainer != null) {
-                TextButton(onClick = onEdit) { Text("Edit") }
+                ActionIconButton(
+                    icon = IconSource.Vector(SaxTrainerIcons.Edit),
+                    contentDescription = "Edit ${lesson.name}",
+                    onClick = onEdit,
+                )
             }
         },
     )
@@ -231,9 +256,24 @@ private fun SavedLessonCard(
  * checked without a device - and the order they produce is the same order a handle would.
  */
 @Composable
-private fun MoveButtons(canMoveUp: Boolean, canMoveDown: Boolean, onMove: (Int) -> Unit) {
-    TextButton(onClick = { onMove(-1) }, enabled = canMoveUp) { Text("Up") }
-    TextButton(onClick = { onMove(1) }, enabled = canMoveDown) { Text("Down") }
+private fun MoveButtons(
+    name: String,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMove: (Int) -> Unit,
+) {
+    ActionIconButton(
+        icon = IconSource.Vector(SaxTrainerIcons.MoveUp),
+        contentDescription = "Move $name up",
+        onClick = { onMove(-1) },
+        enabled = canMoveUp,
+    )
+    ActionIconButton(
+        icon = IconSource.Vector(SaxTrainerIcons.MoveDown),
+        contentDescription = "Move $name down",
+        onClick = { onMove(1) },
+        enabled = canMoveDown,
+    )
 }
 
 @Composable

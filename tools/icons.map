@@ -26,16 +26,28 @@
 # Technologies GmbH, under the SIL Open Font License 1.1; only the outlines are used, and no font
 # is shipped or loaded at runtime.
 
-additional/icons/settings.svg     -> core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/Settings.kt
-additional/icons/learning.svg     -> core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/Learning.kt
-additional/icons/long_tone.svg    -> core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/LongTone.kt
-additional/icons/arrow_back.svg   -> core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/ArrowBack.kt
-additional/icons/tune.svg         -> core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/ChooseNotes.kt
+# Step-by-step instructions, with the exact Material Symbols and Inkscape settings and the list of
+# icons still waiting for a source: additional/icons/README.md
+
+additional/icons/settings.svg     -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Settings.kt
+additional/icons/learning.svg     -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Learning.kt
+additional/icons/long_tone.svg    -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/LongTone.kt
+additional/icons/arrow_back.svg   -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/ArrowBack.kt
+additional/icons/tune.svg         -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/ChooseNotes.kt
+additional/icons/star_filled.svg  -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Favorite.kt
+additional/icons/star_no_fill.svg -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/FavoriteOff.kt
+
+# My Lessons, while managing: move, rename, delete; and the pen that edits a saved practice.
+additional/icons/arrow_drop_up.svg   -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/MoveUp.kt
+additional/icons/arrow_drop_down.svg -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/MoveDown.kt
+additional/icons/delete.svg          -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Delete.kt
+additional/icons/keyboard.svg        -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Rename.kt
+additional/icons/edit.svg            -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Edit.kt
 
 # Still hand-drawn, waiting for an SVG source. Their path data was written by hand and now
 # lives directly in the generated-looking files below; add a line above to replace one.
-#   core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/Metronome.kt
-#   core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/Fingering.kt
-#   core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/Sequence.kt
-#   core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/NoteQuiz.kt
-#   core/designsystem/src/main/java/com/example/saxtrainer/core/designsystem/icon/NoteTrainer.kt
+#   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Metronome.kt
+#   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Fingering.kt
+#   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Sequence.kt
+#   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/NoteQuiz.kt
+#   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/NoteTrainer.kt

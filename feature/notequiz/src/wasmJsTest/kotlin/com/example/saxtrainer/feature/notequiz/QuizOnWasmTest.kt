@@ -10,12 +10,14 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.testing.BROWSER_TIMEOUT_MS
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
@@ -49,7 +51,7 @@ class QuizOnWasmTest {
 
         onNodeWithText("Note Quiz").assertIsDisplayed()
         onNodeWithText("Notes").assertIsDisplayed()
-        onNodeWithText("How many").assertIsDisplayed()
+        onNodeWithText("How many").performScrollTo().assertIsDisplayed()
         onNodeWithText("Start").assertIsDisplayed()
     }
 
@@ -141,6 +143,7 @@ private fun Quiz(
         SaxTrainerTheme(darkTheme = false) {
             QuizRoute(
                 settingsRepository = settings,
+                exerciseSetups = InMemoryExerciseSetupRepository(),
                 onBack = {},
                 preset = preset,
                 onExerciseFinished = onExerciseFinished,

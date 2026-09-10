@@ -15,6 +15,7 @@ import com.example.saxtrainer.core.audio.capture.WebAudioCapture
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.exercise.SequenceLibrary
 import com.example.saxtrainer.core.music.Tempo
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.testing.FakeMicrophone
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
 import com.example.saxtrainer.core.testing.ScreenHost
@@ -132,6 +133,7 @@ private fun Sequence(
         SaxTrainerTheme(darkTheme = false) {
             SequenceRoute(
                 settingsRepository = FakeSettingsRepository(),
+                exerciseSetups = InMemoryExerciseSetupRepository(),
                 audioCapture = microphone,
                 newMetronome = { SilentMetronome() },
                 onBack = {},

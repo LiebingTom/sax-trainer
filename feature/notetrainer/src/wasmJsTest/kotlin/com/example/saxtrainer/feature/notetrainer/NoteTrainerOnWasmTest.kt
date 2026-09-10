@@ -4,8 +4,10 @@ package com.example.saxtrainer.feature.notetrainer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -17,6 +19,7 @@ import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.testing.FakeMicrophone
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
@@ -70,12 +73,12 @@ class NoteTrainerOnWasmTest {
         awaitInRealTime("the first note") { shows("Play it") }
 
         microphone.frequencyHz = sounding(Note(NoteName.C, 4))
-        awaitInRealTime("the first note to be recognised") { shows("Yes") }
+        awaitInRealTime("the first note to be recognised") { showsPart("Correct, this is C4") }
 
         // The exercise moves on by itself once the note has been held long enough. The tone is left
         // sounding until it does: what was right for the first note is wrong for the second, so
         // being told so is how the test knows the exercise advanced rather than guessing at a gap.
-        awaitInRealTime("the second note") { shows("That is C4") }
+        awaitInRealTime("the second note") { shows("This is C4 - keep on") }
 
         microphone.frequencyHz = sounding(Note(NoteName.D, 4))
         awaitInRealTime("the exercise to finish") { shows("Note practice complete") }
@@ -90,8 +93,8 @@ class NoteTrainerOnWasmTest {
         awaitInRealTime("the first note") { shows("Play it") }
 
         microphone.frequencyHz = sounding(Note(NoteName.G, 4))
-        awaitInRealTime("the wrong note to be named") { shows("That is G4") }
-        assertFalse(shows("Yes"), "a wrong note was accepted")
+        awaitInRealTime("the wrong note to be named") { shows("This is G4 - keep on") }
+        assertFalse(showsPart("Correct"), "a wrong note was accepted")
     }
 
     @Test
@@ -134,6 +137,14 @@ private fun twoNotes(autoStart: Boolean = true) = NoteTrainerPreset(
     autoStart = autoStart,
 )
 
+/**
+ * Whether any text on screen contains [part]: for feedback that ends in a measured reaction time,
+ * which no test can know in advance.
+ */
+@OptIn(ExperimentalTestApi::class)
+private fun ComposeUiTest.showsPart(part: String): Boolean =
+    onAllNodesWithText(part, substring = true).fetchSemanticsNodes().isNotEmpty()
+
 /** What a microphone hears when [written] is played on the default instrument. */
 private fun sounding(written: Note): Double =
     Instrument.TENOR_SAX.transposition.concertFor(written).frequencyHz()
@@ -151,6 +162,7 @@ private fun NoteTrainer(
         SaxTrainerTheme(darkTheme = false) {
             NoteTrainerRoute(
                 settingsRepository = FakeSettingsRepository(),
+                exerciseSetups = InMemoryExerciseSetupRepository(),
                 audioCapture = microphone,
                 newMetronome = { SilentMetronome() },
                 onBack = {},

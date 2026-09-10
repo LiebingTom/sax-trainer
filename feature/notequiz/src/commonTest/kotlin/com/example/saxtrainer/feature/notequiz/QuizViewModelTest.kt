@@ -356,6 +356,27 @@ class QuizViewModelTest {
     }
 
     @Test
+    fun `no note is asked about twice running`() = runTest(dispatcher) {
+        repeat(10) { seed ->
+            val viewModel = viewModel(seed = seed)
+            viewModel.selectQuestionCount(10)
+            viewModel.start()
+
+            val asked = buildList {
+                repeat(10) {
+                    add(asking(viewModel).question.note)
+                    answerCorrectly(viewModel)
+                    advanceUntilIdle()
+                }
+            }
+
+            asked.zipWithNext().forEach { (first, second) ->
+                assertTrue(first != second, "seed $seed asked ${first.label} twice running")
+            }
+        }
+    }
+
+    @Test
     fun `a note got wrong twice is only named once`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectQuestionCount(10)

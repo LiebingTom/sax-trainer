@@ -16,9 +16,10 @@ enum class NoteOrder {
  * The notes an exercise works through, in the order it works through them.
  *
  * One round plays every selected note exactly once, so nothing is skipped and the length is simply
- * notes times [rounds]. In [NoteOrder.RANDOM] each round is shuffled on its own, and a shuffle that
- * would repeat the previous note across a round boundary is redrawn - which is the difference
- * between mixing the notes up and occasionally asking for the same one twice running.
+ * notes times [rounds]. In [NoteOrder.RANDOM] each round is shuffled on its own, and never opens
+ * with the note the round before it closed on - which is the difference between mixing the notes up
+ * and occasionally asking for the same one twice running. [NoteOrder.ORDERED] is left exactly as it
+ * was given.
  *
  * Pure and seeded, so an exercise is reproducible: the order is decided once, up front, and whatever
  * walks it afterwards stays a passive cursor.
@@ -45,20 +46,28 @@ fun practiceOrder(
 }
 
 /**
- * Shuffles the pool, retrying while the first note would repeat the one just played. With a single
- * note in the pool a repeat is unavoidable, and the retries are bounded so an unlucky generator can
- * never spin.
+ * One note drawn at random from [pool], and never [previous] while there is anything else to draw.
+ *
+ * The one rule every randomly chosen next note follows, whoever is choosing it: mixing the notes up
+ * should not ask for the same note twice running. It is exact rather than retried - the previous
+ * note is simply not a candidate - so no generator, however unlucky, can produce a repeat. A pool of
+ * one distinct note has nothing else to offer, and that note repeats.
  */
-private fun shuffleAvoidingRepeat(pool: List<Note>, previous: Note?, random: Random): List<Note> {
-    var shuffled = pool.shuffled(random)
-    if (previous == null || pool.size < 2) return shuffled
+fun randomNoteAvoiding(pool: List<Note>, previous: Note?, random: Random = Random.Default): Note {
+    val notes = pool.distinct()
+    require(notes.isNotEmpty()) { "there is no note to choose from" }
 
-    var attempts = 0
-    while (shuffled.first() == previous && attempts < MAX_RESHUFFLES) {
-        shuffled = pool.shuffled(random)
-        attempts++
-    }
-    return shuffled
+    val candidates = notes.filterNot { it == previous }.ifEmpty { notes }
+    return candidates.random(random)
 }
 
-private const val MAX_RESHUFFLES = 8
+/**
+ * A shuffle of the pool that does not open on [previous]: the opening note is drawn by
+ * [randomNoteAvoiding], and the rest of the round is shuffled behind it.
+ */
+private fun shuffleAvoidingRepeat(pool: List<Note>, previous: Note?, random: Random): List<Note> {
+    if (previous == null) return pool.shuffled(random)
+
+    val first = randomNoteAvoiding(pool, previous, random)
+    return listOf(first) + (pool - first).shuffled(random)
+}

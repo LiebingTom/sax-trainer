@@ -1,8 +1,8 @@
 package com.example.saxtrainer.feature.notequiz
 
+import com.example.saxtrainer.core.exercise.randomNoteAvoiding
 import com.example.saxtrainer.core.fingering.FingeringChart
 import com.example.saxtrainer.core.music.Note
-import kotlin.math.abs
 import kotlin.random.Random
 
 /**
@@ -14,9 +14,9 @@ import kotlin.random.Random
  * alternates mode would need multiple right answers or sibling exclusion, and it is not what a
  * player learning their first octave should be asked.
  *
- * Distractors are the target's nearest neighbours by pitch, drawn from the same pool. Near
- * neighbours are what make the question a test of recognition rather than of eyesight - including
- * octave twins, which differ by the octave key alone and are exactly worth drilling.
+ * Distractors are drawn from the same pool by [distractorsFor]: near in pitch more often than not,
+ * and of the same kind of note as the target where the pool has one. Near neighbours are what make
+ * the question a test of recognition rather than of eyesight.
  */
 object QuizQuestionGenerator {
 
@@ -30,18 +30,23 @@ object QuizQuestionGenerator {
      *
      * A slot draws its own options, so the ten names and the four grips of a combined question are
      * two independent draws around the same target rather than two views of one list.
+     *
+     * [previous] is the note the question before this one asked about. It is never asked about
+     * again straight away; there are always at least [MIN_OPTIONS] notes, so there is always
+     * another to ask.
      */
     fun generate(
         pool: List<Note>,
         mode: QuizMode,
         chart: FingeringChart,
         random: Random = Random.Default,
+        previous: Note? = null,
     ): QuizQuestion {
         val notes = pool.distinct().filter(chart::supports)
         require(notes.size >= MIN_OPTIONS) { "a question needs at least $MIN_OPTIONS notes to choose between" }
 
         val asked = askedAs(mode, random)
-        val target = notes.random(random)
+        val target = randomNoteAvoiding(notes, previous, random)
 
         fun optionsFor(slot: Int): List<Note> =
             candidatesFor(target, notes, asked.slots[slot].optionCount, random)
@@ -100,7 +105,7 @@ object QuizQuestionGenerator {
 
 
     /**
-     * One slot's worth of options: the target and its nearest neighbours, in no telling order.
+     * One slot's worth of options: the target and its distractors, in no telling order.
      *
      * [wanted] is trimmed to what the pool can supply, so ten names are ten distinct names whenever
      * there are ten notes to draw them from, and fewer only when there are fewer.
@@ -115,25 +120,5 @@ object QuizQuestionGenerator {
         return (listOf(target) + distractorsFor(target, notes, count - 1, random)).shuffled(random)
     }
 
-    /**
-     * The nearest notes by pitch, shuffled so the same neighbours do not come up in the same order
-     * every time. Twice as many are considered as are needed, which keeps the answers close to the
-     * target without making them predictable.
-     */
-    private fun distractorsFor(
-        target: Note,
-        notes: List<Note>,
-        count: Int,
-        random: Random,
-    ): List<Note> = notes
-        .filterNot { it == target }
-        .sortedBy { abs(it.midiNumber - target.midiNumber) }
-        .take(count * NEIGHBOURHOOD)
-        .shuffled(random)
-        .take(count)
-
     const val MIN_OPTIONS = 2
-
-    /** How many candidates are considered for every distractor actually shown. */
-    private const val NEIGHBOURHOOD = 2
 }

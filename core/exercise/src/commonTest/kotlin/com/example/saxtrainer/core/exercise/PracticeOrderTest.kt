@@ -60,8 +60,71 @@ class PracticeOrderTest {
     }
 
     @Test
+    fun `two notes over many rounds never repeat, however unlucky the generator`() {
+        // Two notes is where a retried shuffle is likeliest to give up and repeat; the rule is exact.
+        repeat(50) { seed ->
+            val ordered = practiceOrder(listOf(c4, d4), NoteOrder.RANDOM, 50, Random(seed))
+
+            ordered.zipWithNext().forEach { (first, second) ->
+                assertNotEquals(first, second, "seed $seed repeated ${first.label}")
+            }
+        }
+    }
+
+    @Test
     fun `a single note has no choice but to repeat`() {
         assertEquals(listOf(c4, c4, c4), practiceOrder(listOf(c4), NoteOrder.RANDOM, rounds = 3))
+    }
+
+    @Test
+    fun `in order is never rearranged to avoid a repeat`() {
+        // A fixed order is exactly what it was given, even where that means the same note again.
+        assertEquals(listOf(c4, c4, c4), practiceOrder(listOf(c4), NoteOrder.ORDERED, rounds = 3))
+        assertEquals(notes + notes, practiceOrder(notes, NoteOrder.ORDERED, rounds = 2, random = Random(3)))
+    }
+
+    // --- one note at a time -------------------------------------------------------------------------
+
+    @Test
+    fun `a random next note is never the one before it while there is another`() {
+        listOf(listOf(c4, d4), notes + Note(NoteName.G, 4) + Note(NoteName.A, 4)).forEach { pool ->
+            pool.forEach { previous ->
+                repeat(200) { seed ->
+                    val next = randomNoteAvoiding(pool, previous, Random(seed))
+
+                    assertNotEquals(previous, next, "seed $seed repeated ${previous.label}")
+                    assertTrue(next in pool, "seed $seed chose ${next.label}, which is not in the pool")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a random next note can be any of the others`() {
+        // Avoiding the last note is all it does: the rest are still chosen between at random.
+        val random = Random(11)
+        val drawn = (1..300).map { randomNoteAvoiding(notes, c4, random) }.toSet()
+
+        assertEquals(setOf(d4, e4), drawn)
+    }
+
+    @Test
+    fun `a pool of one note repeats it`() {
+        assertEquals(c4, randomNoteAvoiding(listOf(c4), c4, Random(1)))
+        assertEquals(c4, randomNoteAvoiding(listOf(c4, c4), c4, Random(1)), "one note written twice")
+    }
+
+    @Test
+    fun `with nothing before it any note can come first`() {
+        val random = Random(5)
+        val drawn = (1..300).map { randomNoteAvoiding(notes, null, random) }.toSet()
+
+        assertEquals(notes.toSet(), drawn)
+    }
+
+    @Test
+    fun `there is no next note in an empty pool`() {
+        assertFailsWith<IllegalArgumentException> { randomNoteAvoiding(emptyList(), null) }
     }
 
     @Test

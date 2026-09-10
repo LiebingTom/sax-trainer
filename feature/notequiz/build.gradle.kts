@@ -46,6 +46,8 @@ kotlin {
             // the build is what guarantees it never asks for a microphone. Also absent:
             // core:learning, which no trainer may know about.
             implementation(project(":core:designsystem"))
+            // Only for the rule every random next note follows: never the same one twice running.
+            implementation(project(":core:exercise"))
             implementation(project(":core:fingering"))
             implementation(project(":core:music"))
             implementation(project(":core:settings"))

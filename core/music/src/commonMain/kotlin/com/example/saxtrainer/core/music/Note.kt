@@ -19,6 +19,13 @@ enum class NoteName(val displayName: String, val semitonesFromC: Int) {
     B("B", 11),
     ;
 
+    /** True for the five pitch classes that are written with an accidental: the black keys. */
+    val isAccidental: Boolean
+        get() = when (this) {
+            C_SHARP, D_SHARP, F_SHARP, G_SHARP, A_SHARP -> true
+            else -> false
+        }
+
     companion object {
         fun ofSemitone(semitonesFromC: Int): NoteName {
             val normalised = ((semitonesFromC % 12) + 12) % 12

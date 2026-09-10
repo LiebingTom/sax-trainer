@@ -99,18 +99,41 @@ class QuizQuestionGeneratorTest {
     }
 
     @Test
-    fun `the wrong answers are near neighbours, not notes from the other end`() {
+    fun `the wrong answers are mostly near neighbours, rarely notes from the other end`() {
         // Distractors far from the target make the question a test of eyesight rather than of
-        // recognition, so they are drawn from around the note being asked about.
+        // recognition, so they are drawn mostly from around the note being asked about. Drawn, not
+        // ranked, so this is a tendency over many questions rather than a bound on every one.
         val wide = Note.range(Note(NoteName.B, 3), Note(NoteName.F_SHARP, 6))
 
-        repeat(30) { seed ->
+        val distances = (0 until 300).flatMap { seed ->
             val question = generate(QuizMode.FINGERING_TO_NOTE, wide, seed) as FingeringToNote
-            val distance = question.options
+            question.options
                 .filterNot { it == question.note }
-                .maxOf { abs(it.midiNumber - question.note.midiNumber) }
+                .map { abs(it.midiNumber - question.note.midiNumber) }
+        }
 
-            assertTrue(distance <= 8, "seed $seed reached $distance semitones away")
+        val near = distances.count { it <= 4 }.toDouble() / distances.size
+        val far = distances.count { it > 12 }.toDouble() / distances.size
+        assertTrue(near >= 0.7, "only ${near * 100}% were within four semitones")
+        assertTrue(far <= 0.1, "${far * 100}% were more than an octave away")
+    }
+
+    @Test
+    fun `a question is never about the note asked just before`() {
+        listOf(octave.take(2), octave).forEach { pool ->
+            pool.forEach { previous ->
+                repeat(50) { seed ->
+                    val question = QuizQuestionGenerator.generate(
+                        pool = pool,
+                        mode = QuizMode.NOTE_TO_FINGERING,
+                        chart = chart,
+                        random = Random(seed),
+                        previous = previous,
+                    )
+
+                    assertNotEquals(previous, question.note, "seed $seed asked ${previous.label} again")
+                }
+            }
         }
     }
 

@@ -215,6 +215,9 @@ class QuizViewModel(
 
     private fun ask(index: Int) {
         val state = _uiState.value
+        // Still showing the question just answered, if there was one: the next is never about the
+        // same note.
+        val previous = (state.phase as? QuizPhase.Answered)?.question?.note
         _uiState.value = state.copy(
             phase = QuizPhase.Asking(
                 question = QuizQuestionGenerator.generate(
@@ -222,6 +225,7 @@ class QuizViewModel(
                     mode = state.mode,
                     chart = config.chart,
                     random = random,
+                    previous = previous,
                 ),
                 index = index,
             ),

@@ -123,7 +123,7 @@ class NoteTrainerViewModelTest {
         assertTrue(state.isRandom, "mixed order is the default")
         assertFalse(state.showFingeringHint, "the fingering is the answer, not the question")
         assertFalse(state.showNoteName, "the notation is the point")
-        assertEquals(config.defaultTargetSeconds, state.targetSeconds)
+        assertEquals(config.quickSeconds, state.targetSeconds)
         assertTrue(state.canStart)
     }
 
@@ -478,7 +478,6 @@ class NoteTrainerViewModelTest {
                 order = NoteOrder.ORDERED,
                 rounds = 2,
                 showFingeringHint = true,
-                targetSeconds = 8,
             ),
         ).uiState.value
 
@@ -486,7 +485,6 @@ class NoteTrainerViewModelTest {
         assertEquals(NoteOrder.ORDERED, state.order)
         assertEquals(2, state.rounds)
         assertTrue(state.showFingeringHint)
-        assertEquals(8, state.targetSeconds)
         assertTrue(state.isPreconfigured)
     }
 
@@ -707,7 +705,6 @@ class NoteTrainerViewModelTest {
         first.setRounds(3)
         first.setShowFingeringHint(true)
         first.setShowNoteName(true)
-        first.setTargetSeconds(8)
         first.setHoldBeats(Beats.of(2))
 
         first.start()
@@ -721,7 +718,6 @@ class NoteTrainerViewModelTest {
         assertEquals(3, opened.rounds)
         assertTrue(opened.showFingeringHint)
         assertTrue(opened.showNoteName)
-        assertEquals(8, opened.targetSeconds)
         assertEquals(Beats.of(2), opened.holdBeats)
         assertFalse(opened.isRandom)
     }
@@ -733,12 +729,12 @@ class NoteTrainerViewModelTest {
         val setups = InMemoryExerciseSetupRepository()
         val chosen = viewModel(setups = setups)
         chosen.setRounds(3)
-        chosen.setHoldBeats(Beats.of(3))
+        chosen.setHoldBeats(Beats.of(4))
 
         val opened = viewModel(setups = setups).uiState.value
 
         assertEquals(3, opened.rounds)
-        assertEquals(Beats.of(3), opened.holdBeats)
+        assertEquals(Beats.of(4), opened.holdBeats)
     }
 
     @Test
@@ -827,9 +823,7 @@ class NoteTrainerViewModelTest {
         configured.setRounds(3)
         configured.setShowFingeringHint(true)
         configured.setShowNoteName(true)
-        configured.setTargetSeconds(8)
         configured.setHoldBeats(Beats.of(2))
-        configured.setTempo(96)
         val written = configured.uiState.value.toSetup()
 
         val preset = assertNotNull(noteTrainerPresetOf(written, editable = true))
@@ -839,16 +833,14 @@ class NoteTrainerViewModelTest {
     }
 
     @Test
-    fun `the name under the staff and the tempo are part of the exercise`() = trainerTest {
+    fun `the name under the staff is part of the exercise`() = trainerTest {
         val configured = viewModel()
         configured.selectOnly(c4, d4)
         configured.setShowNoteName(true)
-        configured.setTempo(120)
 
         val preset = assertNotNull(noteTrainerPresetOf(configured.uiState.value.toSetup()))
 
         assertTrue(preset.showNoteName, "the note name was chosen")
-        assertEquals(120, preset.tempo.bpm)
     }
 
     @Test

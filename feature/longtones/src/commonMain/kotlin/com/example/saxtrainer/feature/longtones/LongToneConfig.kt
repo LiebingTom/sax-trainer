@@ -4,6 +4,7 @@ import com.example.saxtrainer.core.audio.capture.AudioCaptureConfig
 import com.example.saxtrainer.core.dsp.pitch.YinConfig
 import com.example.saxtrainer.core.dsp.spectrum.SpectrumConfig
 import com.example.saxtrainer.core.exercise.ExercisePattern
+import com.example.saxtrainer.core.exercise.HeldNote
 import com.example.saxtrainer.core.exercise.SequenceCatalog
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
@@ -17,10 +18,13 @@ import com.example.saxtrainer.core.music.Tempo
 data class LongToneConfig(
     val capture: AudioCaptureConfig = AudioCaptureConfig(),
     val spectrum: SpectrumConfig = SpectrumConfig(),
-    /** Note lengths offered in the UI, in beats. */
-    val beatOptions: List<Int> = listOf(2, 4, 5, 8),
-    val defaultTempo: Tempo = Tempo(60),
-    val tempoRange: IntRange = Tempo.SUPPORTED_RANGE,
+    /** Note lengths offered in the UI, in beats: the lengths every held note is offered in. */
+    val beatOptions: List<Int> = HeldNote.beatOptions,
+    /**
+     * The speed a note's beats are counted at. Fixed rather than offered, so a beat is a second and
+     * nothing on screen has to explain the conversion; only a test changes it, to run faster.
+     */
+    val defaultTempo: Tempo = HeldNote.tempo,
     /** Bars of count-in before the first note. */
     val countInBars: Int = 1,
     /** Level above which the app considers a note to be sounding. */

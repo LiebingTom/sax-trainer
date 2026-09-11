@@ -4,13 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -22,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.saxtrainer.core.audio.capture.AudioCaptureError
@@ -39,7 +38,6 @@ import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
-import com.example.saxtrainer.core.designsystem.text.minutesAndSeconds
 import com.example.saxtrainer.core.designsystem.text.toFixed
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
@@ -73,7 +71,6 @@ fun LongToneScreen(
     onSelectPattern: (ExercisePattern) -> Unit,
     onSelectRootNote: (Note) -> Unit,
     onSelectBeats: (Beats) -> Unit,
-    onSetTempo: (Int) -> Unit,
     onSelectNoteDisplay: (NoteDisplay) -> Unit,
     onShowNextNote: (Boolean) -> Unit,
     onStart: () -> Unit,
@@ -134,7 +131,6 @@ fun LongToneScreen(
                 onSelectPattern = onSelectPattern,
                 onSelectRootNote = onSelectRootNote,
                 onSelectBeats = onSelectBeats,
-                onSetTempo = onSetTempo,
                 onSelectNoteDisplay = onSelectNoteDisplay,
                 onShowNextNote = onShowNextNote,
             )
@@ -286,13 +282,13 @@ private fun SoundingLine(state: LongToneUiState) {
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ExerciseSetup(
     state: LongToneUiState,
     onSelectPattern: (ExercisePattern) -> Unit,
     onSelectRootNote: (Note) -> Unit,
     onSelectBeats: (Beats) -> Unit,
-    onSetTempo: (Int) -> Unit,
     onSelectNoteDisplay: (NoteDisplay) -> Unit,
     onShowNextNote: (Boolean) -> Unit,
 ) {
@@ -320,8 +316,9 @@ private fun ExerciseSetup(
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("Starting note")
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        items(state.selectableNotes, key = { it.midiNumber }) { note ->
+    // Wrapped at the edge of the screen rather than scrolled, so every note is in view at once.
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+        state.selectableNotes.forEach { note ->
             FilterChip(
                 selected = note == selection.rootNote,
                 onClick = { onSelectRootNote(note) },
@@ -332,37 +329,20 @@ private fun ExerciseSetup(
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("Note length")
-    // Two rows on purpose. Four of these in one row leaves the last chip too little width and it
-    // wraps its own label instead; deciding where the break goes keeps every label on one line.
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.beatOptions.chunked(BEAT_OPTIONS_PER_ROW).forEach { options ->
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-                options.forEach { beats ->
-                    FilterChip(
-                        selected = beats == selection.beatsPerNote,
-                        onClick = { onSelectBeats(beats) },
-                        label = { Text("${beats.value.roundToInt()} beats", maxLines = 1) },
-                    )
-                }
-            }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+        state.beatOptions.forEach { beats ->
+            FilterChip(
+                selected = beats == selection.beatsPerNote,
+                onClick = { onSelectBeats(beats) },
+                label = { Text("${beats.value.roundToInt()} beats", maxLines = 1) },
+            )
         }
     }
-
-    Spacer(Modifier.height(Dimens.spaceSm))
-    SectionHeader("Tempo")
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
-    ) {
-        SecondaryButton(text = "-5", onClick = { onSetTempo(selection.tempo.bpm - 5) })
-        Text(
-            text = "${selection.tempo.bpm} BPM",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.weight(1f),
-            textAlign = TextAlign.Center,
-        )
-        SecondaryButton(text = "+5", onClick = { onSetTempo(selection.tempo.bpm + 5) })
-    }
+    Text(
+        text = "At ${selection.tempo.bpm} BPM",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 
     Spacer(Modifier.height(Dimens.spaceSm))
     Row(
@@ -388,15 +368,6 @@ private fun ExerciseSetup(
         selected = state.noteDisplay,
         label = { it.shortName },
         onSelect = onSelectNoteDisplay,
-    )
-
-    Spacer(Modifier.height(Dimens.spaceSm))
-    Text(
-        text = "${selection.beatsPerNote.value.roundToInt()} beats at ${selection.tempo.bpm} BPM - " +
-            "${selection.secondsPerNote.toFixed(1)} s per note, " +
-            "${selection.pattern.noteCount} notes, ${formatDuration(selection.totalSeconds)} total",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 
@@ -542,11 +513,6 @@ private val CurrentNoteStaffSpacing = 12.dp
 private fun formatCents(cents: Float): String {
     val rounded = cents.roundToInt()
     return if (rounded > 0) "+$rounded ct" else "$rounded ct"
-}
-
-private fun formatDuration(seconds: Float): String {
-    val total = seconds.roundToInt()
-    return minutesAndSeconds(total)
 }
 
 @Composable
@@ -728,14 +694,12 @@ private fun LongToneScreenPreview() {
                     SequenceCatalog.defaultRoot.transposedBy(3),
                 ),
                 beatOptions = listOf(Beats.of(2), Beats.of(4), Beats.of(8)),
-                tempoRange = Tempo.SUPPORTED_RANGE,
                 transposition = Transposition.TENOR_B_FLAT,
                 instrumentName = "Tenor saxophone",
             ),
             onSelectPattern = {},
             onSelectRootNote = {},
             onSelectBeats = {},
-            onSetTempo = {},
             onSelectNoteDisplay = {},
             onShowNextNote = {},
             onStart = {},
@@ -793,6 +757,3 @@ private fun timingOf(state: LongToneUiState): ScreenTiming? {
  */
 private fun sessionFractionOf(step: Int, stepCount: Int): Float =
     if (stepCount <= 0) 0f else ((step - 1).toFloat() / stepCount).coerceIn(0f, 1f)
-
-/** How many note lengths go on one line. Two, so no chip has to wrap its label. */
-private const val BEAT_OPTIONS_PER_ROW = 2

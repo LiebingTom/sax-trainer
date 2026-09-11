@@ -49,7 +49,8 @@ class LongToneOnWasmTest {
 
         onNodeWithText("Long Tones").assertIsDisplayed()
         onNodeWithText("Start").assertIsDisplayed()
-        onNodeWithText("$FAST_BPM BPM").performScrollTo().assertIsDisplayed()
+        // The tempo is no longer a control, only the hint under the note lengths.
+        onNodeWithText("At $FAST_BPM BPM").performScrollTo().assertIsDisplayed()
     }
 
     @Test

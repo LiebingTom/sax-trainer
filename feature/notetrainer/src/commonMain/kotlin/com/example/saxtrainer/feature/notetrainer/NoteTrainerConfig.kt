@@ -2,6 +2,7 @@ package com.example.saxtrainer.feature.notetrainer
 
 import com.example.saxtrainer.core.audio.capture.AudioCaptureConfig
 import com.example.saxtrainer.core.audio.listening.NoteListener
+import com.example.saxtrainer.core.exercise.HeldNote
 import com.example.saxtrainer.core.fingering.FingeringChart
 import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Tempo
@@ -16,9 +17,11 @@ import com.example.saxtrainer.core.music.Beats
  */
 data class NoteTrainerConfig(
     val chart: FingeringChart = SaxophoneFingerings,
-    /** Reaction targets offered on the setup screen; they colour the result and nothing else. */
-    val targetOptions: List<Int> = listOf(2, 4, 8),
-    val defaultTargetSeconds: Int = 4,
+    /**
+     * What counts as a quick answer, in seconds. It colours the result and nothing else - a slow
+     * note is never a failed one. Fixed rather than offered: too fine a thing to ask a player to set.
+     */
+    val quickSeconds: Int = 2,
     /** How often the selected notes are worked through, unless a preset says otherwise. */
     val defaultRounds: Int = 1,
     /**
@@ -36,10 +39,10 @@ data class NoteTrainerConfig(
      * A hold turns the exercise from finding a note into finding it and keeping it, which is a
      * different practice and the reason it is the player's to choose rather than a constant. It is
      * the one duration here that is music - the player is being asked to sound a note for a length
-     * of it - so it is counted in beats and turned into seconds against [tempo]. The waits either
-     * side of it are not music and stay in seconds.
+     * of it - so it is counted in beats, in the same lengths Long Tones offers, and turned into
+     * seconds against [defaultTempo]. The waits either side of it are not music and stay in seconds.
      */
-    val holdBeatOptions: List<Int> = listOf(0, 1, 2, 3),
+    val holdBeatOptions: List<Int> = listOf(0) + HeldNote.beatOptions,
     val defaultHoldBeats: Int = 0,
     /** How long a wrong note has to sound before it is called one, rather than an unsettled attack. */
     val wrongPitchSeconds: Double = 0.15,
@@ -48,11 +51,9 @@ data class NoteTrainerConfig(
     /**
      * The speed this trainer counts at: the count-in, and the hold a player is asked to keep.
      *
-     * Offered rather than fixed, because a hold in beats says nothing on its own - two beats is two
-     * seconds at 60 and one at 120, and the player is the one who has to know which.
+     * Fixed, and the same as Long Tones: a beat is a second, so a hold needs no explaining.
      */
-    val defaultTempo: Tempo = Tempo(60),
-    val tempoRange: IntRange = Tempo.SUPPORTED_RANGE,
+    val defaultTempo: Tempo = HeldNote.tempo,
     val capture: AudioCaptureConfig = AudioCaptureConfig(),
     val listening: NoteListener.ListeningSettings = NoteListener.ListeningSettings(),
 ) {

@@ -95,7 +95,6 @@ class UnitLessonsTest {
 
         assertTrue(early.showFingeringHint, "the first five notes are new enough to be shown")
         assertFalse(later.showFingeringHint, "by the octave the grip is yours to remember")
-        assertTrue(later.targetSeconds < early.targetSeconds, "and there is less time to think about it")
     }
 
     @Test

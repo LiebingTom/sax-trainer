@@ -3,7 +3,6 @@ package com.example.saxtrainer.feature.longtones
 import com.example.saxtrainer.core.exercise.SequenceCatalog
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.settings.ExerciseSetup
 import com.example.saxtrainer.core.settings.exerciseSetup
 
@@ -18,7 +17,6 @@ internal fun LongToneUiState.toSetup(): ExerciseSetup = exerciseSetup {
     put(KEY_PATTERN, selection.pattern.id)
     put(KEY_ROOT_NOTE, selection.rootNote.midiNumber)
     put(KEY_BEATS_PER_NOTE, selection.beatsPerNote.value)
-    put(KEY_TEMPO, selection.tempo.bpm)
     put(KEY_SHOW_NEXT_NOTE, showNextNote)
 }
 
@@ -49,7 +47,6 @@ internal fun LongToneUiState.withSetup(setup: ExerciseSetup): LongToneUiState {
             pattern = pattern,
             rootNote = root,
             beatsPerNote = beats,
-            tempo = Tempo(setup.int(KEY_TEMPO, selection.tempo.bpm).coerceIn(tempoRange)),
         ),
     )
 }
@@ -80,7 +77,6 @@ fun longTonePresetOf(
             setup.double(KEY_BEATS_PER_NOTE, SequenceCatalog.singleNote.defaultBeatsPerNote.value)
                 .coerceAtLeast(1.0),
         ),
-        tempo = Tempo(setup.int(KEY_TEMPO, DEFAULT_TEMPO)),
         showNextNote = setup.boolean(KEY_SHOW_NEXT_NOTE, true),
         autoStart = autoStart,
         editable = editable,
@@ -90,11 +86,9 @@ fun longTonePresetOf(
 /** No pitch is a negative MIDI number, so this cannot be mistaken for a stored root. */
 private const val NO_ROOT = -1
 
-/** What the setup screen itself starts at, so a key that was never written reads the same either way. */
-private const val DEFAULT_TEMPO = 60
-
+// No tempo: it is fixed, so there is nothing to remember. A setup written when it could be chosen
+// still has one, and it is simply not read.
 private const val KEY_PATTERN = "pattern"
 private const val KEY_ROOT_NOTE = "root_note"
 private const val KEY_BEATS_PER_NOTE = "beats_per_note"
-private const val KEY_TEMPO = "tempo"
 private const val KEY_SHOW_NEXT_NOTE = "show_next_note"

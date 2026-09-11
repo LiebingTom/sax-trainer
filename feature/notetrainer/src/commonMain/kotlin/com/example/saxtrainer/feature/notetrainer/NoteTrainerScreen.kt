@@ -76,9 +76,7 @@ fun NoteTrainerScreen(
     onRoundsChange: (Int) -> Unit,
     onShowFingeringHintChange: (Boolean) -> Unit,
     onShowNoteNameChange: (Boolean) -> Unit,
-    onTargetChange: (Int) -> Unit,
     onHoldChange: (Beats) -> Unit,
-    onTempoChange: (Int) -> Unit,
     onStart: () -> Unit,
     onTogglePause: () -> Unit,
     onSkip: () -> Unit,
@@ -126,9 +124,7 @@ fun NoteTrainerScreen(
                         onRoundsChange = onRoundsChange,
                         onShowFingeringHintChange = onShowFingeringHintChange,
                         onShowNoteNameChange = onShowNoteNameChange,
-                        onTargetChange = onTargetChange,
                         onHoldChange = onHoldChange,
-                        onTempoChange = onTempoChange,
                     )
                     if (onAddToLessons != null) {
                         Spacer(Modifier.height(Dimens.spaceMd))
@@ -161,6 +157,7 @@ fun NoteTrainerScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Setup(
     state: NoteTrainerUiState,
@@ -170,9 +167,7 @@ private fun Setup(
     onRoundsChange: (Int) -> Unit,
     onShowFingeringHintChange: (Boolean) -> Unit,
     onShowNoteNameChange: (Boolean) -> Unit,
-    onTargetChange: (Int) -> Unit,
     onHoldChange: (Beats) -> Unit,
-    onTempoChange: (Int) -> Unit,
 ) {
     SectionHeader("Notes")
     state.noteSets.forEach { set ->
@@ -219,59 +214,19 @@ private fun Setup(
     }
 
     Spacer(Modifier.height(Dimens.spaceSm))
-    SectionHeader("Quick is")
-    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.targetOptions.forEach { seconds ->
+    SectionHeader("Hold the note")
+    // Wrapped at the edge of the screen, the same lengths and the same layout as Long Tones.
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
+        state.holdOptions.forEach { beats ->
             FilterChip(
-                selected = seconds == state.targetSeconds,
-                onClick = { onTargetChange(seconds) },
-                label = { Text("$seconds s") },
+                selected = beats == state.holdBeats,
+                onClick = { onHoldChange(beats) },
+                label = { Text(holdLabelOf(beats), maxLines = 1) },
             )
         }
     }
     Text(
-        text = "Only for the score. A note waits as long as you need it to.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-
-    Spacer(Modifier.height(Dimens.spaceSm))
-    SectionHeader("Hold the note")
-    // Two rows on purpose. Four of these in one row leaves the last chip too little width and it
-    // wraps its own label instead; deciding where the break goes keeps every label on one line.
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.holdOptions.chunked(HOLD_OPTIONS_PER_ROW).forEach { options ->
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-                options.forEach { beats ->
-                    FilterChip(
-                        selected = beats == state.holdBeats,
-                        onClick = { onHoldChange(beats) },
-                        label = { Text(holdLabelOf(beats), maxLines = 1) },
-                    )
-                }
-            }
-        }
-    }
-    Spacer(Modifier.height(Dimens.spaceSm))
-    SectionHeader("Tempo")
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
-    ) {
-        SecondaryButton(text = "-5", onClick = { onTempoChange(state.tempo.bpm - 5) })
-        Text(
-            text = "${state.tempo.bpm} BPM",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.weight(1f),
-            textAlign = TextAlign.Center,
-        )
-        SecondaryButton(text = "+5", onClick = { onTempoChange(state.tempo.bpm + 5) })
-    }
-
-    Text(
-        text = "Until correct moves on as soon as you find the note. A hold asks you to keep it " +
-            "sounding, and starts again if you lose it - " +
-            "${state.tempo.secondsFor(Beats.of(1)).toFixed(1)} s to a beat at this tempo.",
+        text = "At ${state.tempo.bpm} BPM",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -597,8 +552,7 @@ private fun NoteTrainerSetupPreview() {
         NoteTrainerScreen(
             state = NoteTrainerUiState(
                 activeNotes = listOf(Note(NoteName.C, 4), Note(NoteName.D, 4)),
-                targetOptions = listOf(2, 4, 8),
-                holdOptions = listOf(0, 1, 2, 3).map(Beats::of),
+                holdOptions = listOf(0, 2, 4, 8).map(Beats::of),
             ),
             onSelectNoteSet = {},
             onEditCustomNotes = {},
@@ -611,9 +565,7 @@ private fun NoteTrainerSetupPreview() {
             onRoundsChange = {},
             onShowFingeringHintChange = {},
             onShowNoteNameChange = {},
-            onTargetChange = {},
             onHoldChange = {},
-            onTempoChange = {},
             onStart = {},
             onTogglePause = {},
             onSkip = {},
@@ -720,5 +672,3 @@ private fun NoteSubject(state: NoteTrainerUiState) {
     )
 }
 
-/** How many holds go on one line. Two, so the longest label has room to stay on one line. */
-private const val HOLD_OPTIONS_PER_ROW = 2

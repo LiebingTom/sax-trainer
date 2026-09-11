@@ -60,7 +60,6 @@ val firstNotesUnit = LearningUnit(
                         notes = FIRST_NOTES,
                         order = NoteOrder.RANDOM,
                         showFingeringHint = true,
-                        targetSeconds = 8,
                     ),
                     title = "Play what you read",
                 ),

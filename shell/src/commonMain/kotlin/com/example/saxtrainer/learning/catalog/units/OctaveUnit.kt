@@ -51,7 +51,6 @@ val octaveUnit = LearningUnit(
                         notes = OCTAVE_NOTES,
                         order = NoteOrder.RANDOM,
                         showFingeringHint = false,
-                        targetSeconds = 4,
                     ),
                 ),
             ),

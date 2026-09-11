@@ -46,7 +46,6 @@ val accidentalsUnit = LearningUnit(
                         order = NoteOrder.RANDOM,
                         rounds = 2,
                         showFingeringHint = false,
-                        targetSeconds = 4,
                     ),
                 ),
             ),

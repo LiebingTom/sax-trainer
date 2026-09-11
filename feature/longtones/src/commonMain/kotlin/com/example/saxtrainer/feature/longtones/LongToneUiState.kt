@@ -125,6 +125,7 @@ data class ExerciseSelection(
     val pattern: ExercisePattern,
     val rootNote: Note,
     val beatsPerNote: Beats,
+    /** Fixed: [LongToneConfig.defaultTempo]. Not the player's to set. */
     val tempo: Tempo,
 ) {
     /** The notes this exercise will ask for, in concert pitch. */
@@ -178,7 +179,6 @@ data class LongToneUiState(
     val patterns: List<ExercisePattern>,
     val selectableNotes: List<Note>,
     val beatOptions: List<Beats>,
-    val tempoRange: IntRange,
     val transposition: Transposition,
     val instrumentName: String,
     /** What the note letters are called; a display convention, nothing else. */

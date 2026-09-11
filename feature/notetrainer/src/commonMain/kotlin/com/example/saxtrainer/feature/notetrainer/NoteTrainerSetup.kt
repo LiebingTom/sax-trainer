@@ -9,7 +9,6 @@ import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.settings.ExerciseSetup
 import com.example.saxtrainer.core.settings.exerciseSetup
 import com.example.saxtrainer.core.music.Beats
-import com.example.saxtrainer.core.music.Tempo
 
 /**
  * How this trainer's setup is written down and read back.
@@ -28,9 +27,7 @@ internal fun NoteTrainerUiState.toSetup(): ExerciseSetup = exerciseSetup {
     put(KEY_ROUNDS, rounds)
     put(KEY_FINGERING_HINT, showFingeringHint)
     put(KEY_NOTE_NAME, showNoteName)
-    put(KEY_TARGET_SECONDS, targetSeconds)
     put(KEY_HOLD_BEATS, holdBeats.value)
-    put(KEY_TEMPO, tempo.bpm)
 }
 
 /**
@@ -61,14 +58,13 @@ internal fun NoteTrainerUiState.withSetup(
         rounds = setup.int(KEY_ROUNDS, rounds).coerceAtLeast(1),
         showFingeringHint = setup.boolean(KEY_FINGERING_HINT, showFingeringHint),
         showNoteName = setup.boolean(KEY_NOTE_NAME, showNoteName),
-        targetSeconds = setup.int(KEY_TARGET_SECONDS, targetSeconds),
         // A setup remembered before the hold was beats holds seconds counted at 60 BPM, which is
-        // the same number of beats - so the old key is read as beats and nothing is lost.
-        tempo = Tempo(setup.int(KEY_TEMPO, tempo.bpm).coerceIn(tempoRange)),
+        // the same number of beats - so the old key is read as beats and nothing is lost. A hold
+        // this build no longer offers leaves the one already chosen.
         holdBeats = Beats(
             setup.double(KEY_HOLD_BEATS, setup.double(KEY_HOLD_SECONDS, holdBeats.value))
                 .coerceAtLeast(0.0),
-        ),
+        ).takeIf { it in holdOptions } ?: holdBeats,
     )
 }
 
@@ -107,22 +103,17 @@ fun noteTrainerPresetOf(
         rounds = setup.int(KEY_ROUNDS, 1).coerceAtLeast(1),
         showFingeringHint = setup.boolean(KEY_FINGERING_HINT, false),
         showNoteName = setup.boolean(KEY_NOTE_NAME, false),
-        targetSeconds = setup.int(KEY_TARGET_SECONDS, DEFAULT_TARGET_SECONDS),
         holdBeats = Beats(
             setup.double(KEY_HOLD_BEATS, setup.double(KEY_HOLD_SECONDS, 0.0)).coerceAtLeast(0.0),
         ),
-        tempo = Tempo(setup.int(KEY_TEMPO, DEFAULT_TEMPO)),
         autoStart = autoStart,
         editable = editable,
     )
 }
 
-/** What the setup screen itself starts at, so a key that was never written reads the same either way. */
-private const val DEFAULT_TARGET_SECONDS = 4
-private const val DEFAULT_TEMPO = 60
-
+// No tempo and no quick time: both are fixed, so there is nothing to remember. A setup written
+// when they could be chosen still has them, and they are simply not read.
 private const val KEY_HOLD_BEATS = "hold_beats"
-private const val KEY_TEMPO = "tempo"
 
 private const val KEY_NOTE_SET = "note_set"
 private const val KEY_CUSTOM_NOTES = "custom_notes"
@@ -130,6 +121,5 @@ private const val KEY_ORDER = "order"
 private const val KEY_ROUNDS = "rounds"
 private const val KEY_FINGERING_HINT = "fingering_hint"
 private const val KEY_NOTE_NAME = "note_name"
-private const val KEY_TARGET_SECONDS = "target_seconds"
 /** What [KEY_HOLD_BEATS] was called when the same number meant seconds. Read, never written. */
 private const val KEY_HOLD_SECONDS = "hold_seconds"

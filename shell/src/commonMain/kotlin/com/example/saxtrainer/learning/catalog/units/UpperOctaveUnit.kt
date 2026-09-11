@@ -56,7 +56,6 @@ val upperOctaveUnit = LearningUnit(
                         // The notes are new even though the grips are not: the hint comes back for
                         // one lesson and is taken away again in the next.
                         showFingeringHint = true,
-                        targetSeconds = 6,
                     ),
                 ),
             ),
@@ -71,7 +70,6 @@ val upperOctaveUnit = LearningUnit(
                         notes = UPPER_OCTAVE_NOTES,
                         order = NoteOrder.RANDOM,
                         showFingeringHint = false,
-                        targetSeconds = 4,
                     ),
                     title = "Every note you know",
                 ),

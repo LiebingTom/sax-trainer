@@ -2,7 +2,6 @@ package com.example.saxtrainer.feature.longtones
 
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.core.music.Tempo
 
 /**
  * A fully decided exercise: everything the setup screen would otherwise ask the player.
@@ -21,7 +20,6 @@ data class LongTonePreset(
     val patternId: String,
     val rootNote: Note,
     val beatsPerNote: Beats,
-    val tempo: Tempo,
     /** Whether the note after this one is shown beside it, as its name. */
     val showNextNote: Boolean = true,
     /** Whether the exercise begins by itself rather than waiting for Start. */

@@ -8,6 +8,7 @@ import com.example.saxtrainer.core.audio.capture.AudioFrame
 import com.example.saxtrainer.core.exercise.MonotonicBeatClock
 import com.example.saxtrainer.core.exercise.SequenceCatalog
 import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.settings.Exercise
@@ -103,12 +104,14 @@ class LongToneViewModelTest {
         setups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
         preset: LongTonePreset? = null,
         seed: Int = 1,
+        // The player cannot choose the tempo any more; a test still can, to hurry a run along.
+        fixedTempo: Tempo = config.defaultTempo,
     ) = LongToneViewModel(
         audioCapture = capture,
         settingsRepository = settings,
         exerciseSetups = setups,
         preset = preset,
-        config = config,
+        config = config.copy(defaultTempo = fixedTempo),
         processingDispatcher = dispatcher,
         random = Random(seed),
         countInClock = MonotonicBeatClock(
@@ -192,9 +195,8 @@ class LongToneViewModelTest {
 
     @Test
     fun `tempo decides how long a note lasts`() = runTest(dispatcher) {
-        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs), fixedTempo = Tempo(120))
         viewModel.selectPattern(SequenceCatalog.singleNote)
-        viewModel.setTempo(120)
 
         viewModel.start()
         advanceUntilIdle()
@@ -356,9 +358,8 @@ class LongToneViewModelTest {
     }
 
     @Test
-    fun `the count-in lasts one bar at the chosen tempo`() = runTest(dispatcher) {
-        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
-        viewModel.setTempo(120)
+    fun `the count-in lasts one bar at the trainer's tempo`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs), fixedTempo = Tempo(120))
 
         viewModel.start()
         // A bar is four beats however fast they go by, so the count is always four numbers.
@@ -417,13 +418,11 @@ class LongToneViewModelTest {
         viewModel.selectPattern(SequenceCatalog.repeat)
         viewModel.selectRootNote(Note(NoteName.C, 4))
         viewModel.selectBeatsPerNote(Beats.of(8))
-        viewModel.setTempo(200)
 
         val selection = viewModel.uiState.value.selection
         assertEquals(SequenceCatalog.fifth, selection.pattern)
         assertEquals(Note(NoteName.A, 4), selection.rootNote)
         assertEquals(Beats.of(4), selection.beatsPerNote)
-        assertEquals(60, selection.tempo.bpm)
 
         viewModel.stop()
         advanceUntilIdle()
@@ -442,17 +441,6 @@ class LongToneViewModelTest {
         // An explicit choice still wins.
         viewModel.selectBeatsPerNote(Beats.of(8))
         assertEquals(Beats.of(8), viewModel.uiState.value.selection.beatsPerNote)
-    }
-
-    @Test
-    fun `tempo stays inside the supported range`() = runTest(dispatcher) {
-        val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
-
-        viewModel.setTempo(1_000)
-        assertEquals(config.tempoRange.last, viewModel.uiState.value.selection.tempo.bpm)
-
-        viewModel.setTempo(1)
-        assertEquals(config.tempoRange.first, viewModel.uiState.value.selection.tempo.bpm)
     }
 
     @Test
@@ -586,7 +574,6 @@ class LongToneViewModelTest {
         chosen.selectPattern(SequenceCatalog.stepwiseUp)
         chosen.selectRootNote(Note(NoteName.D, 4))
         chosen.selectBeatsPerNote(Beats.of(8))
-        chosen.setTempo(96)
         chosen.setShowNextNote(false)
 
         val opened = viewModel(FakeAudioCapture(frameDurationMs), setups = setups).uiState.value
@@ -594,7 +581,6 @@ class LongToneViewModelTest {
         assertEquals(SequenceCatalog.stepwiseUp, opened.selection.pattern)
         assertEquals(Note(NoteName.D, 4), opened.selection.rootNote)
         assertEquals(Beats.of(8), opened.selection.beatsPerNote)
-        assertEquals(96, opened.selection.tempo.bpm)
         assertFalse(opened.showNextNote)
     }
 
@@ -637,7 +623,6 @@ class LongToneViewModelTest {
         configured.selectPattern(SequenceCatalog.stepwiseUp)
         configured.selectRootNote(Note(NoteName.G, 4))
         configured.selectBeatsPerNote(Beats.of(8))
-        configured.setTempo(96)
         configured.setShowNextNote(false)
         val written = configured.uiState.value.toSetup()
 

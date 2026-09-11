@@ -42,7 +42,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
 import com.example.saxtrainer.core.music.Beats
-import com.example.saxtrainer.core.music.Tempo
 
 /**
  * Runs a note trainer exercise: read the note, find the fingering, play it, next.
@@ -62,8 +61,8 @@ import com.example.saxtrainer.core.music.Tempo
  * turns into another one starts its hold again from nothing. Either way the reaction time is taken
  * from the first correct frame, so a longer hold never makes the player look slower.
  *
- * The count-in is the one every practice shares, counted at [NoteTrainerConfig.tempo] because this
- * trainer has no tempo of its own. It matters here for a second reason: the microphone is opened
+ * The count-in is the one every practice shares, counted at [NoteTrainerConfig.defaultTempo], the
+ * fixed speed a hold is counted at. It matters here for a second reason: the microphone is opened
  * after it, so a click can never be heard as a played note.
  */
 class NoteTrainerViewModel(
@@ -144,11 +143,7 @@ class NoteTrainerViewModel(
 
     fun setShowNoteName(show: Boolean) = updateSetup { it.copy(showNoteName = show) }
 
-    fun setTargetSeconds(seconds: Int) = updateSetup { it.copy(targetSeconds = seconds) }
-
     /** Zero asks for no hold at all: the note counts as soon as it is right. */
-    fun setTempo(bpm: Int) = updateSetup { it.copy(tempo = Tempo(bpm.coerceIn(it.tempoRange))) }
-
     fun setHoldBeats(beats: Beats) = updateSetup {
         it.copy(holdBeats = maxOf(beats, Beats.ZERO))
     }
@@ -562,9 +557,8 @@ class NoteTrainerViewModel(
             rounds = preset.rounds,
             showFingeringHint = preset.showFingeringHint,
             showNoteName = preset.showNoteName,
-            targetSeconds = preset.targetSeconds,
-            holdBeats = preset.holdBeats,
-            tempo = Tempo(preset.tempo.bpm.coerceIn(tempoRange)),
+            // A hold this build no longer offers leaves the default, as a remembered one does.
+            holdBeats = preset.holdBeats.takeIf { it in holdOptions } ?: holdBeats,
             isPreconfigured = !preset.editable,
         )
     }
@@ -579,11 +573,9 @@ class NoteTrainerViewModel(
             activeNotes = NoteSets.notesOf(NoteSet.BEGINNER, config.chart, notes.toSet()),
             order = NoteOrder.RANDOM,
             rounds = config.defaultRounds,
-            targetSeconds = config.defaultTargetSeconds,
-            targetOptions = config.targetOptions,
+            targetSeconds = config.quickSeconds,
             holdBeats = Beats.of(config.defaultHoldBeats),
             tempo = config.defaultTempo,
-            tempoRange = config.tempoRange,
             holdOptions = config.holdChoices,
             transposition = settings.instrument.transposition,
             instrumentName = settings.instrument.displayName,

@@ -5,7 +5,6 @@ import com.example.saxtrainer.core.learning.LearningUnit
 import com.example.saxtrainer.core.learning.Lesson
 import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.music.Beats
-import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.feature.notequiz.QuizPreset
 import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
@@ -32,7 +31,6 @@ const val C_MAJOR_UNIT_ID = "c-major"
  * before the sound tells on them - which is the point of asking for it.
  */
 private val HELD = Beats.of(4)
-private val HOLD_TEMPO = Tempo(60)
 
 val cMajorUnit = LearningUnit(
     id = C_MAJOR_UNIT_ID,
@@ -65,9 +63,7 @@ val cMajorUnit = LearningUnit(
                         notes = C_MAJOR_LOWER,
                         order = NoteOrder.ORDERED,
                         showFingeringHint = false,
-                        targetSeconds = 6,
                         holdBeats = HELD,
-                        tempo = HOLD_TEMPO,
                     ),
                 ),
             ),
@@ -82,9 +78,7 @@ val cMajorUnit = LearningUnit(
                         notes = C_MAJOR_UPPER,
                         order = NoteOrder.ORDERED,
                         showFingeringHint = false,
-                        targetSeconds = 6,
                         holdBeats = HELD,
-                        tempo = HOLD_TEMPO,
                     ),
                 ),
             ),

@@ -94,7 +94,6 @@ fun LongToneRoute(
         onSelectPattern = viewModel::selectPattern,
         onSelectRootNote = viewModel::selectRootNote,
         onSelectBeats = viewModel::selectBeatsPerNote,
-        onSetTempo = viewModel::setTempo,
         onSelectNoteDisplay = viewModel::selectNoteDisplay,
         onShowNextNote = viewModel::setShowNextNote,
         onStart = start,

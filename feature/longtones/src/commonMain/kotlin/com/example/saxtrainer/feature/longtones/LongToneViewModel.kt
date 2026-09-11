@@ -19,7 +19,6 @@ import com.example.saxtrainer.core.exercise.leadInBeatsFor
 import com.example.saxtrainer.core.exercise.pausedBy
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.Exercise
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
@@ -135,10 +134,6 @@ class LongToneViewModel(
         if (_uiState.value.isBusy) return
         _uiState.value = _uiState.value.copy(showNextNote = show)
         rememberSetup()
-    }
-
-    fun setTempo(bpm: Int) = updateSelection {
-        it.copy(tempo = Tempo(bpm.coerceIn(config.tempoRange.first, config.tempoRange.last)))
     }
 
     /** Starts the count-in and recording. The caller must have obtained microphone permission. */
@@ -472,7 +467,6 @@ class LongToneViewModel(
             pattern = patterns.firstOrNull { it.id == preset.patternId } ?: selection.pattern,
             rootNote = preset.rootNote.takeIf { it in selectableNotes } ?: selection.rootNote,
             beatsPerNote = preset.beatsPerNote.takeIf { it in beatOptions } ?: selection.beatsPerNote,
-            tempo = Tempo(preset.tempo.bpm.coerceIn(tempoRange)),
         ),
     )
 
@@ -491,7 +485,6 @@ class LongToneViewModel(
             patterns = SequenceCatalog.patterns,
             selectableNotes = Note.range(config.lowestNote, config.highestNote),
             beatOptions = config.beatChoices,
-            tempoRange = config.tempoRange,
             transposition = instrument.transposition,
             instrumentName = instrument.displayName,
             noteDisplay = settingsRepository.settings.value.noteDisplayFor(TrainingTool.LONG_TONES),

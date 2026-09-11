@@ -3,7 +3,6 @@ package com.example.saxtrainer.feature.notetrainer
 import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.Beats
-import com.example.saxtrainer.core.music.Tempo
 
 /**
  * A fully decided exercise: everything the setup screen would otherwise ask the player.
@@ -21,12 +20,8 @@ data class NoteTrainerPreset(
     val showFingeringHint: Boolean = false,
     /** Whether the note's name is written under it as well as being engraved. */
     val showNoteName: Boolean = false,
-    /** What counts as a quick answer at this level. Scoring only; nothing times out. */
-    val targetSeconds: Int = 4,
     /** How long the note has to be held once it is right; zero advances as soon as it is. */
     val holdBeats: Beats = Beats.ZERO,
-    /** What [holdBeats] is counted at, and so how long a hold actually lasts. */
-    val tempo: Tempo = Tempo(60),
     /** Whether the exercise begins by itself rather than waiting for Start. */
     val autoStart: Boolean = true,
     /**
@@ -40,6 +35,5 @@ data class NoteTrainerPreset(
     init {
         require(notes.isNotEmpty()) { "a preset needs at least one note" }
         require(rounds >= 1) { "an exercise needs at least one round" }
-        require(targetSeconds > 0) { "a target needs to be some length of time" }
     }
 }

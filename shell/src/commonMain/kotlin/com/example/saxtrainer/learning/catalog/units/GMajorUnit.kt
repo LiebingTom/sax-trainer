@@ -5,7 +5,6 @@ import com.example.saxtrainer.core.learning.LearningUnit
 import com.example.saxtrainer.core.learning.Lesson
 import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.music.Beats
-import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.feature.notequiz.QuizPreset
 import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
@@ -23,7 +22,6 @@ const val G_MAJOR_UNIT_ID = "g-major"
 
 /** As long as C major asks for; a key does not change what holding a note means. */
 private val HELD = Beats.of(4)
-private val HOLD_TEMPO = Tempo(60)
 
 val gMajorUnit = LearningUnit(
     id = G_MAJOR_UNIT_ID,
@@ -54,9 +52,7 @@ val gMajorUnit = LearningUnit(
                         notes = G_MAJOR,
                         order = NoteOrder.ORDERED,
                         showFingeringHint = false,
-                        targetSeconds = 6,
                         holdBeats = HELD,
-                        tempo = HOLD_TEMPO,
                     ),
                 ),
             ),

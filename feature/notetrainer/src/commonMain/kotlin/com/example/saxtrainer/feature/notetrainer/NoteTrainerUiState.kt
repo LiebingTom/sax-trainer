@@ -137,9 +137,8 @@ data class NoteTrainerUiState(
     val showFingeringHint: Boolean = false,
     /** Whether the note's name is shown under the staff. Off by default; the notation is the point. */
     val showNoteName: Boolean = false,
-    /** What counts as a quick answer. Scoring only - a slow note is never a failed one. */
-    val targetSeconds: Int = 4,
-    val targetOptions: List<Int> = emptyList(),
+    /** What counts as a quick answer: [NoteTrainerConfig.quickSeconds], not the player's to set. */
+    val targetSeconds: Int = 2,
     /**
      * How long the right note has to be kept sounding before the exercise moves on.
      *
@@ -149,9 +148,8 @@ data class NoteTrainerUiState(
      */
     /** How long a right note has to be kept, in beats; zero moves on as soon as it is right. */
     val holdBeats: Beats = Beats.ZERO,
-    /** The speed those beats are counted at, which is what gives them a length in seconds. */
+    /** The speed those beats are counted at: fixed, [NoteTrainerConfig.defaultTempo]. */
     val tempo: Tempo = Tempo(60),
-    val tempoRange: IntRange = Tempo.SUPPORTED_RANGE,
     val holdOptions: List<Beats> = emptyList(),
     /** Set when the microphone was asked for and refused; without one there is no exercise. */
     val microphoneUnavailable: Boolean = false,

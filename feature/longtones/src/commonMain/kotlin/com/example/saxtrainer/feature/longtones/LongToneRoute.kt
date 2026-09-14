@@ -39,6 +39,10 @@ fun LongToneRoute(
      * a trainer running somebody else's lesson is not making one up.
      */
     onAddToLessons: (() -> Unit)? = null,
+    /** Whether the player has starred this practice. */
+    isFavorite: Boolean = false,
+    /** Stars or unstars it, or null where starring makes no sense - inside a lesson, again. */
+    onToggleFavorite: ((Boolean) -> Unit)? = null,
     viewModel: LongToneViewModel = viewModel {
         // The click counts the exercise in and stops before the microphone opens.
         LongToneViewModel(
@@ -102,6 +106,8 @@ fun LongToneRoute(
         onReset = viewModel::reset,
         onBack = onBack,
         onAddToLessons = addToLessons,
+        isFavorite = isFavorite,
+        onToggleFavorite = onToggleFavorite,
         modifier = modifier,
         permissionDenied = permissionDenied,
         onOpenAppSettings = microphone::openSettings,

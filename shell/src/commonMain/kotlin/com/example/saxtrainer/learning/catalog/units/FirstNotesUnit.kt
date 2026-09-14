@@ -1,20 +1,17 @@
 package com.example.saxtrainer.learning.catalog.units
 
-import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.learning.LearningUnit
 import com.example.saxtrainer.core.learning.Lesson
 import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.feature.notequiz.QuizPreset
-import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
-import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
 
 /**
- * C to G: recognise them, play them.
+ * C to G: recognise them.
  *
- * A unit is a topic, not a trainer. These lessons use two different trainers because that is what
- * learning five notes takes, and the last one uses both of them in a single sitting.
+ * A unit is a topic, not a trainer. The lessons are provisional and will be rewritten; for now each
+ * one runs a single practice.
  *
  * `requires` is left null throughout, so every lesson can be opened while the catalog is still
  * being written; turning progression on later is a change to this data and to nothing else.
@@ -24,7 +21,7 @@ const val FIRST_NOTES_UNIT_ID = "first-notes"
 val firstNotesUnit = LearningUnit(
     id = FIRST_NOTES_UNIT_ID,
     title = "Your first five notes",
-    description = "C to G: read them, then play them.",
+    description = "C to G: read them.",
     lessons = listOf(
         Lesson(
             id = LessonId("first-notes-read"),
@@ -37,31 +34,6 @@ val firstNotesUnit = LearningUnit(
                         mode = QuizMode.NOTE_TO_FINGERING,
                         questionCount = 10,
                     ),
-                ),
-            ),
-        ),
-        Lesson(
-            id = LessonId("first-notes-play"),
-            title = "Play them",
-            subtitle = "Name the grips, then play what you read",
-            steps = listOf(
-                // Two trainers, one sitting: recognise the grips, then put the horn to your mouth
-                // and play what is on the staff. Neither trainer knows the other one ran.
-                noteQuizStep(
-                    QuizPreset(
-                        notes = FIRST_NOTES,
-                        mode = QuizMode.FINGERING_TO_NOTE,
-                        questionCount = 6,
-                    ),
-                    title = "Which note is this?",
-                ),
-                noteTrainerStep(
-                    NoteTrainerPreset(
-                        notes = FIRST_NOTES,
-                        order = NoteOrder.RANDOM,
-                        showFingeringHint = true,
-                    ),
-                    title = "Play what you read",
                 ),
             ),
         ),

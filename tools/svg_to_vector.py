@@ -13,9 +13,17 @@ Two things this does that a copy and paste would get wrong:
 * Colour is dropped. Icons are drawn through `Icon(imageVector, tint = ...)`, which replaces the
   fill with the theme colour, so whatever colour the SVG was exported in is noise.
 
-Anything it cannot convert faithfully is an error rather than a silently wrong icon: transforms,
-gradients, strokes, and shapes that are not paths. Inkscape can remove all of those - see the notes
-in `tools/icons.map`.
+Two things it fixes up that Inkscape tends to leave behind:
+
+* A `transform` that only moves and resizes - `translate`, `scale`, or a `matrix` with no rotation
+  or skew, on a path or on any group around it - is baked into the path data. That is exact, and it
+  is what Inkscape leaves on a path that was pasted in or resized.
+* Anything hidden with `display:none` - a template frame, a guide shape - is left out, as it is when
+  the SVG is drawn.
+
+Anything it cannot convert faithfully is an error rather than a silently wrong icon: rotated or
+skewed transforms, gradients, strokes, and shapes that are not paths. Inkscape can remove all of
+those - see the notes in `tools/icons.map`.
 
 Usage:
     python tools/svg_to_vector.py <input.svg> <Output.kt>
@@ -60,6 +68,160 @@ class ConversionError(Exception):
     """Something in the SVG would come out wrong, so nothing is written."""
 
 
+# An axis-aligned affine transform: x' = sx * x + tx, y' = sy * y + ty. Rotation and skew are
+# refused rather than approximated.
+Affine = tuple[float, float, float, float]
+IDENTITY: Affine = (1.0, 1.0, 0.0, 0.0)
+
+
+def parse_transform(raw: str | None) -> Affine:
+    """The transform attribute as one axis-aligned affine, or an error if it rotates or skews."""
+    if not raw:
+        return IDENTITY
+    result = IDENTITY
+    for name, args in re.findall(r"(\w+)\s*\(([^)]*)\)", raw):
+        values = [float(v) for v in re.split(r"[\s,]+", args.strip()) if v]
+        if name == "matrix" and len(values) == 6:
+            a, b, c, d, e, f = values
+            if abs(b) > 1e-9 or abs(c) > 1e-9:
+                raise ConversionError(f'transform "{raw}" rotates or skews; flatten it in the editor')
+            step = (a, d, e, f)
+        elif name == "translate" and values:
+            step = (1.0, 1.0, values[0], values[1] if len(values) > 1 else 0.0)
+        elif name == "scale" and values:
+            step = (values[0], values[1] if len(values) > 1 else values[0], 0.0, 0.0)
+        else:
+            raise ConversionError(f'transform "{raw}" is not a move or a resize; flatten it first')
+        result = compose(result, step)
+    return result
+
+
+def compose(outer: Affine, inner: Affine) -> Affine:
+    """`inner` first, then `outer` - the order nested SVG transforms apply in."""
+    osx, osy, otx, oty = outer
+    isx, isy, itx, ity = inner
+    return (osx * isx, osy * isy, osx * itx + otx, osy * ity + oty)
+
+
+_NUMBER = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+_ARG_COUNT = {"M": 2, "L": 2, "H": 1, "V": 1, "C": 6, "S": 4, "Q": 4, "T": 2, "A": 7, "Z": 0}
+
+
+def read_path(data: str) -> list[tuple[str, list[float]]]:
+    """Path data as (command, arguments), implicit repeats split out and arc flags read one digit each."""
+    commands: list[tuple[str, list[float]]] = []
+    position = 0
+    command = None
+
+    def skip() -> None:
+        nonlocal position
+        while position < len(data) and (data[position].isspace() or data[position] == ","):
+            position += 1
+
+    def number() -> float:
+        nonlocal position
+        skip()
+        match = _NUMBER.match(data, position)
+        if not match:
+            raise ConversionError(f"unreadable path data near {data[position:position + 20]!r}")
+        position = match.end()
+        return float(match.group())
+
+    def flag() -> float:
+        nonlocal position
+        skip()
+        if position >= len(data) or data[position] not in "01":
+            raise ConversionError(f"unreadable arc flag near {data[position:position + 20]!r}")
+        position += 1
+        return float(data[position - 1])
+
+    while True:
+        skip()
+        if position >= len(data):
+            break
+        if data[position].isalpha():
+            command = data[position]
+            position += 1
+            if command.upper() not in _ARG_COUNT:
+                raise ConversionError(f"path command {command!r} is not supported")
+            if command.upper() == "Z":
+                commands.append((command, []))
+                continue
+        elif command is None or command.upper() == "Z":
+            raise ConversionError(f"numbers without a command in path data near {data[position:position + 20]!r}")
+        if command.upper() == "A":
+            args = [number(), number(), number(), flag(), flag(), number(), number()]
+        else:
+            args = [number() for _ in range(_ARG_COUNT[command.upper()])]
+        commands.append((command, args))
+        # Coordinate pairs after a moveto are linetos of the same kind.
+        if command == "M":
+            command = "L"
+        elif command == "m":
+            command = "l"
+    return commands
+
+
+def _format(value: float) -> str:
+    text = f"{value:.4f}".rstrip("0").rstrip(".")
+    return "0" if text in ("", "-0") else text
+
+
+def transform_path(data: str, affine: Affine) -> str:
+    """`data` with `affine` baked in, written out as absolute commands. Unchanged for the identity."""
+    if affine == IDENTITY:
+        return data
+    sx, sy, tx, ty = affine
+
+    def point(x: float, y: float) -> str:
+        return f"{_format(sx * x + tx)} {_format(sy * y + ty)}"
+
+    out: list[str] = []
+    x = y = start_x = start_y = 0.0
+    for command, args in read_path(data):
+        relative = command.islower()
+        kind = command.upper()
+        if kind == "Z":
+            out.append("Z")
+            x, y = start_x, start_y
+        elif kind == "H":
+            x = args[0] + (x if relative else 0.0)
+            out.append(f"H{_format(sx * x + tx)}")
+        elif kind == "V":
+            y = args[0] + (y if relative else 0.0)
+            out.append(f"V{_format(sy * y + ty)}")
+        elif kind == "A":
+            rx, ry, angle, large, sweep, end_x, end_y = args
+            if relative:
+                end_x, end_y = end_x + x, end_y + y
+            if abs(angle) > 1e-9 and abs(abs(sx) - abs(sy)) > 1e-6 * max(abs(sx), abs(sy)):
+                raise ConversionError("a rotated arc under an uneven scale cannot be baked in")
+            if sx * sy < 0:
+                sweep = 1.0 - sweep
+            out.append(
+                f"A{_format(abs(rx * sx))} {_format(abs(ry * sy))} {_format(angle)} "
+                f"{int(large)} {int(sweep)} {point(end_x, end_y)}"
+            )
+            x, y = end_x, end_y
+        else:
+            points = []
+            for k in range(0, len(args), 2):
+                px, py = args[k], args[k + 1]
+                if relative:
+                    px, py = px + x, py + y
+                points.append((px, py))
+            out.append(kind + " ".join(point(px, py) for px, py in points))
+            x, y = points[-1]
+            if kind == "M":
+                start_x, start_y = x, y
+    return " ".join(out)
+
+
+def is_hidden(element: ElementTree.Element) -> bool:
+    style = element.get("style") or ""
+    return element.get("display") == "none" or re.search(r"display\s*:\s*none", style) is not None
+
+
 def local_name(tag: str) -> str:
     return tag.split("}", 1)[-1]
 
@@ -82,31 +244,35 @@ def collect_paths(root: ElementTree.Element) -> list[tuple[str, str]]:
     """Every drawable path, as (path data, fill type), in document order."""
     paths: list[tuple[str, str]] = []
 
-    for element in root.iter():
+    def visit(element: ElementTree.Element, inherited: Affine) -> None:
         name = local_name(element.tag)
-
+        # Hidden is hidden, whatever it holds: a template layer switched off in the editor.
+        if element is not root and is_hidden(element):
+            return
         if name in UNSUPPORTED:
             raise ConversionError(f"<{name}> cannot be converted; flatten it in the editor first")
         if name in NON_PATH_SHAPES:
             raise ConversionError(
                 f"<{name}> is not a path; in Inkscape use Path > Object to Path and export again"
             )
-        if element is not root and element.get("transform"):
-            raise ConversionError(
-                f"<{name}> carries a transform; in Inkscape use Path > Object to Path, or "
-                "flatten the transform, and export again"
-            )
-        if name != "path":
-            continue
+        affine = inherited
+        if element is not root:
+            affine = compose(inherited, parse_transform(element.get("transform")))
 
-        data = element.get("d")
-        if not data:
-            continue
-        if element.get("fill") == "none" and element.get("stroke"):
-            raise ConversionError("stroked path; convert the stroke to a filled outline first")
+        data = element.get("d") if name == "path" else None
+        if data:
+            if element.get("fill") == "none" and element.get("stroke"):
+                raise ConversionError("stroked path; convert the stroke to a filled outline first")
+            fill_rule = element.get("fill-rule") or element.get("clip-rule") or "nonzero"
+            paths.append((
+                transform_path(data.strip(), affine),
+                "evenOdd" if fill_rule == "evenodd" else "nonZero",
+            ))
 
-        fill_rule = element.get("fill-rule") or element.get("clip-rule") or "nonzero"
-        paths.append((data.strip(), "evenOdd" if fill_rule == "evenodd" else "nonZero"))
+        for child in element:
+            visit(child, affine)
+
+    visit(root, IDENTITY)
 
     if not paths:
         raise ConversionError("no <path> to draw")

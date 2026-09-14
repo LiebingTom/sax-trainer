@@ -40,6 +40,11 @@ fun LessonListScreen(
      * cannot be looked into at all.
      */
     onEditLesson: ((LessonId) -> Unit)? = null,
+    /**
+     * The icon of the practice a lesson runs, or null to draw none. Handed in, because which icon
+     * belongs to which practice is the app's business and not this feature's.
+     */
+    iconOf: (Lesson) -> IconSource? = { null },
 ) {
     ScreenScaffold(
         title = state.title,
@@ -68,6 +73,7 @@ fun LessonListScreen(
                 enabled = item.unlocked,
                 status = statusOf(item),
                 badge = { Badge(item) },
+                icon = iconOf(item.lesson),
                 trailing = if (onEditLesson == null) {
                     null
                 } else {

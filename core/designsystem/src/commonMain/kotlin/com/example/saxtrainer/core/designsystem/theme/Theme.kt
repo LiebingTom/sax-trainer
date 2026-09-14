@@ -1,56 +1,45 @@
 package com.example.saxtrainer.core.designsystem.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-
-private val LightColors = lightColorScheme(
-    primary = Brass40,
-    onPrimary = White,
-    primaryContainer = BrassContainerLight,
-    onPrimaryContainer = OnBrass,
-    secondary = Teal40,
-    onSecondary = White,
-    secondaryContainer = TealContainerLight,
-    tertiary = Copper40,
-    onTertiary = White,
-    background = SurfaceLight,
-    onBackground = OnSurfaceLight,
-    surface = SurfaceLight,
-    onSurface = OnSurfaceLight,
-)
-
-private val DarkColors = darkColorScheme(
-    primary = Brass80,
-    onPrimary = OnBrass,
-    primaryContainer = BrassContainerDark,
-    onPrimaryContainer = BrassContainerLight,
-    secondary = Teal80,
-    onSecondary = OnBrass,
-    secondaryContainer = TealContainerDark,
-    tertiary = Copper80,
-    onTertiary = OnBrass,
-    background = SurfaceDark,
-    onBackground = OnSurfaceDark,
-    surface = SurfaceDark,
-    onSurface = OnSurfaceDark,
-)
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 
 /**
- * Single theme entry point for every screen in the app. Dynamic colour is deliberately not used so
- * the app keeps its own visual identity; swapping palettes later only touches this file.
+ * Single theme entry point for every screen in the app.
+ *
+ * [seed] is the theme's main colour and [darkTheme] its mode; every colour on screen is derived from
+ * the two (see [ThemeSeeds]). Dynamic colour is deliberately not used so the app keeps its own
+ * visual identity.
+ *
+ * `isSystemInDarkTheme()` is only the default here. Nothing below the theme reads it again, so a
+ * caller that overrides [darkTheme] gets that mode everywhere, judgement colours included.
  */
 @Composable
 fun SaxTrainerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    seed: Color = ThemeSeeds.Brass,
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = SaxTrainerTypography,
-        shapes = SaxTrainerShapes,
-        content = content,
-    )
+    val theme = remember(seed, darkTheme) { colorThemeOf(seed, darkTheme) }
+    CompositionLocalProvider(LocalSaxTrainerColors provides theme.colors) {
+        MaterialTheme(
+            colorScheme = theme.scheme,
+            typography = SaxTrainerTypography,
+            shapes = SaxTrainerShapes,
+            content = content,
+        )
+    }
 }
+
+/**
+ * The scheme [SaxTrainerTheme] would provide for [seed] and [darkTheme], without composing it.
+ *
+ * For drawing a theme other than the current one - a swatch in a list of themes - and for checking
+ * what a theme paints.
+ */
+fun saxTrainerColorScheme(seed: Color, darkTheme: Boolean): ColorScheme =
+    colorThemeOf(seed, darkTheme).scheme

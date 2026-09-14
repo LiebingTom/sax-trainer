@@ -12,6 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.example.saxtrainer.core.designsystem.component.FeatureIcon
+import com.example.saxtrainer.core.designsystem.component.IconSource
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 
 /**
@@ -39,6 +42,11 @@ fun LessonCard(
     badge: (@Composable () -> Unit)? = null,
     /** Controls of the card's own, clickable in their own right rather than opening the lesson. */
     trailing: (@Composable () -> Unit)? = null,
+    /**
+     * The practice behind the lesson, drawn first the way a Practice card draws it, so a lesson
+     * looks like what it asks the player to do. Decorative: the title already says what it is.
+     */
+    icon: IconSource? = null,
 ) {
     Card(
         onClick = onClick,
@@ -54,6 +62,9 @@ fun LessonCard(
             horizontalArrangement = Arrangement.spacedBy(Dimens.spaceMd),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (icon != null) {
+                FeatureIcon(icon = icon, modifier = Modifier.clearAndSetSemantics { })
+            }
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(Dimens.spaceXs),

@@ -53,9 +53,6 @@ internal val OCTAVE_KEY_NOTES = listOf(
     note(NoteName.C, 6),
 ).sortedBy { it.midiNumber }
 
-/** Everything taught so far, both octaves of it. */
-internal val UPPER_OCTAVE_NOTES = (ACCIDENTAL_NOTES + OCTAVE_KEY_NOTES).sortedBy { it.midiNumber }
-
 // --- keys -----------------------------------------------------------------------------------------
 //
 // A scale is not another rung of the ladder above: it is the same notes looked at as a key, in the

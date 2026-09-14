@@ -41,6 +41,8 @@ class LocalStorageSettingsRepository(
                 storage[StoredSettings.KEY_COUNT_IN_CLICK]?.toBooleanStrictOrNull(),
             ),
             favorites = StoredSettings.favoritesOf(storage[StoredSettings.KEY_FAVORITES]),
+            themeMode = StoredSettings.themeModeOf(storage[StoredSettings.KEY_THEME_MODE]),
+            themeColor = StoredSettings.themeColorOf(storage[StoredSettings.KEY_THEME_COLOR]),
         )
     }
 
@@ -92,6 +94,18 @@ class LocalStorageSettingsRepository(
             StoredSettings.KEY_FAVORITES,
             StoredSettings.encodeFavorites(now),
         )
+    }
+
+    override fun setThemeMode(themeMode: ThemeMode) {
+        if (_settings.value.themeMode == themeMode) return
+        _settings.value = _settings.value.copy(themeMode = themeMode)
+        storage.setItem(StoredSettings.KEY_THEME_MODE, themeMode.name)
+    }
+
+    override fun setThemeColor(themeColor: ThemeColor) {
+        if (_settings.value.themeColor == themeColor) return
+        _settings.value = _settings.value.copy(themeColor = themeColor)
+        storage.setItem(StoredSettings.KEY_THEME_COLOR, themeColor.name)
     }
 
     private fun readNoteDisplayOverrides(): Map<TrainingTool, NoteDisplay> =

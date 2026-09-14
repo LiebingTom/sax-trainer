@@ -47,4 +47,5 @@ internal fun saxIcon(
 }
 
 private val IconSize = 24.dp
+/** Never seen: every icon is drawn with `Icon(tint = ...)`, which replaces the fill. */
 private val Placeholder = SolidColor(Color.Black)

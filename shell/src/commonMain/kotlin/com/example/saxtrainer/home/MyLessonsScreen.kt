@@ -31,6 +31,7 @@ import com.example.saxtrainer.core.designsystem.icon.Rename
 import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.learning.LessonId
+import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.core.settings.UserLesson
 import com.example.saxtrainer.core.settings.UserLessonBook
 import com.example.saxtrainer.core.settings.UserLessonGroup
@@ -40,6 +41,7 @@ import com.example.saxtrainer.core.settings.movedGroup
 import com.example.saxtrainer.core.settings.movedLesson
 import com.example.saxtrainer.core.settings.plusGroup
 import com.example.saxtrainer.core.settings.renamedGroup
+import com.example.saxtrainer.core.settings.renamedLesson
 import com.example.saxtrainer.feature.learning.LessonCard
 import com.example.saxtrainer.learning.lessonIdOf
 import com.example.saxtrainer.learning.trainerNameOf
@@ -99,8 +101,8 @@ fun MyLessonsScreen(
 
         if (book.lessons.isEmpty()) {
             Text(
-                text = "Set a practice up the way you like it, then use " +
-                    "\"Add to your lessons\" to keep it here.",
+                text = "Set a practice up the way you like it, then tap the ribbon at the top " +
+                    "of it to keep it here.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -136,6 +138,7 @@ fun MyLessonsScreen(
                     onStart = { onStart(lessonIdOf(lesson.id)) },
                     onEdit = { onEdit(lessonIdOf(lesson.id)) },
                     onMove = { by -> onWrite(book.movedLesson(lesson.id, by)) },
+                    onRename = { naming = NamingDialog.RenameLesson(lesson.id, lesson.name) },
                     onDelete = { onWrite(book.minusLesson(lesson.id)) },
                 )
             }
@@ -165,6 +168,16 @@ fun MyLessonsScreen(
             },
             onCancel = { naming = null },
         )
+
+        is NamingDialog.RenameLesson -> NameDialog(
+            title = "Rename lesson",
+            initial = dialog.name,
+            onConfirm = { name ->
+                onWrite(book.renamedLesson(dialog.id, name))
+                naming = null
+            },
+            onCancel = { naming = null },
+        )
     }
 }
 
@@ -173,6 +186,8 @@ private sealed interface NamingDialog {
     data object NewGroup : NamingDialog
 
     data class RenameGroup(val id: String, val name: String) : NamingDialog
+
+    data class RenameLesson(val id: String, val name: String) : NamingDialog
 }
 
 @Composable
@@ -217,6 +232,7 @@ private fun SavedLessonCard(
     onStart: () -> Unit,
     onEdit: () -> Unit,
     onMove: (Int) -> Unit,
+    onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
     // A trainer this version does not know about is drawn and can be deleted, but cannot be run:
@@ -226,12 +242,19 @@ private fun SavedLessonCard(
     LessonCard(
         title = lesson.name,
         subtitle = trainer ?: "Saved by a newer version",
+        // The practice it was saved from, with that practice's own icon.
+        icon = TrainerId.entries.firstOrNull { it.name == lesson.trainerId }?.let(::practiceIconOf),
         onClick = { if (!managing && trainer != null) onStart() },
         enabled = !managing && trainer != null,
         trailing = {
             if (managing) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     MoveButtons(lesson.name, canMoveUp, canMoveDown, onMove)
+                    ActionIconButton(
+                        icon = IconSource.Vector(SaxTrainerIcons.Rename),
+                        contentDescription = "Rename ${lesson.name}",
+                        onClick = onRename,
+                    )
                     ActionIconButton(
                         icon = IconSource.Vector(SaxTrainerIcons.Delete),
                         contentDescription = "Delete ${lesson.name}",

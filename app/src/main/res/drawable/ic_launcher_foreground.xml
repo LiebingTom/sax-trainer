@@ -1,30 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from additional/icons/app_icons.svg by tools/svg_to_launcher_icon.py. Do not edit; change the SVG and run it again. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:pathData="M31,63.928c0,0 6.4,-11 12.1,-13.1c7.2,-2.6 26,-1.4 26,-1.4l38.1,38.1L107,108.928l-32,-1L31,63.928z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:endX="85.84757"
-                android:endY="92.4963"
-                android:startX="42.9492"
-                android:startY="49.59793"
-                android:type="linear">
-                <item
-                    android:color="#44000000"
-                    android:offset="0.0" />
-                <item
-                    android:color="#00000000"
-                    android:offset="1.0" />
-            </gradient>
-        </aapt:attr>
-    </path>
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillType="nonZero"
-        android:pathData="M65.3,45.828l3.8,-6.6c0.2,-0.4 0.1,-0.9 -0.3,-1.1c-0.4,-0.2 -0.9,-0.1 -1.1,0.3l-3.9,6.7c-6.3,-2.8 -13.4,-2.8 -19.7,0l-3.9,-6.7c-0.2,-0.4 -0.7,-0.5 -1.1,-0.3C38.8,38.328 38.7,38.828 38.9,39.228l3.8,6.6C36.2,49.428 31.7,56.028 31,63.928h46C76.3,56.028 71.8,49.428 65.3,45.828zM43.4,57.328c-0.8,0 -1.5,-0.5 -1.8,-1.2c-0.3,-0.7 -0.1,-1.5 0.4,-2.1c0.5,-0.5 1.4,-0.7 2.1,-0.4c0.7,0.3 1.2,1 1.2,1.8C45.3,56.528 44.5,57.328 43.4,57.328L43.4,57.328zM64.6,57.328c-0.8,0 -1.5,-0.5 -1.8,-1.2s-0.1,-1.5 0.4,-2.1c0.5,-0.5 1.4,-0.7 2.1,-0.4c0.7,0.3 1.2,1 1.2,1.8C66.5,56.528 65.6,57.328 64.6,57.328L64.6,57.328z"
-        android:strokeWidth="1"
-        android:strokeColor="#00000000" />
+    <group
+        android:scaleX="2.5"
+        android:scaleY="2.5"
+        android:translateX="24"
+        android:translateY="24">
+        <path
+            android:fillColor="#FFEBE8E1"
+            android:pathData="m 13.9,2.8966008 c 1.123729,-1.1237293 3.33607,-1.1237293 4.494916,0 v 7.8661052 c -1.210638,2.247459 -3.371187,2.247459 -4.494916,0 z" />
+        <path
+            android:fillColor="#FFE9C46A"
+            android:pathData="m 13.9,11.886436 c 1.111312,2.327799 3.371187,2.247459 4.494916,0 V 22 H 13.9 Z" />
+        <path
+            android:fillColor="#FFE9C46A"
+            android:pathData="M 9.934163,2 C 9.3041338,2.0001262 8.7097448,2.2922714 8.3247886,2.7910156 L 6.174398,5.5820312 c -0.3991065,0.51768 -0.6477976,1.135353 -0.71875,1.7851563 L 4.9497886,12 H 10.607991 L 10.059163,2 Z m 0.921875,14.546875 h -6.40039 l -0.1191407,1.087891 c -0.1160034,0.49253 -0.00252,1.011095 0.3085938,1.410156 0.4527064,0.452747 0.707031,1.066779 0.7070312,1.707031 V 22 H 9.848226 v -1.248047 c -0.05448,-0.508487 0.09515,-1.017801 0.416015,-1.416015 0.449858,-0.449841 0.687064,-1.069844 0.652344,-1.705079" />
+        <path
+            android:fillColor="#FFEBE8E1"
+            android:pathData="M 4.8696676,13 4.5923239,15.546875 H 5.6294332 V 13 Z m 1.7617187,0 v 2.546875 H 9.6391992 V 13 Z" />
+    </group>
 </vector>

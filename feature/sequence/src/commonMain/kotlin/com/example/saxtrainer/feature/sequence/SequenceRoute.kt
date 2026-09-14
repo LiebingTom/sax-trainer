@@ -38,6 +38,10 @@ fun SequenceRoute(
      * a trainer running somebody else's lesson is not making one up.
      */
     onAddToLessons: (() -> Unit)? = null,
+    /** Whether the player has starred this practice. */
+    isFavorite: Boolean = false,
+    /** Stars or unstars it, or null where starring makes no sense - inside a lesson, again. */
+    onToggleFavorite: ((Boolean) -> Unit)? = null,
     viewModel: SequenceViewModel = viewModel {
         SequenceViewModel(
             settingsRepository = settingsRepository,
@@ -103,6 +107,8 @@ fun SequenceRoute(
         onReset = viewModel::reset,
         onBack = onBack,
         onAddToLessons = addToLessons,
+        isFavorite = isFavorite,
+        onToggleFavorite = onToggleFavorite,
         modifier = modifier,
     )
 }

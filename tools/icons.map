@@ -31,11 +31,27 @@
 
 additional/icons/settings.svg     -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Settings.kt
 additional/icons/learning.svg     -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Learning.kt
-additional/icons/long_tone.svg    -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/LongTone.kt
 additional/icons/arrow_back.svg   -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/ArrowBack.kt
 additional/icons/tune.svg         -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/ChooseNotes.kt
 additional/icons/star_filled.svg  -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Favorite.kt
 additional/icons/star_no_fill.svg -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/FavoriteOff.kt
+
+# Home: the Practice and My Lessons cards. Lessons keeps learning.svg (the school cap).
+additional/icons/custom_practices.svg -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Practice.kt
+additional/icons/book_ribbon_fill.svg -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/MyLessons.kt
+
+# The practices: the mouthpiece and what each one does with it. The metronome is its own mark.
+additional/icons/practice_note_quiz.svg    -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/NoteQuiz.kt
+additional/icons/practice_note_tranier.svg -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/NoteTrainer.kt
+additional/icons/practice_long_tones.svg   -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/LongTone.kt
+additional/icons/practice_sequences.svg    -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Sequence.kt
+additional/icons/custom_metronome.svg      -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Metronome.kt
+
+# A practice's title bar: keep it in My Lessons. (The star beside it is Favorite / FavoriteOff.)
+additional/icons/custom_my_lesson_add.svg  -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/AddToLessons.kt
+
+# Every lesson unit, until the units are final and get marks of their own.
+additional/icons/assignment.svg      -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Assignment.kt
 
 # My Lessons, while managing: move, rename, delete; and the pen that edits a saved practice.
 additional/icons/arrow_drop_up.svg   -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/MoveUp.kt
@@ -46,8 +62,4 @@ additional/icons/edit.svg            -> core/designsystem/src/commonMain/kotlin/
 
 # Still hand-drawn, waiting for an SVG source. Their path data was written by hand and now
 # lives directly in the generated-looking files below; add a line above to replace one.
-#   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Metronome.kt
 #   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Fingering.kt
-#   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Sequence.kt
-#   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/NoteQuiz.kt
-#   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/NoteTrainer.kt

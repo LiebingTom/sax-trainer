@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
+import com.example.saxtrainer.core.designsystem.component.PracticeTitleActions
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.theme.Dimens
@@ -44,11 +45,17 @@ fun MetronomeScreen(
     onTap: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    isFavorite: Boolean = false,
+    onToggleFavorite: ((Boolean) -> Unit)? = null,
 ) {
     ScreenScaffold(
         title = "Metronome",
         onBack = onBack,
         modifier = modifier,
+        // Nothing to set up, so nothing to keep in My Lessons: the star alone.
+        titleActions = {
+            PracticeTitleActions("Metronome", isFavorite, onToggleFavorite, onAddToLessons = null)
+        },
         actions = {
             Row(
                 modifier = Modifier.fillMaxWidth(),

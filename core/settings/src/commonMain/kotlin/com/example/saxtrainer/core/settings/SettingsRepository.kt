@@ -29,4 +29,10 @@ interface SettingsRepository {
 
     /** Stars or unstars one tool. An id this version knows nothing about is stored all the same. */
     fun setFavorite(id: String, favorite: Boolean)
+
+    /** Chooses light, dark, or following the device. */
+    fun setThemeMode(themeMode: ThemeMode)
+
+    /** Chooses the main colour the theme is derived from. */
+    fun setThemeColor(themeColor: ThemeColor)
 }

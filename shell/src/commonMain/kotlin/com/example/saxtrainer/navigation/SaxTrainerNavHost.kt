@@ -1,6 +1,7 @@
 package com.example.saxtrainer.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -14,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.savedstate.read
 import com.example.saxtrainer.AppContainer
+import com.example.saxtrainer.core.designsystem.component.LocalScreenTrail
 import com.example.saxtrainer.core.learning.Curriculum
 import com.example.saxtrainer.core.learning.ExerciseOutcome
 import com.example.saxtrainer.core.learning.Lesson
@@ -36,7 +38,7 @@ import com.example.saxtrainer.home.LessonsScreen
 import com.example.saxtrainer.home.MyLessonsScreen
 import com.example.saxtrainer.home.PracticeScreen
 import com.example.saxtrainer.home.learningEntriesOf
-import com.example.saxtrainer.learning.SavedSetupRepository
+import com.example.saxtrainer.home.practiceIconOf
 import com.example.saxtrainer.learning.catalog.steps.longToneOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.longTonePresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizOutcomeOf
@@ -79,6 +81,11 @@ fun SaxTrainerNavHost(
         Curriculum(units = container.curriculum.units + userUnitsOf(book))
     }
 
+    // A lesson opened to be edited is played the player's way without being changed: the edits
+    // live here, and only "Add to your lessons" turns them into something kept. Held by the graph
+    // rather than by the trainer's destination, because that is the screen the edits are read from.
+    val lessonEdits = remember { InMemoryExerciseSetupRepository() }
+
     NavHost(
         navController = navController,
         startDestination = SaxTrainerDestination.HOME,
@@ -92,15 +99,11 @@ fun SaxTrainerNavHost(
             HomeScreen(
                 onEntryClick = { route -> navController.navigate(route) },
                 favorites = settings.favorites,
-                onToggleFavorite = container::star,
             )
         }
         composable(SaxTrainerDestination.PRACTICE) {
-            val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
             PracticeScreen(
                 onEntryClick = { route -> navController.navigate(route) },
-                favorites = settings.favorites,
-                onToggleFavorite = container::star,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -122,16 +125,23 @@ fun SaxTrainerNavHost(
         }
         composable(
             route = SaxTrainerDestination.ADD_TO_LESSONS,
-            arguments = listOf(navArgument(EXERCISE_ARG) { type = NavType.StringType }),
+            arguments = listOf(
+                navArgument(EXERCISE_ARG) { type = NavType.StringType },
+                navArgument(EDITED_ARG) {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
+            ),
         ) { entry ->
             val name = entry.arguments?.read { getStringOrNull(EXERCISE_ARG) }
+            val edited = entry.arguments?.read { getBooleanOrNull(EDITED_ARG) } ?: false
             val exercise = Exercise.entries.firstOrNull { it.name == name }
             if (exercise == null) {
                 navController.popBackStack()
             } else {
                 AddToLessonsScreen(
                     book = book,
-                    setup = container.exerciseSetups.setupOf(exercise),
+                    setup = (if (edited) lessonEdits else container.exerciseSetups).setupOf(exercise),
                     trainerId = trainerFor(exercise).name,
                     onSave = { updated ->
                         container.userLessons.write(updated)
@@ -142,9 +152,12 @@ fun SaxTrainerNavHost(
             }
         }
         composable(SaxTrainerDestination.METRONOME) {
+            val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
             MetronomeRoute(
                 newMetronome = container.newMetronome,
                 exerciseSetups = container.exerciseSetups,
+                isFavorite = TrainerId.METRONOME.name in settings.favorites,
+                onToggleFavorite = { wanted -> container.star(TrainerId.METRONOME, wanted) },
                 onBack = { navController.popBackStack() },
             )
         }
@@ -152,6 +165,7 @@ fun SaxTrainerNavHost(
             pattern = SaxTrainerDestination.NOTE_QUIZ_PATTERN,
             container = container,
             curriculum = curriculum,
+            lessonEdits = lessonEdits,
             navController = navController,
         ) { step ->
             QuizRoute(
@@ -160,6 +174,8 @@ fun SaxTrainerNavHost(
                 preset = step.stepOf(::noteQuizPresetOf)
                     ?.copy(autoStart = !step.editing, editable = step.editing),
                 onAddToLessons = step.addToLessons(navController, Exercise.NOTE_QUIZ),
+                isFavorite = step.isFavorite(TrainerId.NOTE_QUIZ),
+                onToggleFavorite = step.toggleFavorite(container, TrainerId.NOTE_QUIZ),
                 onExerciseFinished = { result -> step.finish(noteQuizOutcomeOf(result)) },
                 onBack = { navController.popBackStack() },
             )
@@ -168,6 +184,7 @@ fun SaxTrainerNavHost(
             pattern = SaxTrainerDestination.NOTE_TRAINER_PATTERN,
             container = container,
             curriculum = curriculum,
+            lessonEdits = lessonEdits,
             navController = navController,
         ) { step ->
             NoteTrainerRoute(
@@ -178,6 +195,8 @@ fun SaxTrainerNavHost(
                 preset = step.stepOf(::noteTrainerPresetOf)
                     ?.copy(autoStart = !step.editing, editable = step.editing),
                 onAddToLessons = step.addToLessons(navController, Exercise.NOTE_TRAINER),
+                isFavorite = step.isFavorite(TrainerId.NOTE_TRAINER),
+                onToggleFavorite = step.toggleFavorite(container, TrainerId.NOTE_TRAINER),
                 onExerciseFinished = { result -> step.finish(noteTrainerOutcomeOf(result)) },
                 onBack = { navController.popBackStack() },
             )
@@ -186,6 +205,7 @@ fun SaxTrainerNavHost(
             pattern = SaxTrainerDestination.SEQUENCE_PATTERN,
             container = container,
             curriculum = curriculum,
+            lessonEdits = lessonEdits,
             navController = navController,
         ) { step ->
             SequenceRoute(
@@ -196,6 +216,8 @@ fun SaxTrainerNavHost(
                 preset = step.stepOf(::sequencePresetOf)
                     ?.copy(autoStart = !step.editing, editable = step.editing),
                 onAddToLessons = step.addToLessons(navController, Exercise.SEQUENCE),
+                isFavorite = step.isFavorite(TrainerId.SEQUENCE),
+                onToggleFavorite = step.toggleFavorite(container, TrainerId.SEQUENCE),
                 onExerciseFinished = { result -> step.finish(sequenceOutcomeOf(result)) },
                 onBack = { navController.popBackStack() },
             )
@@ -204,6 +226,7 @@ fun SaxTrainerNavHost(
             pattern = SaxTrainerDestination.LONG_TONES_PATTERN,
             container = container,
             curriculum = curriculum,
+            lessonEdits = lessonEdits,
             navController = navController,
         ) { step ->
             LongToneRoute(
@@ -214,6 +237,8 @@ fun SaxTrainerNavHost(
                 preset = step.stepOf(::longTonePresetOf)
                     ?.copy(autoStart = !step.editing, editable = step.editing),
                 onAddToLessons = step.addToLessons(navController, Exercise.LONG_TONES),
+                isFavorite = step.isFavorite(TrainerId.LONG_TONES),
+                onToggleFavorite = step.toggleFavorite(container, TrainerId.LONG_TONES),
                 onExerciseFinished = { result -> step.finish(longToneOutcomeOf(result)) },
                 onBack = { navController.popBackStack() },
             )
@@ -236,6 +261,7 @@ fun SaxTrainerNavHost(
                     },
                     onStartLesson = { id -> navController.startLesson(container, curriculum, id) },
                     onEditLesson = { id -> navController.editLesson(curriculum, id) },
+                    iconOf = { lesson -> practiceIconOf(lesson.firstStep.trainerId) },
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -250,7 +276,7 @@ fun SaxTrainerNavHost(
 }
 
 /**
- * Stars or unstars one practice tool.
+ * Stars or unstars one practice tool, from the star in its title bar.
  *
  * The one place a [TrainerId] becomes a stored name. `:core:settings` keeps a set of names and is
  * told nothing about what a trainer is; deciding what a trainer is called is this module's job,
@@ -307,12 +333,14 @@ private class LessonStepScope(
     /**
      * Where the trainer reads its setup from and writes every change back to.
      *
-     * The app's own store for an ordinary practice; the saved lesson itself while one is being
-     * edited, so editing is saving; and a store that outlives nothing while a built-in lesson is
-     * being edited, so trying somebody else's lesson your own way changes neither the lesson nor
-     * what your own trainer opens on next time.
+     * The app's own store for an ordinary practice or a lesson being played. A lesson being edited,
+     * saved or built in, gets a store of edits instead: it is played the player's way before it is
+     * started, and changes neither the lesson nor what their own trainer opens on next time. Keeping
+     * it is "Add to your lessons", as for any other practice.
      */
     val exerciseSetups: ExerciseSetupRepository,
+    /** The names of the starred practices, as the settings keep them. */
+    val favorites: Set<String>,
     val finish: (ExerciseOutcome) -> Unit,
 ) {
     /** The step being run, as one trainer's own configuration. */
@@ -320,15 +348,25 @@ private class LessonStepScope(
         lesson?.stepAt(stepIndex)?.let(presetOf)
 
     /**
-     * Where "Add to your lessons" goes, or null where it has no business being offered: a trainer
-     * that was handed a lesson is running somebody's exercise rather than one being made up.
+     * Where "Add to your lessons" goes, or null where it has no business being offered: a lesson
+     * being played is somebody's exercise rather than one being made up. A lesson being edited is
+     * one being made up, and is kept from its edits.
      */
-    fun addToLessons(navController: NavHostController, exercise: Exercise): (() -> Unit)? =
-        if (lesson != null) {
-            null
-        } else {
+    fun addToLessons(navController: NavHostController, exercise: Exercise): (() -> Unit)? = when {
+        lesson == null -> {
             { navController.navigate(SaxTrainerDestination.addToLessons(exercise)) }
         }
+        editing -> {
+            { navController.navigate(SaxTrainerDestination.addToLessons(exercise, edited = true)) }
+        }
+        else -> null
+    }
+
+    fun isFavorite(trainer: TrainerId): Boolean = trainer.name in favorites
+
+    /** How the star in the title bar changes it, or null inside a lesson - for the same reason. */
+    fun toggleFavorite(container: AppContainer, trainer: TrainerId): ((Boolean) -> Unit)? =
+        if (lesson != null) null else { wanted -> container.star(trainer, wanted) }
 }
 
 /**
@@ -342,6 +380,7 @@ private fun NavGraphBuilder.lessonStep(
     pattern: String,
     container: AppContainer,
     curriculum: Curriculum,
+    lessonEdits: ExerciseSetupRepository,
     navController: NavHostController,
     content: @Composable (LessonStepScope) -> Unit,
 ) {
@@ -369,42 +408,49 @@ private fun NavGraphBuilder.lessonStep(
         val stepIndex = arguments?.read { getIntOrNull(STEP_ARG) } ?: 0
         val editing = arguments?.read { getBooleanOrNull(EDIT_ARG) } ?: false
         val currentRoute = entry.destination.route ?: pattern
+        val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
 
-        val setups = remember(lessonId, editing) {
-            when {
-                !editing -> container.exerciseSetups
-                // A practice the player saved is theirs to change, and changing it is all that
-                // saving it again means.
-                lessonId != null && savedLessonIdOf(lessonId) != null ->
-                    SavedSetupRepository(container.userLessons, savedLessonIdOf(lessonId)!!)
-                // A built-in lesson tried somebody's own way: nothing about it is kept.
-                else -> InMemoryExerciseSetupRepository()
-            }
+        val setups = if (editing) lessonEdits else container.exerciseSetups
+
+        // Every screen of the step says which lesson it belongs to; the trainer draws it without
+        // knowing it is in one.
+        val trail = lesson?.let { trailOf(curriculum, it) }.orEmpty()
+        CompositionLocalProvider(LocalScreenTrail provides trail) {
+            content(
+                LessonStepScope(
+                    lesson = lesson,
+                    stepIndex = stepIndex,
+                    editing = editing,
+                    exerciseSetups = setups,
+                    favorites = settings.favorites,
+                ) { outcome ->
+                    // An edited lesson is a try rather than an attempt: it was not the lesson as it
+                    // is written, so it says nothing about whether the lesson was done.
+                    if (!editing && lessonId != null && lesson != null) {
+                        navController.finishStep(
+                            container = container,
+                            lesson = lesson,
+                            lessonId = lessonId,
+                            stepIndex = stepIndex,
+                            outcome = outcome,
+                            currentRoute = currentRoute,
+                        )
+                    }
+                },
+            )
         }
-
-        content(
-            LessonStepScope(
-                lesson = lesson,
-                stepIndex = stepIndex,
-                editing = editing,
-                exerciseSetups = setups,
-            ) { outcome ->
-                // An edited lesson is a try rather than an attempt: it was not the lesson as it is
-                // written, so it says nothing about whether the lesson was done.
-                if (!editing && lessonId != null && lesson != null) {
-                    navController.finishStep(
-                        container = container,
-                        lesson = lesson,
-                        lessonId = lessonId,
-                        stepIndex = stepIndex,
-                        outcome = outcome,
-                        currentRoute = currentRoute,
-                    )
-                }
-            },
-        )
     }
 }
+
+/**
+ * Where a lesson sits, as its screens name it: `My Lessons / Scales / Test2` for one the player
+ * saved, `Lessons / C major / First scale` for one of the catalog's.
+ */
+private fun trailOf(curriculum: Curriculum, lesson: Lesson): List<String> = listOfNotNull(
+    if (savedLessonIdOf(lesson.id) != null) "My Lessons" else "Lessons",
+    curriculum.unitOfLesson(lesson.id)?.title,
+    lesson.title,
+)
 
 /**
  * Ends one step of a lesson.

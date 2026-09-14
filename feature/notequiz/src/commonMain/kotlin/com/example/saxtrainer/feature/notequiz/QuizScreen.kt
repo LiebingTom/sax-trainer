@@ -30,6 +30,7 @@ import com.example.saxtrainer.core.designsystem.component.NoteChoiceDialog
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.SaxophoneFingeringView
 import com.example.saxtrainer.core.designsystem.component.ScreenHeader
+import com.example.saxtrainer.core.designsystem.component.PracticeTitleActions
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
@@ -75,6 +76,8 @@ fun QuizScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onAddToLessons: (() -> Unit)? = null,
+    isFavorite: Boolean = false,
+    onToggleFavorite: ((Boolean) -> Unit)? = null,
 ) {
     // What is being asked about, kept apart from the answers to it.
     val asked = when (val phase = state.phase) {
@@ -89,6 +92,9 @@ fun QuizScreen(
         title = "Note Quiz",
         onBack = onBack,
         modifier = modifier,
+        titleActions = {
+            PracticeTitleActions("Note Quiz", isFavorite, onToggleFavorite, onAddToLessons)
+        },
         header = headerOf(state),
         subject = subject,
         timing = timingOf(state),
@@ -110,14 +116,6 @@ fun QuizScreen(
                     onSelectQuestionCount = onSelectQuestionCount,
                     onSelectSuccessDelay = onSelectSuccessDelay,
                 )
-                if (onAddToLessons != null) {
-                    Spacer(Modifier.height(Dimens.spaceMd))
-                    SecondaryButton(
-                        text = "Add to your lessons",
-                        onClick = onAddToLessons,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
             }
 
             is QuizPhase.Asking -> QuestionPanel(

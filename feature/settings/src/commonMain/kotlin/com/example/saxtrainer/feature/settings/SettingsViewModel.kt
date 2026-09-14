@@ -7,6 +7,8 @@ import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
+import com.example.saxtrainer.core.settings.ThemeColor
+import com.example.saxtrainer.core.settings.ThemeMode
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -18,6 +20,8 @@ data class SettingsUiState(
     val noteDisplays: List<NoteDisplay> = NoteDisplay.entries,
     val noteNamings: List<NoteNaming> = NoteNaming.entries,
     val countInChoices: List<Int> = AppSettings.COUNT_IN_CHOICES,
+    val themeModes: List<ThemeMode> = ThemeMode.entries,
+    val themeColors: List<ThemeColor> = ThemeColor.entries,
 )
 
 class SettingsViewModel(
@@ -50,6 +54,14 @@ class SettingsViewModel(
 
     fun setCountInClick(enabled: Boolean) {
         settingsRepository.setCountInClick(enabled)
+    }
+
+    fun selectThemeMode(themeMode: ThemeMode) {
+        settingsRepository.setThemeMode(themeMode)
+    }
+
+    fun selectThemeColor(themeColor: ThemeColor) {
+        settingsRepository.setThemeColor(themeColor)
     }
 
     private companion object {

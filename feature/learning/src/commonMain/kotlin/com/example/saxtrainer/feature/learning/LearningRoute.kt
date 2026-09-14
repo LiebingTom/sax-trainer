@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.saxtrainer.core.designsystem.component.IconSource
 import com.example.saxtrainer.core.learning.Lesson
 import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.learning.LearningUnit
@@ -26,6 +27,8 @@ fun LearningRoute(
     modifier: Modifier = Modifier,
     /** Opens a lesson's configuration on the trainer's own setup screen, without running it. */
     onEditLesson: ((LessonId) -> Unit)? = null,
+    /** The icon of the practice behind a lesson; see [LessonListScreen]. */
+    iconOf: (Lesson) -> IconSource? = { null },
 ) {
     val progress by progressRepository.progress.collectAsStateWithLifecycle()
 
@@ -33,6 +36,7 @@ fun LearningRoute(
         state = learningUiStateOf(unit = unit, progress = progress, isUnlocked = isUnlocked),
         onLessonClick = onStartLesson,
         onEditLesson = onEditLesson,
+        iconOf = iconOf,
         onBack = onBack,
         modifier = modifier,
     )

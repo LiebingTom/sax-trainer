@@ -18,6 +18,10 @@ object Dimens {
 
     val iconContainerSize = 52.dp
     val iconSize = 26.dp
+    val swatchSize = 28.dp
+
+    /** The smallest a favorite tile gets: three to a row on a phone, more on anything wider. */
+    val tileMinSize = 96.dp
 
     val beatIndicatorSize = 20.dp
     val beatIndicatorAccentSize = 26.dp

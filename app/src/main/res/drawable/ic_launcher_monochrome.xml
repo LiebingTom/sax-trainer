@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from additional/icons/app_icons.svg by tools/svg_to_launcher_icon.py. Do not edit; change the SVG and run it again. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="2.5"
+        android:scaleY="2.5"
+        android:translateX="24"
+        android:translateY="24">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="m 13.9,2.8966008 c 1.123729,-1.1237293 3.33607,-1.1237293 4.494916,0 v 7.8661052 c -1.210638,2.247459 -3.371187,2.247459 -4.494916,0 z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="m 13.9,11.886436 c 1.111312,2.327799 3.371187,2.247459 4.494916,0 V 22 H 13.9 Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M 9.934163,2 C 9.3041338,2.0001262 8.7097448,2.2922714 8.3247886,2.7910156 L 6.174398,5.5820312 c -0.3991065,0.51768 -0.6477976,1.135353 -0.71875,1.7851563 L 4.9497886,12 H 10.607991 L 10.059163,2 Z m 0.921875,14.546875 h -6.40039 l -0.1191407,1.087891 c -0.1160034,0.49253 -0.00252,1.011095 0.3085938,1.410156 0.4527064,0.452747 0.707031,1.066779 0.7070312,1.707031 V 22 H 9.848226 v -1.248047 c -0.05448,-0.508487 0.09515,-1.017801 0.416015,-1.416015 0.449858,-0.449841 0.687064,-1.069844 0.652344,-1.705079" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M 4.8696676,13 4.5923239,15.546875 H 5.6294332 V 13 Z m 1.7617187,0 v 2.546875 H 9.6391992 V 13 Z" />
+    </group>
+</vector>

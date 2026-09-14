@@ -1,6 +1,5 @@
 package com.example.saxtrainer.learning
 
-import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.feature.notequiz.QuizMode
@@ -40,39 +39,11 @@ class UnitLessonsTest {
     }
 
     @Test
-    fun `the upper octave unit ends across both octaves`() {
-        val upper = SaxTrainerCurriculum.unitOf(UPPER_OCTAVE_UNIT_ID)!!
-        val last = upper.lessons.last()
-
-        assertEquals(2, last.stepCount)
-        assertEquals(TrainerId.NOTE_TRAINER, last.stepAt(0)!!.trainerId)
-        assertEquals(TrainerId.SEQUENCE, last.stepAt(1)!!.trainerId, "ending on something musical")
-        assertFalse(
-            noteTrainerPresetOf(last.stepAt(0)!!)!!.showFingeringHint,
-            "the hint given while the register was new is taken away again",
-        )
-    }
-
-    @Test
-    fun `a unit uses whichever trainers its topic needs`() {
-        // The point of organising by topic: one unit teaches five notes using two trainers,
-        // rather than one trainer teaching every note.
-        val first = SaxTrainerCurriculum.unitOf(FIRST_NOTES_UNIT_ID)!!
-        val trainers = first.lessons.flatMap { it.steps }.map { it.trainerId }.toSet()
-
-        assertEquals(setOf(TrainerId.NOTE_QUIZ, TrainerId.NOTE_TRAINER), trainers)
-    }
-
-    @Test
-    fun `a lesson can run two trainers in one sitting`() {
-        val lesson = SaxTrainerCurriculum.lessonOf(LessonId("first-notes-play"))!!
-
-        assertTrue(lesson.isMultiStep)
-        assertEquals(2, lesson.stepCount)
-        // Name the grips first, then play what you read: the order is the teaching.
-        assertEquals(TrainerId.NOTE_QUIZ, lesson.stepAt(0)!!.trainerId)
-        assertEquals(TrainerId.NOTE_TRAINER, lesson.stepAt(1)!!.trainerId)
-        assertTrue(lesson.stepAt(0)!!.title.isNotBlank(), "a step of a multi-step lesson should say what it is")
+    fun `every lesson runs one practice`() {
+        // Two practices in one sitting is not something the lessons do for now.
+        SaxTrainerCurriculum.lessons.forEach { lesson ->
+            assertEquals(1, lesson.stepCount, "${lesson.title} runs more than one practice")
+        }
     }
 
     @Test
@@ -82,19 +53,6 @@ class UnitLessonsTest {
 
         assertEquals(QuizMode.NOTE_TO_FINGERING, quiz.mode)
         assertEquals(5, quiz.notes.size)
-    }
-
-    @Test
-    fun `the hint is given while the notes are new and taken away later`() {
-        val early = noteTrainerPresetOf(
-            SaxTrainerCurriculum.lessonOf(LessonId("first-notes-play"))!!.stepAt(1)!!,
-        )!!
-        val later = noteTrainerPresetOf(
-            SaxTrainerCurriculum.lessonOf(LessonId("octave-play"))!!.firstStep,
-        )!!
-
-        assertTrue(early.showFingeringHint, "the first five notes are new enough to be shown")
-        assertFalse(later.showFingeringHint, "by the octave the grip is yours to remember")
     }
 
     @Test

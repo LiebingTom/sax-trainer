@@ -5,6 +5,8 @@ import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
+import com.example.saxtrainer.core.settings.ThemeColor
+import com.example.saxtrainer.core.settings.ThemeMode
 import com.example.saxtrainer.core.settings.TrainingTool
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -53,5 +55,13 @@ class FakeSettingsRepository(
         state.value = state.value.copy(
             favorites = if (favorite) favorites + id else favorites - id,
         )
+    }
+
+    override fun setThemeMode(themeMode: ThemeMode) {
+        state.value = state.value.copy(themeMode = themeMode)
+    }
+
+    override fun setThemeColor(themeColor: ThemeColor) {
+        state.value = state.value.copy(themeColor = themeColor)
     }
 }

@@ -36,6 +36,8 @@ kotlin {
             implementation(project(":shell"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.ui)
+            // The page background and color-scheme, which follow the app's theme.
+            implementation(libs.kotlinx.browser)
         }
         wasmJsTest.dependencies {
             // Boots the page's own wiring in a browser - see WebEntryPointTest.

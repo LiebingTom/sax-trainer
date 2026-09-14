@@ -16,15 +16,18 @@ import com.example.saxtrainer.core.designsystem.component.CheckableRow
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
+import com.example.saxtrainer.core.designsystem.component.ThemeSwatch
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.NoteDisplay
+import com.example.saxtrainer.core.settings.ThemeColor
+import com.example.saxtrainer.core.settings.ThemeMode
 
 /**
- * Global settings. Sections are independent, so a future setting (tuning reference, appearance,
- * audio input) is added as one more section without touching the existing ones.
+ * Global settings. Sections are independent, so a future setting (tuning reference, audio input) is
+ * added as one more section without touching the existing ones.
  */
 @Composable
 fun SettingsScreen(
@@ -34,6 +37,8 @@ fun SettingsScreen(
     onNoteNamingSelected: (NoteNaming) -> Unit,
     onCountInSelected: (Int) -> Unit,
     onCountInClickChanged: (Boolean) -> Unit,
+    onThemeModeSelected: (ThemeMode) -> Unit,
+    onThemeColorSelected: (ThemeColor) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -152,6 +157,51 @@ fun SettingsScreen(
             }
         }
         Spacer(Modifier.height(Dimens.spaceLg))
+
+        SectionHeader("Appearance")
+        Text(
+            text = "Light or dark, and the main colour every other colour in the app is taken " +
+                "from.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(Dimens.spaceSm))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+        ) {
+            Column(modifier = Modifier.padding(Dimens.cardPadding)) {
+                state.themeModes.forEach { mode ->
+                    SelectableRow(
+                        title = mode.displayName,
+                        supportingText = mode.description,
+                        selected = mode == state.settings.themeMode,
+                        onClick = { onThemeModeSelected(mode) },
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(Dimens.spaceSm))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+        ) {
+            Column(modifier = Modifier.padding(Dimens.cardPadding)) {
+                state.themeColors.forEach { color ->
+                    SelectableRow(
+                        title = color.displayName,
+                        selected = color == state.settings.themeColor,
+                        onClick = { onThemeColorSelected(color) },
+                        trailing = { ThemeSwatch(seed = color.seed) },
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(Dimens.spaceLg))
     }
 }
 
@@ -178,6 +228,8 @@ private fun SettingsScreenPreview() {
             onNoteNamingSelected = {},
             onCountInSelected = {},
             onCountInClickChanged = {},
+            onThemeModeSelected = {},
+            onThemeColorSelected = {},
             onBack = {},
         )
     }

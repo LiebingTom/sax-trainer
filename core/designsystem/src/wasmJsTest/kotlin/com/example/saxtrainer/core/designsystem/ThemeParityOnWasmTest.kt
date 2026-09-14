@@ -14,11 +14,9 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
-import com.example.saxtrainer.core.designsystem.theme.Brass40
-import com.example.saxtrainer.core.designsystem.theme.Brass80
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
-import com.example.saxtrainer.core.designsystem.theme.SurfaceDark
-import com.example.saxtrainer.core.designsystem.theme.SurfaceLight
+import com.example.saxtrainer.core.designsystem.theme.ThemeSeeds
+import com.example.saxtrainer.core.designsystem.theme.saxTrainerColorScheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -31,7 +29,7 @@ import kotlin.test.assertEquals
  * or Skiko putting the canvas in a colour space of its own.
  *
  * So these read pixels back off the Skiko surface rather than reading the colour scheme. A pixel
- * equal to the palette constant, exactly, says the whole path from `Color(0xFF...)` to the browser
+ * equal to the generated scheme's colour, exactly, says the whole path from the theme to the browser
  * canvas is the identity - which is what "the same colours as Android" means.
  *
  * The one input that legitimately differs between the two is which of the palettes is chosen:
@@ -45,21 +43,29 @@ class ThemeParityOnWasmTest {
     fun the_light_surface_is_painted_in_the_apps_own_colour() = runComposeUiTest {
         setContent { Painted(darkTheme = false) }
 
-        assertEquals(SurfaceLight, backgroundPixel(), "the light surface is not the brand surface")
+        assertEquals(
+            brass(darkTheme = false).surface,
+            backgroundPixel(),
+            "the light surface is not the brand surface",
+        )
     }
 
     @Test
     fun the_dark_surface_is_painted_in_the_apps_own_colour() = runComposeUiTest {
         setContent { Painted(darkTheme = true) }
 
-        assertEquals(SurfaceDark, backgroundPixel(), "the dark surface is not the brand surface")
+        assertEquals(
+            brass(darkTheme = true).surface,
+            backgroundPixel(),
+            "the dark surface is not the brand surface",
+        )
     }
 
     @Test
     fun the_accent_is_the_brand_brass_in_both_schemes() = runComposeUiTest {
         // Material 3 fills any slot a scheme leaves unset with a baseline colour of its own, which
         // is what a "the web looks different" report usually turns out to be. The primary is set in
-        // both palettes, and these are the two values it is set to.
+        // both schemes, and these are the two values the default seed generates for it.
         var light: Color? = null
         var dark: Color? = null
         setContent {
@@ -67,9 +73,19 @@ class ThemeParityOnWasmTest {
             SaxTrainerTheme(darkTheme = true) { dark = MaterialTheme.colorScheme.primary }
         }
 
-        assertEquals(Brass40, light, "the light primary is not the brand brass")
-        assertEquals(Brass80, dark, "the dark primary is not the brand brass")
+        assertEquals(
+            brass(darkTheme = false).primary,
+            light,
+            "the light primary is not the brand brass",
+        )
+        assertEquals(
+            brass(darkTheme = true).primary,
+            dark,
+            "the dark primary is not the brand brass",
+        )
     }
+
+    private fun brass(darkTheme: Boolean) = saxTrainerColorScheme(ThemeSeeds.Brass, darkTheme)
 
     /** The colour of the surface itself, sampled away from the text drawn on it. */
     private fun ComposeUiTest.backgroundPixel(): Color =

@@ -13,10 +13,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.saxtrainer.core.designsystem.component.FeatureCard
+import com.example.saxtrainer.core.designsystem.component.FeatureTile
+import com.example.saxtrainer.core.designsystem.component.TileGrid
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
-import com.example.saxtrainer.core.learning.TrainerId
 
 /**
  * Landing page. Deliberately free of any feature implementation detail: it renders a list of
@@ -32,7 +33,6 @@ import com.example.saxtrainer.core.learning.TrainerId
 fun HomeScreen(
     onEntryClick: (route: String) -> Unit,
     favorites: Set<String>,
-    onToggleFavorite: (TrainerId, Boolean) -> Unit,
     modifier: Modifier = Modifier,
     practice: List<HomeGroup> = practiceGroups,
     app: List<HomeEntry> = appEntries,
@@ -56,20 +56,17 @@ fun HomeScreen(
                 // fresh install, and it should cost a sentence, not a screenful.
                 item { FavoritesHint() }
             } else {
-                items(starred, key = { it.id }) { entry ->
-                    FeatureCard(
-                        title = entry.title,
-                        description = entry.description,
-                        icon = entry.icon,
-                        onClick = { onEntryClick(entry.route) },
-                        trailing = {
-                            FavoriteStar(
-                                entry = entry,
-                                starred = true,
-                                onToggle = onToggleFavorite,
-                            )
-                        },
-                    )
+                // Squares, icon only: these are the tools the player reaches for daily and knows
+                // by sight, so a row of them says more at a glance than a list of cards.
+                item {
+                    TileGrid(items = starred) { entry, tileModifier ->
+                        FeatureTile(
+                            icon = entry.icon,
+                            contentDescription = entry.title,
+                            onClick = { onEntryClick(entry.route) },
+                            modifier = tileModifier,
+                        )
+                    }
                 }
             }
             item { SectionHeader("App") }
@@ -100,7 +97,7 @@ private fun HomeHeader() {
 @Composable
 private fun FavoritesHint() {
     Text(
-        text = "Star a tool in Practice to keep it here.",
+        text = "Tap the star at the top of a practice to keep it here.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -113,7 +110,6 @@ private fun HomeScreenPreview() {
         HomeScreen(
             onEntryClick = {},
             favorites = emptySet(),
-            onToggleFavorite = { _, _ -> },
         )
     }
 }

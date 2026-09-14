@@ -3,6 +3,7 @@ package com.example.saxtrainer.core.designsystem.component
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -12,6 +13,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.AccidentalStyle
 import com.example.saxtrainer.core.music.Note
@@ -123,9 +125,9 @@ private fun MusicalNoteViewPreview() {
     SaxTrainerTheme {
         MusicalNoteView(
             primaryNote = Note(NoteName.A, 4),
-            primaryColor = Color.Black,
+            primaryColor = MaterialTheme.colorScheme.onSurface,
             secondaryNote = Note(NoteName.B, 4),
-            secondaryColor = Color.Red,
+            secondaryColor = FeedbackColors.incorrect,
         )
     }
 }
@@ -136,9 +138,9 @@ private fun MusicalNoteViewLedgerPreview() {
     SaxTrainerTheme {
         MusicalNoteView(
             primaryNote = Note(NoteName.C, 6),
-            primaryColor = Color.Black,
+            primaryColor = MaterialTheme.colorScheme.onSurface,
             secondaryNote = Note(NoteName.C_SHARP, 4),
-            secondaryColor = Color.Red,
+            secondaryColor = FeedbackColors.incorrect,
         )
     }
 }

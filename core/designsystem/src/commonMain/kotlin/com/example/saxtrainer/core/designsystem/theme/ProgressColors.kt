@@ -1,6 +1,5 @@
 package com.example.saxtrainer.core.designsystem.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
@@ -15,7 +14,7 @@ import androidx.compose.ui.graphics.Color
 object ProgressColors {
 
     /**
-     * The bar that matters now - brass, the app's own accent.
+     * The bar that matters now - the theme's accent.
      *
      * The brightest thing on the strip, because it is the one that changes what the player does in
      * the next couple of seconds.
@@ -26,20 +25,20 @@ object ProgressColors {
         get() = MaterialTheme.colorScheme.primary
 
     /**
-     * The session running underneath it - the quiet second accent.
+     * The session running underneath it - a neutral.
      *
-     * Deliberately not brass: the two bars are the same size and sit against each other, so colour
-     * is the only thing telling them apart. A neutral reads as context beside the accent rather
-     * than as a second thing demanding attention.
+     * Deliberately not the accent: the two bars are the same size and sit against each other, so
+     * colour is the only thing telling them apart. A neutral reads as context beside the accent
+     * rather than as a second thing demanding attention.
      */
     val session: Color
         @Composable
         @ReadOnlyComposable
-        get() = if (isSystemInDarkTheme()) SlateDark else SlateLight
+        get() = MaterialTheme.colorScheme.outline
 
-    /** What either bar has not filled yet. */
+    /** What either bar has not filled yet: the same track the meters are drawn on. */
     val track: Color
         @Composable
         @ReadOnlyComposable
-        get() = MaterialTheme.colorScheme.secondaryContainer
+        get() = MaterialTheme.colorScheme.surfaceContainerHighest
 }

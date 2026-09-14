@@ -43,7 +43,9 @@ fun CentsMeter(
     val markerColor = when {
         cents == null || offTarget -> MaterialTheme.colorScheme.outline
         inTune -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.tertiary
+        // Close, not there yet: darker than idle, not yet the accent. Told apart by lightness, not
+        // by a second hue that could be mistaken for a judgement.
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     // Smooths the marker between the ~25 updates per second the analysis produces.

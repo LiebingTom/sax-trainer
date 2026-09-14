@@ -10,7 +10,6 @@ import com.example.saxtrainer.core.designsystem.component.FeatureCard
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
-import com.example.saxtrainer.core.learning.TrainerId
 
 /**
  * The whole catalogue of practice tools, grouped by the skill they train.
@@ -19,15 +18,12 @@ import com.example.saxtrainer.core.learning.TrainerId
  * answers which question, and that is worth a screen of its own now that the landing page leads
  * with what the player reaches for daily.
  *
- * This is also the only place a tool is starred. [favorites] holds the names of the starred ones -
- * the same set the settings keep - so a star drawn here and a card shown on the landing page can
- * never disagree.
+ * Nothing is starred from here: a tool is starred from its own title bar, the one place that is
+ * offered.
  */
 @Composable
 fun PracticeScreen(
     onEntryClick: (route: String) -> Unit,
-    favorites: Set<String>,
-    onToggleFavorite: (TrainerId, Boolean) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     practice: List<HomeGroup> = practiceGroups,
@@ -50,13 +46,6 @@ fun PracticeScreen(
                     description = entry.description,
                     icon = entry.icon,
                     onClick = { onEntryClick(entry.route) },
-                    trailing = {
-                        FavoriteStar(
-                            entry = entry,
-                            starred = entry.trainerId?.name in favorites,
-                            onToggle = onToggleFavorite,
-                        )
-                    },
                 )
             }
         }
@@ -69,8 +58,6 @@ private fun PracticeScreenPreview() {
     SaxTrainerTheme {
         PracticeScreen(
             onEntryClick = {},
-            favorites = setOf(TrainerId.METRONOME.name),
-            onToggleFavorite = { _, _ -> },
             onBack = {},
         )
     }

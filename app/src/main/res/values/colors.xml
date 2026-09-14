@@ -1,3 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+      The default theme's light background (Brass seed, tone 98 of its neutral palette), as generated
+      by core/designsystem theme/ColorSchemes.kt. Shown only until Compose draws its first frame;
+      from then on MainActivity sets the window to the chosen theme. Update if the default seed
+      changes.
+    -->
+    <color name="window_background">#FCF9F3</color>
+
+    <!-- The launcher icon's ground. Written by tools/svg_to_launcher_icon.py from the page colour of
+         additional/icons/app_icons.svg (Inkscape: Document Properties > Background); change it
+         there, not here. Deliberately not overridden in values-night. -->
+    <color name="ic_launcher_background">#FF2B2A26</color>
 </resources>

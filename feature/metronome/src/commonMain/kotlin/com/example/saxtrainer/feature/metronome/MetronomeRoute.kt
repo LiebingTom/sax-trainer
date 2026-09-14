@@ -21,6 +21,10 @@ fun MetronomeRoute(
     exerciseSetups: ExerciseSetupRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Whether the player has starred the metronome. */
+    isFavorite: Boolean = false,
+    /** Stars or unstars it, or null where starring makes no sense. */
+    onToggleFavorite: ((Boolean) -> Unit)? = null,
     viewModel: MetronomeViewModel = viewModel {
         MetronomeViewModel(engine = newMetronome.create(), exerciseSetups = exerciseSetups)
     },
@@ -40,5 +44,7 @@ fun MetronomeRoute(
         onTap = viewModel::tap,
         onBack = onBack,
         modifier = modifier,
+        isFavorite = isFavorite,
+        onToggleFavorite = onToggleFavorite,
     )
 }

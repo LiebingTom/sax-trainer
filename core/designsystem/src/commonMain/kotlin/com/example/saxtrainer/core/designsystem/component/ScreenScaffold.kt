@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -23,8 +24,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,6 +34,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.saxtrainer.core.designsystem.icon.ArrowBack
@@ -89,6 +91,15 @@ data class ScreenTiming(
 )
 
 /**
+ * Where the screens below sit, outermost first: `My Lessons / Scales / Test2`.
+ *
+ * Provided by whoever opened a screen for a reason of its own - a lesson running a practice - rather
+ * than passed to it, so the practice never has to learn that it is inside a lesson. Empty, the
+ * default, draws no trail.
+ */
+val LocalScreenTrail = staticCompositionLocalOf<List<String>> { emptyList() }
+
+/**
  * Shared screen frame: title bar, an optional header, scrolling content, and an action panel
  * pinned to the bottom.
  *
@@ -109,6 +120,16 @@ fun ScreenScaffold(
     title: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
+    /**
+     * Icons at the far end of the title bar: what can be done with the screen as a whole - star it,
+     * keep it in My Lessons - rather than with anything on it. See [PracticeTitleActions].
+     */
+    titleActions: (@Composable RowScope.() -> Unit)? = null,
+    /**
+     * Where this screen sits, drawn as one line under the title, in the title's band. Taken from
+     * [LocalScreenTrail] unless given.
+     */
+    trail: List<String> = LocalScreenTrail.current,
     /**
      * What this screen says for itself. Pinned under the title with a rule below it, so it stays
      * put while everything it refers to scrolls.
@@ -138,7 +159,8 @@ fun ScreenScaffold(
     verticalArrangement: Arrangement.Vertical = Arrangement.Center,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val chrome = MaterialTheme.colorScheme.surfaceColorAtElevation(PanelElevation)
+    // The same surface family as the cards, one step below them, so band and cards always match.
+    val chrome = MaterialTheme.colorScheme.surfaceContainer
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -156,6 +178,7 @@ fun ScreenScaffold(
                         }
                     }
                 },
+                actions = { titleActions?.invoke(this) },
             )
         },
         bottomBar = {
@@ -183,6 +206,9 @@ fun ScreenScaffold(
         },
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            if (trail.isNotEmpty()) {
+                TrailBar(trail, band = chrome)
+            }
             if (header != null) {
                 HeaderBar(header, rule = chrome)
             }
@@ -251,6 +277,31 @@ private fun HeaderBar(header: ScreenHeader, rule: Color) {
     }
     HorizontalDivider(color = rule)
 }
+
+/**
+ * Where the screen sits, as one quiet line in the title's own band.
+ *
+ * Part of the chrome rather than of the content: it names the place, like the title above it, so it
+ * shares the title's background and the header's rule still marks where the chrome ends. One line,
+ * cut short at the end, because the innermost name is the one that matters.
+ */
+@Composable
+private fun TrailBar(trail: List<String>, band: Color) {
+    Text(
+        text = trail.joinToString(TRAIL_SEPARATOR),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(band)
+            .padding(horizontal = Dimens.screenPadding)
+            .padding(bottom = Dimens.spaceSm),
+    )
+}
+
+private const val TRAIL_SEPARATOR = " / "
 
 /**
  * How long is left: the same rule as under the question, then the time in words, then the bar.

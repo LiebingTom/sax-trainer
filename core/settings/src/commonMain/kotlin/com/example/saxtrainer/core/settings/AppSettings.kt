@@ -102,6 +102,10 @@ data class AppSettings(
      * a newer version survives a trip through an older one.
      */
     val favorites: Set<String> = emptySet(),
+    /** Light, dark, or whatever the device is set to. */
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /** The main colour every other colour in the app is derived from. */
+    val themeColor: ThemeColor = ThemeColor.BRASS,
 ) {
     /** How [tool] should show notes: its own choice if it has one, otherwise the shared default. */
     fun noteDisplayFor(tool: TrainingTool): NoteDisplay = noteDisplayOverrides[tool] ?: noteDisplay

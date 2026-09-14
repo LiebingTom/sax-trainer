@@ -33,6 +33,7 @@ import com.example.saxtrainer.core.designsystem.component.DEFAULT_STAFF_MARGIN
 import com.example.saxtrainer.core.designsystem.component.NoteDisplayPicker
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.ScreenHeader
+import com.example.saxtrainer.core.designsystem.component.PracticeTitleActions
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
@@ -40,6 +41,7 @@ import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.text.toFixed
 import com.example.saxtrainer.core.designsystem.theme.Dimens
+import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.designsystem.theme.numericLarge
 import com.example.saxtrainer.core.exercise.ExercisePattern
@@ -82,12 +84,17 @@ fun LongToneScreen(
     onAddToLessons: (() -> Unit)? = null,
     permissionDenied: Boolean = false,
     onOpenAppSettings: (() -> Unit)? = null,
-    detectedNoteColor: Color = MaterialTheme.colorScheme.error,
+    detectedNoteColor: Color = FeedbackColors.incorrect,
+    isFavorite: Boolean = false,
+    onToggleFavorite: ((Boolean) -> Unit)? = null,
 ) {
     ScreenScaffold(
         title = "Long Tones",
         onBack = onBack,
         modifier = modifier,
+        titleActions = {
+            PracticeTitleActions("Long Tones", isFavorite, onToggleFavorite, onAddToLessons)
+        },
         header = headerOf(state),
         // The note being held is the subject; the meters that measure it belong below.
         subject = { NoteHeader(state, detectedNoteColor) },
@@ -134,14 +141,6 @@ fun LongToneScreen(
                 onSelectNoteDisplay = onSelectNoteDisplay,
                 onShowNextNote = onShowNextNote,
             )
-            if (onAddToLessons != null) {
-                Spacer(Modifier.height(Dimens.spaceMd))
-                SecondaryButton(
-                    text = "Add to your lessons",
-                    onClick = onAddToLessons,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
             Spacer(Modifier.height(Dimens.spaceMd))
         }
 
@@ -484,7 +483,7 @@ private fun PitchPanel(state: LongToneUiState) {
             color = when {
                 pitch == null || pitch.offTarget -> MaterialTheme.colorScheme.onSurfaceVariant
                 inTune -> MaterialTheme.colorScheme.primary
-                else -> MaterialTheme.colorScheme.tertiary
+                else -> MaterialTheme.colorScheme.onSurface
             },
         )
     }

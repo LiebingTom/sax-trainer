@@ -1,22 +1,19 @@
 package com.example.saxtrainer.home
 
-import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.saxtrainer.core.designsystem.component.IconSource
-import com.example.saxtrainer.core.designsystem.icon.Fingering
+import com.example.saxtrainer.core.designsystem.icon.Assignment
 import com.example.saxtrainer.core.designsystem.icon.Learning
 import com.example.saxtrainer.core.designsystem.icon.LongTone
 import com.example.saxtrainer.core.designsystem.icon.Metronome
+import com.example.saxtrainer.core.designsystem.icon.MyLessons
 import com.example.saxtrainer.core.designsystem.icon.NoteQuiz
 import com.example.saxtrainer.core.designsystem.icon.NoteTrainer
+import com.example.saxtrainer.core.designsystem.icon.Practice
 import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
 import com.example.saxtrainer.core.designsystem.icon.Sequence
 import com.example.saxtrainer.core.designsystem.icon.Settings
 import com.example.saxtrainer.core.learning.Curriculum
 import com.example.saxtrainer.core.learning.TrainerId
-import com.example.saxtrainer.learning.catalog.units.ACCIDENTALS_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.FIRST_NOTES_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.OCTAVE_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.UPPER_OCTAVE_UNIT_ID
 import com.example.saxtrainer.navigation.SaxTrainerDestination
 
 /**
@@ -57,21 +54,11 @@ fun learningEntriesOf(curriculum: Curriculum): List<HomeEntry> = curriculum.unit
         id = "learning-${unit.id}",
         title = unit.title,
         description = unit.description,
-        icon = IconSource.Vector(iconForUnit(unit.id)),
+        // One mark for every unit until the units are final and get marks of their own. Never a
+        // practice's icon: a unit is a topic, and it would read as the practice it happens to use.
+        icon = IconSource.Vector(SaxTrainerIcons.Assignment),
         route = SaxTrainerDestination.learningUnit(unit.id),
     )
-}
-
-/**
- * A unit is a topic rather than a trainer, so it names its own icon instead of borrowing one.
- * Anything unnamed falls back to the generic learning mark.
- */
-private fun iconForUnit(unitId: String): ImageVector = when (unitId) {
-    FIRST_NOTES_UNIT_ID -> SaxTrainerIcons.NoteQuiz
-    OCTAVE_UNIT_ID -> SaxTrainerIcons.NoteTrainer
-    ACCIDENTALS_UNIT_ID -> SaxTrainerIcons.Fingering
-    UPPER_OCTAVE_UNIT_ID -> SaxTrainerIcons.Sequence
-    else -> SaxTrainerIcons.Learning
 }
 
 private val noteQuiz = HomeEntry(
@@ -133,6 +120,15 @@ val practiceGroups: List<HomeGroup> = listOf(
 )
 
 /**
+ * The icon of a practice, wherever that practice is shown: its card, and every lesson that runs it.
+ *
+ * Read off the Practice list rather than kept in a table of its own, so a practice and a lesson
+ * running it can never show two different icons. Null for a trainer with no card.
+ */
+fun practiceIconOf(trainerId: TrainerId): IconSource? =
+    practiceGroups.flatMap { it.entries }.firstOrNull { it.trainerId == trainerId }?.icon
+
+/**
  * The starred tools, in the order the catalogue lists them.
  *
  * Resolved against the catalogue rather than stored alongside the star, so a favorite can never
@@ -153,7 +149,7 @@ val appEntries: List<HomeEntry> = listOf(
         id = "practice",
         title = "Practice",
         description = "All five practice tools, grouped by what they train.",
-        icon = IconSource.Vector(SaxTrainerIcons.NoteTrainer),
+        icon = IconSource.Vector(SaxTrainerIcons.Practice),
         route = SaxTrainerDestination.PRACTICE,
     ),
     HomeEntry(
@@ -167,7 +163,7 @@ val appEntries: List<HomeEntry> = listOf(
         id = "my-lessons",
         title = "My Lessons",
         description = "The practices you saved, in the groups you put them in.",
-        icon = IconSource.Vector(SaxTrainerIcons.Learning),
+        icon = IconSource.Vector(SaxTrainerIcons.MyLessons),
         route = SaxTrainerDestination.MY_LESSONS,
     ),
     HomeEntry(

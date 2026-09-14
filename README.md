@@ -131,11 +131,13 @@ those into a `LearningUnit` and each saved practice into a one-step `Lesson`, ap
 therefore the code the built-in lessons already use - there is one lesson system, and ownership is
 the only difference: the catalog's units cannot be edited or deleted, the player's can.
 
-Editing works the same way for both. The trainer opens its own setup screen with the lesson's
-configuration loaded; what differs is only which `ExerciseSetupRepository` it is handed. A saved
-practice gets one that reads and writes that practice, so editing is saving; a built-in lesson gets
-one that outlives nothing, so trying somebody else's lesson your own way changes neither the lesson
-nor what your trainer opens on next time.
+Editing works the same way for both: it adjusts a lesson before playing it. The trainer opens its
+own setup screen with the lesson's configuration loaded and is handed a store of edits held by the
+navigation graph instead of the app's `ExerciseSetupRepository`, so changing a lesson your own way
+changes neither the lesson nor what your trainer opens on next time. Keeping the edits is "Add to
+your lessons", the same screen as for any practice, which reads them from that store and saves them
+as a new lesson. While a trainer runs a lesson, its screens show where the lesson sits
+(`My Lessons / group / name`) through `LocalScreenTrail`, so no trainer knows it is inside one.
 
 ### Adding a training tool
 

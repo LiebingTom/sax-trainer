@@ -69,7 +69,8 @@ kotlin {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
-            implementation(libs.compose.ui)
+            // `api`: SaxTrainerApp hands the theme's background Color to the entry point.
+            api(libs.compose.ui)
             implementation(libs.compose.ui.tooling.preview)
 
             implementation(libs.jetbrains.navigation.compose)

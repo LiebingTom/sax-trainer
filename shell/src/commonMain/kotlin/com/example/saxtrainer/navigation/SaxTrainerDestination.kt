@@ -22,8 +22,11 @@ object SaxTrainerDestination {
     /** The practices the player saved, in the groups they put them in. */
     const val MY_LESSONS = "mylessons"
 
-    /** Naming and filing the practice one trainer is currently set up for. */
-    const val ADD_TO_LESSONS = "addlesson/{$EXERCISE_ARG}"
+    /**
+     * Naming and filing the practice one trainer is currently set up for - as a practice of its own,
+     * or as a lesson being edited before it is played ([EDITED_ARG]).
+     */
+    const val ADD_TO_LESSONS = "addlesson/{$EXERCISE_ARG}?$EDITED_ARG={$EDITED_ARG}"
 
     /** The lessons of one unit, e.g. `learning/octave`. */
     const val LEARNING_UNIT = "learning/{$UNIT_ID_ARG}"
@@ -64,7 +67,8 @@ object SaxTrainerDestination {
 
     fun learningUnit(unitId: String): String = "learning/$unitId"
 
-    fun addToLessons(exercise: Exercise): String = "addlesson/${exercise.name}"
+    fun addToLessons(exercise: Exercise, edited: Boolean = false): String =
+        "addlesson/${exercise.name}?$EDITED_ARG=$edited"
 
     private fun withLesson(
         route: String,
@@ -82,6 +86,9 @@ const val UNIT_ID_ARG = "unitId"
 const val LESSON_ARG = "lesson"
 const val STEP_ARG = "step"
 const val EXERCISE_ARG = "exercise"
+
+/** Whether the setup to keep is a lesson being edited rather than the trainer's own. */
+const val EDITED_ARG = "edited"
 
 /**
  * Whether the trainer opens on its setup screen filled in with the lesson's configuration, rather

@@ -24,6 +24,8 @@ fun SettingsRoute(
         onNoteNamingSelected = viewModel::selectNoteNaming,
         onCountInSelected = viewModel::selectCountInBeats,
         onCountInClickChanged = viewModel::setCountInClick,
+        onThemeModeSelected = viewModel::selectThemeMode,
+        onThemeColorSelected = viewModel::selectThemeColor,
         onBack = onBack,
         modifier = modifier,
     )

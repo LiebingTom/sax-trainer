@@ -29,13 +29,18 @@ import com.example.saxtrainer.learning.catalog.units.UPPER_OCTAVE_UNIT_ID
  */
 class CurriculumStructureTest {
 
-    /** The units that are rungs of one ladder, in order; the keys after them are not. */
+    /** The units that are rungs of one ladder, in order: each contains everything before it. */
     private val LADDER_UNIT_IDS = listOf(
         FIRST_NOTES_UNIT_ID,
         OCTAVE_UNIT_ID,
         ACCIDENTALS_UNIT_ID,
-        UPPER_OCTAVE_UNIT_ID,
     )
+
+    /**
+     * Every unit that introduces notes. The octave key adds a register rather than repeating the
+     * ladder below it, so it teaches notes without being a rung; the keys after it teach none.
+     */
+    private val NOTE_UNIT_IDS = LADDER_UNIT_IDS + UPPER_OCTAVE_UNIT_ID
 
     private val lessons = SaxTrainerCurriculum.lessons
     private val steps: List<LessonStep> = lessons.flatMap { it.steps }
@@ -133,7 +138,7 @@ class CurriculumStructureTest {
         // What replaces the rung-by-rung check for the keys: a scale unit may leave notes out, but
         // it must never introduce one the player has not met, or it is a new set of grips wearing a
         // key's name.
-        val taught = LADDER_UNIT_IDS
+        val taught = NOTE_UNIT_IDS
             .flatMap { SaxTrainerCurriculum.unitOf(it)!!.lessons }
             .flatMap { it.steps }
             .flatMap(::notesOf)

@@ -24,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.saxtrainer.core.designsystem.component.MusicalPageView
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.ScreenHeader
+import com.example.saxtrainer.core.designsystem.component.PracticeTitleActions
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
@@ -58,11 +59,16 @@ fun SequenceScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onAddToLessons: (() -> Unit)? = null,
+    isFavorite: Boolean = false,
+    onToggleFavorite: ((Boolean) -> Unit)? = null,
 ) {
     ScreenScaffold(
         title = "Sequence Trainer",
         onBack = onBack,
         modifier = modifier,
+        titleActions = {
+            PracticeTitleActions("Sequence Trainer", isFavorite, onToggleFavorite, onAddToLessons)
+        },
         header = headerOf(state),
         timing = timingOf(state),
         actions = {
@@ -85,14 +91,6 @@ fun SequenceScreen(
                     onCheckPitchChange = onCheckPitchChange,
                     onCheckTimingChange = onCheckTimingChange,
                 )
-                if (onAddToLessons != null) {
-                    Spacer(Modifier.height(Dimens.spaceMd))
-                    SecondaryButton(
-                        text = "Add to your lessons",
-                        onClick = onAddToLessons,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
             }
 
             is SequencePhase.CountIn -> CountInPanel(state, phase)
@@ -367,7 +365,7 @@ private fun ResultPanel(state: SequenceUiState, result: SequenceResult) {
             }
         }
 
-        val wrongColor = MaterialTheme.colorScheme.error
+        val wrongColor = FeedbackColors.incorrect
         MusicalPageView(
             sequence = state.sequence,
             modifier = Modifier.fillMaxWidth(),
@@ -406,7 +404,8 @@ private fun ResultPanel(state: SequenceUiState, result: SequenceResult) {
 @Composable
 private fun timingColor(timing: NoteTiming?, correctColor: Color): Color = when (timing) {
     NoteTiming.ON_TIME -> correctColor
-    NoteTiming.EARLY, NoteTiming.LATE -> MaterialTheme.colorScheme.tertiary
+    // Played, just not on the beat: full-strength text rather than a second accent.
+    NoteTiming.EARLY, NoteTiming.LATE -> MaterialTheme.colorScheme.onSurface
     NoteTiming.NOT_PLAYED, null -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 

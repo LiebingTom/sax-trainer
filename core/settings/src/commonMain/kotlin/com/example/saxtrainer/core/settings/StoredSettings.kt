@@ -24,6 +24,8 @@ internal object StoredSettings {
     const val KEY_COUNT_IN_BEATS = "count_in_beats"
     const val KEY_COUNT_IN_CLICK = "count_in_click"
     const val KEY_FAVORITES = "favorites"
+    const val KEY_THEME_MODE = "theme_mode"
+    const val KEY_THEME_COLOR = "theme_color"
 
     /** What the removed "name and notation together" choice was stored as. Read, never written. */
     private const val LEGACY_BOTH = "BOTH"
@@ -57,6 +59,12 @@ internal object StoredSettings {
         stored?.coerceAtLeast(0) ?: AppSettings.DEFAULT_COUNT_IN_BEATS
 
     fun countInClickOf(stored: Boolean?): Boolean = stored ?: AppSettings().countInClick
+
+    fun themeModeOf(stored: String?): ThemeMode =
+        ThemeMode.entries.firstOrNull { it.name == stored } ?: AppSettings().themeMode
+
+    fun themeColorOf(stored: String?): ThemeColor =
+        ThemeColor.entries.firstOrNull { it.name == stored } ?: AppSettings().themeColor
 
     /**
      * The starred tools, written as one line rather than as a key each.

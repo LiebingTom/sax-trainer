@@ -10,6 +10,8 @@ object SaxTrainerDestination {
     const val LONG_TONES = "longtones"
     const val NOTE_QUIZ = "notequiz"
     const val NOTE_TRAINER = "notetrainer"
+    const val PHRASE_QUIZ = "phrasequiz"
+    const val PHRASE_TRAINER = "phrasetrainer"
     const val SEQUENCE = "sequence"
     const val SETTINGS = "settings"
 
@@ -21,6 +23,9 @@ object SaxTrainerDestination {
 
     /** The practices the player saved, in the groups they put them in. */
     const val MY_LESSONS = "mylessons"
+
+    /** The practices saved in one group of My Lessons, e.g. `mylessons/g2`. */
+    const val MY_LESSON_GROUP = "mylessons/{$GROUP_ID_ARG}"
 
     /**
      * Naming and filing the practice one trainer is currently set up for - as a practice of its own,
@@ -52,6 +57,8 @@ object SaxTrainerDestination {
     const val NOTE_TRAINER_PATTERN = "$NOTE_TRAINER?$LESSON_QUERY"
     const val SEQUENCE_PATTERN = "$SEQUENCE?$LESSON_QUERY"
     const val LONG_TONES_PATTERN = "$LONG_TONES?$LESSON_QUERY"
+    const val PHRASE_QUIZ_PATTERN = "$PHRASE_QUIZ?$LESSON_QUERY"
+    const val PHRASE_TRAINER_PATTERN = "$PHRASE_TRAINER?$LESSON_QUERY"
 
     fun noteQuiz(lessonId: LessonId? = null, stepIndex: Int = 0, edit: Boolean = false): String =
         withLesson(NOTE_QUIZ, lessonId, stepIndex, edit)
@@ -65,7 +72,16 @@ object SaxTrainerDestination {
     fun longTones(lessonId: LessonId? = null, stepIndex: Int = 0, edit: Boolean = false): String =
         withLesson(LONG_TONES, lessonId, stepIndex, edit)
 
+    fun phraseQuiz(lessonId: LessonId? = null, stepIndex: Int = 0, edit: Boolean = false): String =
+        withLesson(PHRASE_QUIZ, lessonId, stepIndex, edit)
+
+    fun phraseTrainer(lessonId: LessonId? = null, stepIndex: Int = 0, edit: Boolean = false): String =
+        withLesson(PHRASE_TRAINER, lessonId, stepIndex, edit)
+
     fun learningUnit(unitId: String): String = "learning/$unitId"
+
+    /** Only generated group ids travel here, never the name the player typed. */
+    fun myLessonGroup(groupId: String): String = "mylessons/$groupId"
 
     fun addToLessons(exercise: Exercise, edited: Boolean = false): String =
         "addlesson/${exercise.name}?$EDITED_ARG=$edited"
@@ -83,6 +99,7 @@ object SaxTrainerDestination {
 }
 
 const val UNIT_ID_ARG = "unitId"
+const val GROUP_ID_ARG = "groupId"
 const val LESSON_ARG = "lesson"
 const val STEP_ARG = "step"
 const val EXERCISE_ARG = "exercise"

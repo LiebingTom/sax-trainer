@@ -26,3 +26,6 @@ build/
 # The music font the notation glyphs were traced from; fetched on demand, never shipped.
 # tools/bravura_glyphs.py --download
 tools/.bravura/
+
+# Python bytecode caches written when the tools/ scripts run.
+__pycache__/

@@ -14,6 +14,8 @@ enum class Exercise {
     NOTE_QUIZ,
     SEQUENCE,
     METRONOME,
+    PHRASE_TRAINER,
+    PHRASE_QUIZ,
 }
 
 /**

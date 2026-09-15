@@ -14,6 +14,8 @@ enum class TrainerId {
     SEQUENCE,
     LONG_TONES,
     METRONOME,
+    PHRASE_TRAINER,
+    PHRASE_QUIZ,
 }
 
 /** Identifies a lesson everywhere: in the catalog, in a navigation route, in stored progress. */

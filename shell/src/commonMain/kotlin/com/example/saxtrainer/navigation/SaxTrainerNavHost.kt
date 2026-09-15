@@ -30,11 +30,14 @@ import com.example.saxtrainer.feature.longtones.LongToneRoute
 import com.example.saxtrainer.feature.metronome.MetronomeRoute
 import com.example.saxtrainer.feature.notequiz.QuizRoute
 import com.example.saxtrainer.feature.notetrainer.NoteTrainerRoute
+import com.example.saxtrainer.feature.phrasequiz.PhraseQuizRoute
+import com.example.saxtrainer.feature.phrasetrainer.PhraseTrainerRoute
 import com.example.saxtrainer.feature.sequence.SequenceRoute
 import com.example.saxtrainer.feature.settings.SettingsRoute
 import com.example.saxtrainer.home.AddToLessonsScreen
 import com.example.saxtrainer.home.HomeScreen
 import com.example.saxtrainer.home.LessonsScreen
+import com.example.saxtrainer.home.MyLessonGroupScreen
 import com.example.saxtrainer.home.MyLessonsScreen
 import com.example.saxtrainer.home.PracticeScreen
 import com.example.saxtrainer.home.learningEntriesOf
@@ -45,6 +48,10 @@ import com.example.saxtrainer.learning.catalog.steps.noteQuizOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
+import com.example.saxtrainer.learning.catalog.steps.phraseQuizOutcomeOf
+import com.example.saxtrainer.learning.catalog.steps.phraseQuizPresetOf
+import com.example.saxtrainer.learning.catalog.steps.phraseTrainerOutcomeOf
+import com.example.saxtrainer.learning.catalog.steps.phraseTrainerPresetOf
 import com.example.saxtrainer.learning.catalog.steps.sequenceOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.sequencePresetOf
 import com.example.saxtrainer.learning.savedLessonIdOf
@@ -118,10 +125,29 @@ fun SaxTrainerNavHost(
             MyLessonsScreen(
                 book = book,
                 onWrite = container.userLessons::write,
-                onStart = { id -> navController.startLesson(container, curriculum, id) },
-                onEdit = { id -> navController.editLesson(curriculum, id) },
+                onOpenGroup = { id -> navController.navigate(SaxTrainerDestination.myLessonGroup(id)) },
                 onBack = { navController.popBackStack() },
             )
+        }
+        composable(
+            route = SaxTrainerDestination.MY_LESSON_GROUP,
+            arguments = listOf(navArgument(GROUP_ID_ARG) { type = NavType.StringType }),
+        ) { entry ->
+            val group = entry.arguments
+                ?.read { getStringOrNull(GROUP_ID_ARG) }
+                ?.let(book::groupOf)
+            if (group == null) {
+                navController.popBackStack()
+            } else {
+                MyLessonGroupScreen(
+                    book = book,
+                    group = group,
+                    onWrite = container.userLessons::write,
+                    onStart = { id -> navController.startLesson(container, curriculum, id) },
+                    onEdit = { id -> navController.editLesson(curriculum, id) },
+                    onBack = { navController.popBackStack() },
+                )
+            }
         }
         composable(
             route = SaxTrainerDestination.ADD_TO_LESSONS,
@@ -243,6 +269,49 @@ fun SaxTrainerNavHost(
                 onBack = { navController.popBackStack() },
             )
         }
+        lessonStep(
+            pattern = SaxTrainerDestination.PHRASE_QUIZ_PATTERN,
+            container = container,
+            curriculum = curriculum,
+            lessonEdits = lessonEdits,
+            navController = navController,
+        ) { step ->
+            PhraseQuizRoute(
+                settingsRepository = container.settingsRepository,
+                exerciseSetups = step.exerciseSetups,
+                phraseCatalog = container.phraseCatalog,
+                patternCatalog = container.patternCatalog,
+                preset = step.stepOf(::phraseQuizPresetOf)
+                    ?.copy(autoStart = !step.editing, editable = step.editing),
+                onAddToLessons = step.addToLessons(navController, Exercise.PHRASE_QUIZ),
+                isFavorite = step.isFavorite(TrainerId.PHRASE_QUIZ),
+                onToggleFavorite = step.toggleFavorite(container, TrainerId.PHRASE_QUIZ),
+                onExerciseFinished = { result -> step.finish(phraseQuizOutcomeOf(result)) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        lessonStep(
+            pattern = SaxTrainerDestination.PHRASE_TRAINER_PATTERN,
+            container = container,
+            curriculum = curriculum,
+            lessonEdits = lessonEdits,
+            navController = navController,
+        ) { step ->
+            PhraseTrainerRoute(
+                settingsRepository = container.settingsRepository,
+                exerciseSetups = step.exerciseSetups,
+                audioCapture = container.audioCapture,
+                phraseCatalog = container.phraseCatalog,
+                patternCatalog = container.patternCatalog,
+                preset = step.stepOf(::phraseTrainerPresetOf)
+                    ?.copy(autoStart = !step.editing, editable = step.editing),
+                onAddToLessons = step.addToLessons(navController, Exercise.PHRASE_TRAINER),
+                isFavorite = step.isFavorite(TrainerId.PHRASE_TRAINER),
+                onToggleFavorite = step.toggleFavorite(container, TrainerId.PHRASE_TRAINER),
+                onExerciseFinished = { result -> step.finish(phraseTrainerOutcomeOf(result)) },
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(
             route = SaxTrainerDestination.LEARNING_UNIT,
             arguments = listOf(navArgument(UNIT_ID_ARG) { type = NavType.StringType }),
@@ -293,6 +362,8 @@ private fun trainerFor(exercise: Exercise): TrainerId = when (exercise) {
     Exercise.NOTE_QUIZ -> TrainerId.NOTE_QUIZ
     Exercise.SEQUENCE -> TrainerId.SEQUENCE
     Exercise.METRONOME -> TrainerId.METRONOME
+    Exercise.PHRASE_QUIZ -> TrainerId.PHRASE_QUIZ
+    Exercise.PHRASE_TRAINER -> TrainerId.PHRASE_TRAINER
 }
 
 /** Runs a lesson from its first step, whether the catalog wrote it or the player saved it. */
@@ -493,6 +564,8 @@ private fun routeForStep(lesson: Lesson, stepIndex: Int, edit: Boolean = false):
         TrainerId.NOTE_TRAINER -> SaxTrainerDestination.noteTrainer(lesson.id, stepIndex, edit)
         TrainerId.SEQUENCE -> SaxTrainerDestination.sequence(lesson.id, stepIndex, edit)
         TrainerId.LONG_TONES -> SaxTrainerDestination.longTones(lesson.id, stepIndex, edit)
+        TrainerId.PHRASE_QUIZ -> SaxTrainerDestination.phraseQuiz(lesson.id, stepIndex, edit)
+        TrainerId.PHRASE_TRAINER -> SaxTrainerDestination.phraseTrainer(lesson.id, stepIndex, edit)
         // A metronome has nothing to configure and nothing to report, so it is the one step that
         // is simply opened.
         TrainerId.METRONOME -> SaxTrainerDestination.METRONOME

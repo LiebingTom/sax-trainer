@@ -1,0 +1,24 @@
+{
+  "id": "blues_call_and_response",
+  "name": "Call and response",
+  "description": "Up through the blue notes and back down to the root - a classic blues shape. Written against the blues scale, where degree 2 is the flat third, degree 4 the flat fifth blue note, and degree 6 the flat seventh.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        { "degree": 1, "duration": "quarter" },
+        { "degree": 2, "duration": "quarter" },
+        { "degree": 3, "duration": "quarter" },
+        { "degree": 4, "duration": "quarter" }
+      ]
+    },
+    {
+      "steps": [
+        { "degree": 6, "duration": "quarter" },
+        { "degree": 5, "duration": "quarter" },
+        { "degree": 2, "duration": "quarter" },
+        { "degree": 1, "duration": "quarter" }
+      ]
+    }
+  ]
+}

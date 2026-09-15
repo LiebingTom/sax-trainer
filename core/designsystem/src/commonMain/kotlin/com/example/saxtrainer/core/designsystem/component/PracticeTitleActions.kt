@@ -15,7 +15,8 @@ import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
  * The one place either is offered, so a player looking to star a tool or save a setup always looks
  * in the same corner, whichever practice they are in. Each is left out where it has no business:
  * [onToggleFavorite] and [onAddToLessons] are null inside a lesson, which is running somebody's
- * exercise rather than one of the player's own tools.
+ * exercise rather than one of the player's own tools; editing a lesson brings the ribbon back but
+ * never the star. Practices leave both out while an exercise is under way.
  *
  * The star is filled once starred and hollow while not, because colour alone does not say which way
  * round a toggle is. Both descriptions name the practice as well as the action.

@@ -29,6 +29,7 @@ import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
+import com.example.saxtrainer.core.designsystem.component.StepSlider
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
@@ -66,9 +67,14 @@ fun SequenceScreen(
         title = "Sequence Trainer",
         onBack = onBack,
         modifier = modifier,
+        // Starring and saving are about the practice as it is set up, not something to reach for
+        // while playing.
         titleActions = {
-            PracticeTitleActions("Sequence Trainer", isFavorite, onToggleFavorite, onAddToLessons)
+            if (!state.isRunning) {
+                PracticeTitleActions("Sequence Trainer", isFavorite, onToggleFavorite, onAddToLessons)
+            }
         },
+        showTrail = !state.isRunning,
         header = headerOf(state),
         timing = timingOf(state),
         actions = {
@@ -155,31 +161,14 @@ private fun Setup(
             checked = state.addInverse,
             onCheckedChange = onAddInverseChange,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = "Repeat", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    text = "${state.repeats} times through, " +
-                        "${state.sequence.notes.size} notes in all",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text(
-                text = "${state.repeats}",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-        Slider(
-            value = state.repeats.toFloat(),
-            onValueChange = { onRepeatsChange(it.toInt()) },
-            valueRange = state.repeatRange.first.toFloat()..state.repeatRange.last.toFloat(),
-            steps = state.repeatRange.last - state.repeatRange.first - 1,
+        StepSlider(
+            title = "Repeat",
+            supportingText = "${state.repeats} times through, " +
+                "${state.sequence.notes.size} notes in all",
+            value = state.repeats,
+            options = state.repeatRange.toList(),
+            valueLabel = { "$it" },
+            onValueChange = onRepeatsChange,
         )
 
         SectionHeader("While you play")

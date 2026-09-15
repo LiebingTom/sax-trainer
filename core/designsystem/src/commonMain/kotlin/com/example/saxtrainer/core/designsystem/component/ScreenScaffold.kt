@@ -126,10 +126,11 @@ fun ScreenScaffold(
      */
     titleActions: (@Composable RowScope.() -> Unit)? = null,
     /**
-     * Where this screen sits, drawn as one line under the title, in the title's band. Taken from
-     * [LocalScreenTrail] unless given.
+     * Whether [LocalScreenTrail] is drawn as one line under the title, in the title's band. Off while
+     * an exercise is under way: by then the player knows where they are, and the space is the
+     * exercise's.
      */
-    trail: List<String> = LocalScreenTrail.current,
+    showTrail: Boolean = true,
     /**
      * What this screen says for itself. Pinned under the title with a rule below it, so it stays
      * put while everything it refers to scrolls.
@@ -161,6 +162,7 @@ fun ScreenScaffold(
 ) {
     // The same surface family as the cards, one step below them, so band and cards always match.
     val chrome = MaterialTheme.colorScheme.surfaceContainer
+    val trail = if (showTrail) LocalScreenTrail.current else emptyList()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),

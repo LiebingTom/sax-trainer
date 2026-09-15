@@ -85,7 +85,6 @@ fun QuizRoute(
         onCancelCustomNotes = viewModel::cancelCustomNotes,
         onSelectMode = viewModel::selectMode,
         onSelectQuestionCount = viewModel::selectQuestionCount,
-        onSelectSuccessDelay = viewModel::selectSuccessDelaySeconds,
         onAnswer = { slot, option -> viewModel.answer(slot, option) },
         onSkipSuccessDelay = viewModel::skipSuccessDelay,
         onStart = viewModel::start,

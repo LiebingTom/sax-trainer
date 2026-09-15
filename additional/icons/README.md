@@ -156,7 +156,7 @@ source. Replace them in any order; each one is independent.
 | `MoveDown`                | My Lessons, managing: move a group or practice down           | ✅  | Material `arrow_drop_down`                |
 | `Delete`                  | My Lessons, managing: delete a group or practice              | ✅  | Material `delete`                         |
 | `Rename`                  | My Lessons, managing: rename a group or practice              | ✅  | Material `keyboard`                       |
-| `Edit`                    | My Lessons: edit a saved practice's setup                     | ✅  | Material `edit` (the pen)                 |
+| `Edit`                    | Edit a lesson's setup; My Lessons title bar: manage the list  | ✅  | Material `edit` (the pen)                 |
 | `Metronome`               | Metronome card and title bar                                  | ✅  | `custom_metronome.svg` (Inkscape)         |
 | `NoteQuiz`                | Note Quiz card                                                | ✅  | `practice_note_quiz.svg` (Inkscape)       |
 | `NoteTrainer`             | Note Trainer card                                             | ✅  | `practice_note_tranier.svg` (Inkscape)    |

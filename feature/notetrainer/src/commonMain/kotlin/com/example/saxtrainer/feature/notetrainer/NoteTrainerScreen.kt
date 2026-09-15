@@ -34,6 +34,7 @@ import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
+import com.example.saxtrainer.core.designsystem.component.StepSlider
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.component.StaffPrefix
 import com.example.saxtrainer.core.designsystem.component.fingeringHeightOf
@@ -49,8 +50,8 @@ import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.ToneSequence
 import com.example.saxtrainer.core.music.Beats
-import com.example.saxtrainer.core.music.ToneStep
-import com.example.saxtrainer.core.music.conventionalStyle
+import com.example.saxtrainer.core.music.NotatedDuration
+import com.example.saxtrainer.core.music.NoteValue
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -106,9 +107,14 @@ fun NoteTrainerScreen(
             title = "Note Trainer",
             onBack = onBack,
             modifier = modifier,
+            // Starring and saving are about the practice as it is set up, not something to reach
+            // for while playing.
             titleActions = {
-                PracticeTitleActions("Note Trainer", isFavorite, onToggleFavorite, onAddToLessons)
+                if (!state.isBusy) {
+                    PracticeTitleActions("Note Trainer", isFavorite, onToggleFavorite, onAddToLessons)
+                }
             },
+            showTrail = !state.isBusy,
             header = headerOf(state),
             subject = noteSubject,
             timing = timingOf(state),
@@ -200,33 +206,23 @@ private fun Setup(
     )
 
     Spacer(Modifier.height(Dimens.spaceSm))
-    SectionHeader("Rounds")
-    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.roundOptions.forEach { rounds ->
-            FilterChip(
-                selected = rounds == state.rounds,
-                onClick = { onRoundsChange(rounds) },
-                label = { Text("$rounds") },
-            )
-        }
-    }
-
-    Spacer(Modifier.height(Dimens.spaceSm))
-    SectionHeader("Hold the note")
-    // Wrapped at the edge of the screen, the same lengths and the same layout as Long Tones.
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.holdOptions.forEach { beats ->
-            FilterChip(
-                selected = beats == state.holdBeats,
-                onClick = { onHoldChange(beats) },
-                label = { Text(holdLabelOf(beats), maxLines = 1) },
-            )
-        }
-    }
-    Text(
-        text = "At ${state.tempo.bpm} BPM",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    SectionHeader("How much")
+    StepSlider(
+        title = "Rounds",
+        supportingText = "Every note ${if (state.rounds == 1) "once" else "${state.rounds} times"}",
+        value = state.rounds,
+        options = state.roundOptions,
+        valueLabel = { "$it" },
+        onValueChange = onRoundsChange,
+    )
+    // The same slider as Long Tones' note length, over the lengths this trainer offers.
+    StepSlider(
+        title = "Hold the note",
+        supportingText = "At ${state.tempo.bpm} BPM",
+        value = state.holdBeats,
+        options = state.holdOptions,
+        valueLabel = ::holdLabelOf,
+        onValueChange = onHoldChange,
     )
 
     if (state.microphoneUnavailable) {
@@ -625,10 +621,9 @@ private fun sessionFractionOf(step: Int, stepCount: Int): Float =
  * The height is reserved for the widest note the exercise can ask for, so it does not resize
  * between notes and the player's eye stays where it was.
  *
- * The written value is the hold the player chose, because that is exactly what a note's length
- * tells a reader: keep this sounding for two beats and it is a half note. The staff carries no time
- * signature, though - one note is not a bar of music, and claiming a metre for it would say more
- * than the exercise knows.
+ * Always a whole note, whatever hold the player chose, and no time signature: the note is there to
+ * be read, as in the note quiz, and looks the same from one exercise to the next. The hold is still
+ * counted in beats; the bar above the fingering is what shows it running out.
  *
  * No closing bar: this is a note to read, not a piece that ends. What is being heard is said in
  * words underneath, which is where it has always been said.
@@ -640,19 +635,7 @@ private fun NoteSubject(state: NoteTrainerUiState) {
         if (progress.isCorrect) FeedbackColors.correct else MaterialTheme.colorScheme.primary
 
     val note = progress.currentNote
-    val held = state.holdBeats
-    val sequence = remember(note, held) {
-        if (held > Beats.ZERO) {
-            ToneSequence(
-                steps = listOf(ToneStep(note, held)),
-                accidentalStyle = note.conventionalStyle(),
-            )
-        } else {
-            // "Until correct" asks for no length at all, so the note is written as a plain quarter:
-            // something to read, rather than a claim about how long to keep it.
-            ToneSequence.of(note)
-        }
-    }
+    val sequence = remember(note) { ToneSequence.of(note, NotatedDuration(NoteValue.WHOLE)) }
 
     MusicalStaffView(
         sequence = sequence,

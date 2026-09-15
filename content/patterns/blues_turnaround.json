@@ -1,0 +1,16 @@
+{
+  "id": "blues_turnaround",
+  "name": "Turnaround",
+  "description": "Root, blue note, flat seventh, and home again - one bar, worth landing on hard.",
+  "trainingBars": 1,
+  "bars": [
+    {
+      "steps": [
+        { "degree": 1, "duration": "eighth" },
+        { "degree": 4, "duration": "eighth" },
+        { "degree": 6, "duration": "quarter" },
+        { "degree": 1, "duration": "half" }
+      ]
+    }
+  ]
+}

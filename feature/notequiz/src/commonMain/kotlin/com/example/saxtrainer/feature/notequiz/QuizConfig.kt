@@ -10,10 +10,14 @@ import com.example.saxtrainer.core.fingering.SaxophoneFingerings
  */
 data class QuizConfig(
     val chart: FingeringChart = SaxophoneFingerings,
-    /** Lengths offered on the setup screen; a session should fit in a few minutes. */
-    val questionCounts: List<Int> = listOf(10, 20, 30),
+    /** Lengths offered on the setup screen, in fives; a session should fit in a few minutes. */
+    val questionCounts: List<Int> = (5..30 step 5).toList(),
     val defaultQuestionCount: Int = 10,
-    /** Waits the setup screen offers after a right answer, in seconds; zero moves on at once. */
+    /**
+     * Waits after a right answer, in seconds; zero moves on at once. No longer offered on the setup
+     * screen, so every quiz waits [defaultSuccessDelaySeconds] - but still a setting of the quiz, for
+     * a lesson or a later screen to change.
+     */
     val successDelayOptions: List<Double> = listOf(0.0, 1.0, 2.0, 3.0),
     val defaultSuccessDelaySeconds: Double = 1.0,
     /**

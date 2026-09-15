@@ -1,0 +1,16 @@
+{
+  "id": "one_two_three_five",
+  "name": "1-2-3-5",
+  "description": "The first four notes, then a skip up to the 5th.",
+  "trainingBars": 1,
+  "bars": [
+    {
+      "steps": [
+        { "degree": 1, "duration": "quarter" },
+        { "degree": 2, "duration": "quarter" },
+        { "degree": 3, "duration": "quarter" },
+        { "degree": 5, "duration": "quarter" }
+      ]
+    }
+  ]
+}

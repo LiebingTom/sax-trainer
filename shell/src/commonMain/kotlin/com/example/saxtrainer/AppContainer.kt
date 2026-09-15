@@ -7,6 +7,10 @@ import com.example.saxtrainer.core.learning.InMemoryLessonProgressRepository
 import com.example.saxtrainer.core.learning.InMemoryLessonRunRepository
 import com.example.saxtrainer.core.learning.LessonProgressRepository
 import com.example.saxtrainer.core.learning.LessonRunRepository
+import com.example.saxtrainer.core.phrase.PatternCatalog
+import com.example.saxtrainer.core.phrase.PatternLibrary
+import com.example.saxtrainer.core.phrase.PhraseCatalog
+import com.example.saxtrainer.core.phrase.PhraseLibrary
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.InMemoryUserLessonRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
@@ -37,6 +41,10 @@ class AppContainer(
      */
     val userLessons: UserLessonRepository = InMemoryUserLessonRepository(),
     curriculum: Curriculum = SaxTrainerCurriculum,
+    /** Where a phrase is looked up by id, for the Phrase Trainer and Phrase Quiz. */
+    val phraseCatalog: PhraseCatalog = PhraseLibrary,
+    /** Where a stored scale pattern is looked up by id, for the same two trainers. */
+    val patternCatalog: PatternCatalog = PatternLibrary,
 ) {
     val curriculum: Curriculum = curriculum
 

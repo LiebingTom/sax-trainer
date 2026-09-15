@@ -132,7 +132,7 @@ data class NoteTrainerUiState(
     val activeNotes: List<Note> = emptyList(),
     val order: NoteOrder = NoteOrder.RANDOM,
     val rounds: Int = 1,
-    val roundOptions: List<Int> = listOf(1, 2, 3),
+    val roundOptions: List<Int> = (1..5).toList(),
     /** Whether the fingering is offered while the note is being asked for. Off by default. */
     val showFingeringHint: Boolean = false,
     /** Whether the note's name is shown under the staff. Off by default; the notation is the point. */

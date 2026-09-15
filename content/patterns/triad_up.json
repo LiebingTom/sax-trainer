@@ -1,0 +1,15 @@
+{
+  "id": "triad_up",
+  "name": "Triad up",
+  "description": "The 1st, 3rd and 5th of the scale, landing on the 5th.",
+  "trainingBars": 1,
+  "bars": [
+    {
+      "steps": [
+        { "degree": 1, "duration": "quarter" },
+        { "degree": 3, "duration": "quarter" },
+        { "degree": 5, "duration": "half" }
+      ]
+    }
+  ]
+}

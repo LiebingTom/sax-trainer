@@ -18,8 +18,8 @@ import com.example.saxtrainer.core.music.Tempo
 data class LongToneConfig(
     val capture: AudioCaptureConfig = AudioCaptureConfig(),
     val spectrum: SpectrumConfig = SpectrumConfig(),
-    /** Note lengths offered in the UI, in beats: the lengths every held note is offered in. */
-    val beatOptions: List<Int> = HeldNote.beatOptions,
+    /** Note lengths offered in the UI, in beats: every beat from four up to the longest held note. */
+    val beatOptions: List<Int> = HeldNote.beatOptionsFrom(4),
     /**
      * The speed a note's beats are counted at. Fixed rather than offered, so a beat is a second and
      * nothing on screen has to explain the conversion; only a test changes it, to run faster.

@@ -39,10 +39,11 @@ data class NoteTrainerConfig(
      * A hold turns the exercise from finding a note into finding it and keeping it, which is a
      * different practice and the reason it is the player's to choose rather than a constant. It is
      * the one duration here that is music - the player is being asked to sound a note for a length
-     * of it - so it is counted in beats, in the same lengths Long Tones offers, and turned into
-     * seconds against [defaultTempo]. The waits either side of it are not music and stay in seconds.
+     * of it - so it is counted in beats, every beat up to the longest Long Tones offers, and turned
+     * into seconds against [defaultTempo]. The waits either side of it are not music and stay in
+     * seconds.
      */
-    val holdBeatOptions: List<Int> = listOf(0) + HeldNote.beatOptions,
+    val holdBeatOptions: List<Int> = listOf(0) + HeldNote.beatOptionsFrom(1),
     val defaultHoldBeats: Int = 0,
     /** How long a wrong note has to sound before it is called one, rather than an unsettled attack. */
     val wrongPitchSeconds: Double = 0.15,

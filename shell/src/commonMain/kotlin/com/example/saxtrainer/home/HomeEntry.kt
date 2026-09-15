@@ -2,6 +2,7 @@ package com.example.saxtrainer.home
 
 import com.example.saxtrainer.core.designsystem.component.IconSource
 import com.example.saxtrainer.core.designsystem.icon.Assignment
+import com.example.saxtrainer.core.designsystem.icon.ChooseNotes
 import com.example.saxtrainer.core.designsystem.icon.Learning
 import com.example.saxtrainer.core.designsystem.icon.LongTone
 import com.example.saxtrainer.core.designsystem.icon.Metronome
@@ -97,6 +98,24 @@ private val sequence = HomeEntry(
     trainerId = TrainerId.SEQUENCE,
 )
 
+private val phraseTrainer = HomeEntry(
+    id = "phrasetrainer",
+    title = "Phrase Trainer",
+    description = "See a phrase, then play it back from memory once it disappears.",
+    icon = IconSource.Vector(SaxTrainerIcons.Sequence),
+    route = SaxTrainerDestination.PHRASE_TRAINER,
+    trainerId = TrainerId.PHRASE_TRAINER,
+)
+
+private val phraseQuiz = HomeEntry(
+    id = "phrasequiz",
+    title = "Phrase Quiz",
+    description = "See a phrase, then tap its notes back into order from memory.",
+    icon = IconSource.Vector(SaxTrainerIcons.ChooseNotes),
+    route = SaxTrainerDestination.PHRASE_QUIZ,
+    trainerId = TrainerId.PHRASE_QUIZ,
+)
+
 private val metronome = HomeEntry(
     id = "metronome",
     title = "Metronome",
@@ -117,6 +136,7 @@ val practiceGroups: List<HomeGroup> = listOf(
     HomeGroup("Know your notes", listOf(noteQuiz)),
     HomeGroup("Play your notes", listOf(noteTrainer, longTones)),
     HomeGroup("Play in time", listOf(sequence, metronome)),
+    HomeGroup("Play a phrase", listOf(phraseTrainer, phraseQuiz)),
 )
 
 /**

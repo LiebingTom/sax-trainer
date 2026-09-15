@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +35,7 @@ import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
+import com.example.saxtrainer.core.designsystem.component.StepSlider
 import com.example.saxtrainer.core.designsystem.component.reservedStepRange
 import com.example.saxtrainer.core.designsystem.component.staffStepRange
 import com.example.saxtrainer.core.designsystem.theme.Dimens
@@ -67,7 +67,6 @@ fun QuizScreen(
     onCancelCustomNotes: () -> Unit,
     onSelectMode: (QuizMode) -> Unit,
     onSelectQuestionCount: (Int) -> Unit,
-    onSelectSuccessDelay: (Double) -> Unit,
     onAnswer: (slot: Int, option: Int) -> Unit,
     onSkipSuccessDelay: () -> Unit,
     onStart: () -> Unit,
@@ -92,9 +91,14 @@ fun QuizScreen(
         title = "Note Quiz",
         onBack = onBack,
         modifier = modifier,
+        // Starring and saving are about the practice as it is set up, not something to reach for
+        // mid-question.
         titleActions = {
-            PracticeTitleActions("Note Quiz", isFavorite, onToggleFavorite, onAddToLessons)
+            if (!state.isRunning) {
+                PracticeTitleActions("Note Quiz", isFavorite, onToggleFavorite, onAddToLessons)
+            }
         },
+        showTrail = !state.isRunning,
         header = headerOf(state),
         subject = subject,
         timing = timingOf(state),
@@ -114,7 +118,6 @@ fun QuizScreen(
                     onEditCustomNotes = onEditCustomNotes,
                     onSelectMode = onSelectMode,
                     onSelectQuestionCount = onSelectQuestionCount,
-                    onSelectSuccessDelay = onSelectSuccessDelay,
                 )
             }
 
@@ -159,7 +162,6 @@ private fun Setup(
     onEditCustomNotes: () -> Unit,
     onSelectMode: (QuizMode) -> Unit,
     onSelectQuestionCount: (Int) -> Unit,
-    onSelectSuccessDelay: (Double) -> Unit,
 ) {
     SectionHeader("Notes")
     state.noteSets.forEach { set ->
@@ -186,31 +188,14 @@ private fun Setup(
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("How many")
-    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.questionCounts.forEach { count ->
-            FilterChip(
-                selected = count == state.questionCount,
-                onClick = { onSelectQuestionCount(count) },
-                label = { Text("$count") },
-            )
-        }
-    }
-
-    Spacer(Modifier.height(Dimens.spaceSm))
-    SectionHeader("Stay on a right answer for")
-    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.successDelayOptions.forEach { seconds ->
-            FilterChip(
-                selected = seconds == state.successDelaySeconds,
-                onClick = { onSelectSuccessDelay(seconds) },
-                label = { Text(successDelayLabelOf(seconds)) },
-            )
-        }
-    }
-    Text(
-        text = "Tap the answers to move on sooner.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    // How long a right answer stays up is no longer asked: it keeps its default, and a tap on the
+    // answers still moves on sooner.
+    StepSlider(
+        title = "Questions",
+        value = state.questionCount,
+        options = state.questionCounts,
+        valueLabel = { "$it" },
+        onValueChange = onSelectQuestionCount,
     )
 
     if (!state.canStart) {
@@ -535,9 +520,6 @@ private fun Actions(
     }
 }
 
-/** How a wait reads on the setup screen; none of the offered ones needs a decimal point. */
-private fun successDelayLabelOf(seconds: Double): String =
-    if (seconds <= 0.0) "Straight on" else "${seconds.toInt()} s"
 
 private val PromptStaffSpacing = 16.dp
 private val OptionStaffSpacing = 9.dp
@@ -568,7 +550,6 @@ private fun QuizSetupPreview() {
             onCancelCustomNotes = {},
             onSelectMode = {},
             onSelectQuestionCount = {},
-            onSelectSuccessDelay = {},
             onAnswer = { _, _ -> },
             onSkipSuccessDelay = {},
             onStart = {},

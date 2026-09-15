@@ -38,6 +38,7 @@ import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
+import com.example.saxtrainer.core.designsystem.component.StepSlider
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.text.toFixed
 import com.example.saxtrainer.core.designsystem.theme.Dimens
@@ -58,10 +59,9 @@ import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
 import com.example.saxtrainer.core.designsystem.component.StaffNoteStyle
 import com.example.saxtrainer.core.designsystem.component.StaffPrefix
 import com.example.saxtrainer.core.designsystem.component.reservedStepRange
-import com.example.saxtrainer.core.music.TimeSignature
+import com.example.saxtrainer.core.music.NotatedDuration
+import com.example.saxtrainer.core.music.NoteValue
 import com.example.saxtrainer.core.music.ToneSequence
-import com.example.saxtrainer.core.music.ToneStep
-import com.example.saxtrainer.core.music.conventionalStyle
 import com.example.saxtrainer.core.designsystem.component.CurrentAndNextNote
 import com.example.saxtrainer.core.designsystem.component.NextNoteName
 import androidx.compose.material3.Switch
@@ -92,9 +92,14 @@ fun LongToneScreen(
         title = "Long Tones",
         onBack = onBack,
         modifier = modifier,
+        // Starring and saving are about the practice as it is set up, not something to reach for
+        // while playing.
         titleActions = {
-            PracticeTitleActions("Long Tones", isFavorite, onToggleFavorite, onAddToLessons)
+            if (!state.isBusy) {
+                PracticeTitleActions("Long Tones", isFavorite, onToggleFavorite, onAddToLessons)
+            }
         },
+        showTrail = !state.isBusy,
         header = headerOf(state),
         // The note being held is the subject; the meters that measure it belong below.
         subject = { NoteHeader(state, detectedNoteColor) },
@@ -202,20 +207,16 @@ private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
 
     val currentColor = MaterialTheme.colorScheme.primary
 
-    // These beats are real music: the player picks how many a tone lasts and at what tempo, so the
-    // duration is written out as the note value it actually is - four beats a whole note, two a
-    // half - and a tone that runs past a bar line is split there and tied, as it would be on paper.
+    // Always one whole note and no time signature, whatever the length: the note is there to be
+    // read, as in the note quiz. The length is still counted in beats, and the bar at the foot of
+    // the screen is what shows how much of it is left - written out, a long tone became tied notes
+    // across bar lines that said the same thing far less plainly.
     val writtenNotes = remember(state.selection.notes, state.transposition) {
         state.selection.notes.map(state.transposition::writtenFor)
     }
-    val beats = state.selection.beatsPerNote
-    val sequence = remember(written, beats) {
-        ToneSequence(
-            steps = listOf(ToneStep(written, beats)),
-            timeSignature = NOTE_HEADER_TIME_SIGNATURE,
-            // Spelled the way the note is usually written, as the label beside it always was.
-            accidentalStyle = written.conventionalStyle(),
-        )
+    val sequence = remember(written) {
+        // Spelled the way the note is usually written, as the label beside it always was.
+        ToneSequence.of(written, NotatedDuration(NoteValue.WHOLE))
     }
 
     CurrentAndNextNote(
@@ -229,7 +230,7 @@ private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
             staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
             lineSpacing = CurrentNoteStaffSpacing,
             naming = state.noteNaming,
-            prefix = StaffPrefix.treble(NOTE_HEADER_TIME_SIGNATURE),
+            prefix = StaffPrefix.Treble,
             // The name-or-notation setting arrives as a per-note choice, which is the only shape
             // the design system understands - it never learns what a setting is.
             noteStyle = {
@@ -249,14 +250,6 @@ private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
         )
     }
 }
-
-/**
- * The bar this practice counts in.
- *
- * Named rather than assumed: the notation model takes any time signature, and a practice that one
- * day counts in three or in six will say so here instead of having four written into the drawing.
- */
-private val NOTE_HEADER_TIME_SIGNATURE = TimeSignature.FOUR_FOUR
 
 /**
  * What the note on screen actually sounds like on the horn in the player's hands.
@@ -327,20 +320,14 @@ private fun ExerciseSetup(
     }
 
     Spacer(Modifier.height(Dimens.spaceSm))
-    SectionHeader("Note length")
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.beatOptions.forEach { beats ->
-            FilterChip(
-                selected = beats == selection.beatsPerNote,
-                onClick = { onSelectBeats(beats) },
-                label = { Text("${beats.value.roundToInt()} beats", maxLines = 1) },
-            )
-        }
-    }
-    Text(
-        text = "At ${selection.tempo.bpm} BPM",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    SectionHeader("How long")
+    StepSlider(
+        title = "Note length",
+        supportingText = "At ${selection.tempo.bpm} BPM",
+        value = selection.beatsPerNote,
+        options = state.beatOptions,
+        valueLabel = { "${it.value.roundToInt()} beats" },
+        onValueChange = onSelectBeats,
     )
 
     Spacer(Modifier.height(Dimens.spaceSm))

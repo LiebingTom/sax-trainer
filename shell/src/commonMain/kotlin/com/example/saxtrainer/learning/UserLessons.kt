@@ -11,10 +11,14 @@ import com.example.saxtrainer.core.settings.UserLessonBook
 import com.example.saxtrainer.feature.longtones.longTonePresetOf
 import com.example.saxtrainer.feature.notequiz.quizPresetOf
 import com.example.saxtrainer.feature.notetrainer.noteTrainerPresetOf
+import com.example.saxtrainer.feature.phrasequiz.phraseQuizPresetOf
+import com.example.saxtrainer.feature.phrasetrainer.phraseTrainerPresetOf
 import com.example.saxtrainer.feature.sequence.sequencePresetOf
 import com.example.saxtrainer.learning.catalog.steps.longToneStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
+import com.example.saxtrainer.learning.catalog.steps.phraseQuizStep
+import com.example.saxtrainer.learning.catalog.steps.phraseTrainerStep
 import com.example.saxtrainer.learning.catalog.steps.sequenceStep
 
 /**
@@ -39,7 +43,7 @@ fun userUnitsOf(book: UserLessonBook): List<LearningUnit> = book.groups.mapNotNu
         LearningUnit(
             id = unitIdOf(group.id),
             title = group.name,
-            description = summaryOf(lessons.size),
+            description = savedSummaryOf(lessons.size),
             lessons = lessons,
         )
     }
@@ -82,6 +86,8 @@ private fun stepOf(saved: UserLesson): LessonStep? {
         TrainerId.NOTE_QUIZ -> quizPresetOf(setup)?.let(::noteQuizStep)
         TrainerId.SEQUENCE -> sequencePresetOf(setup)?.let(::sequenceStep)
         TrainerId.LONG_TONES -> longTonePresetOf(setup)?.let(::longToneStep)
+        TrainerId.PHRASE_QUIZ -> phraseQuizPresetOf(setup)?.let(::phraseQuizStep)
+        TrainerId.PHRASE_TRAINER -> phraseTrainerPresetOf(setup)?.let(::phraseTrainerStep)
         // A tempo is not a practice, so the metronome is not something to save.
         TrainerId.METRONOME -> null
     }
@@ -102,10 +108,16 @@ private fun subtitleOf(trainer: TrainerId): String = when (trainer) {
     TrainerId.SEQUENCE -> "Sequence Trainer"
     TrainerId.LONG_TONES -> "Long Tones"
     TrainerId.METRONOME -> "Metronome"
+    TrainerId.PHRASE_QUIZ -> "Phrase Quiz"
+    TrainerId.PHRASE_TRAINER -> "Phrase Trainer"
 }
 
-private fun summaryOf(count: Int): String =
-    if (count == 1) "One saved exercise." else "$count saved exercises."
+/** How a group of saved practices describes itself, on its card and as a unit. */
+fun savedSummaryOf(count: Int): String = when (count) {
+    0 -> "Nothing saved here yet."
+    1 -> "One saved exercise."
+    else -> "$count saved exercises."
+}
 
 /**
  * What marks an id as the player's own.

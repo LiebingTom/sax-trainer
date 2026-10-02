@@ -1,65 +1,127 @@
 package com.example.saxtrainer.learning
 
 import com.example.saxtrainer.core.learning.TrainerId
-import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
-import com.example.saxtrainer.learning.catalog.units.ACCIDENTALS_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.FIRST_NOTES_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.OCTAVE_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.UPPER_OCTAVE_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.CHROMATIC_SHARPS_AND_FLATS_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.CHROMATIC_SHARPS_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.C_MAJOR_TWO_OCTAVES_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.D_MAJOR_NOTES_UNIT_ID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import com.example.saxtrainer.learning.catalog.units.C_MAJOR_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.G_MAJOR_UNIT_ID
-import com.example.saxtrainer.core.music.Beats
-import com.example.saxtrainer.core.music.NoteName
-import com.example.saxtrainer.learning.catalog.units.C_MAJOR_BOTH
 
-/** What each unit teaches, and in what order. */
+/** What each group teaches, and in what order. */
 class UnitLessonsTest {
 
+    private val unitIds = listOf(
+        C_MAJOR_TWO_OCTAVES_UNIT_ID,
+        D_MAJOR_NOTES_UNIT_ID,
+        CHROMATIC_SHARPS_UNIT_ID,
+        CHROMATIC_SHARPS_AND_FLATS_UNIT_ID,
+    )
+
+    private fun unitOf(id: String) = assertNotNull(SaxTrainerCurriculum.unitOf(id), "no unit $id")
+
+    private fun quizOf(id: String) =
+        unitOf(id).lessons.flatMap { it.steps }.firstNotNullOf(::noteQuizPresetOf)
+
+    private fun trainerOf(id: String) =
+        unitOf(id).lessons.flatMap { it.steps }.firstNotNullOf(::noteTrainerPresetOf)
+
+    private fun tokensOf(id: String) = quizOf(id).notes.map { it.token }
+
     @Test
-    fun `the units are topics, in teaching order`() {
-        assertEquals(
-            listOf(
-                FIRST_NOTES_UNIT_ID,
-                OCTAVE_UNIT_ID,
-                ACCIDENTALS_UNIT_ID,
-                UPPER_OCTAVE_UNIT_ID,
-                C_MAJOR_UNIT_ID,
-                G_MAJOR_UNIT_ID,
-            ),
-            SaxTrainerCurriculum.units.map { it.id },
-        )
+    fun `the four groups are the whole curriculum, in teaching order`() {
+        assertEquals(unitIds, SaxTrainerCurriculum.units.map { it.id })
     }
 
     @Test
-    fun `every lesson runs one practice`() {
-        // Two practices in one sitting is not something the lessons do for now.
-        SaxTrainerCurriculum.lessons.forEach { lesson ->
-            assertEquals(1, lesson.stepCount, "${lesson.title} runs more than one practice")
+    fun `each group is a note quiz and a note trainer, and nothing more`() {
+        unitIds.forEach { id ->
+            val unit = unitOf(id)
+            assertEquals(2, unit.lessons.size, id)
+            unit.lessons.forEach { assertEquals(1, it.stepCount, "${it.title} runs more than one practice") }
+            assertEquals(
+                listOf(TrainerId.NOTE_QUIZ, TrainerId.NOTE_TRAINER),
+                unit.lessons.map { it.firstStep.trainerId },
+                id,
+            )
         }
     }
 
     @Test
-    fun `the first unit reads before it plays`() {
-        val first = SaxTrainerCurriculum.unitOf(FIRST_NOTES_UNIT_ID)!!
-        val quiz = noteQuizPresetOf(first.lessons.first().firstStep)!!
-
-        assertEquals(QuizMode.NOTE_TO_FINGERING, quiz.mode)
-        assertEquals(5, quiz.notes.size)
+    fun `every quiz asks twenty questions, name and grip together`() {
+        unitIds.forEach { id ->
+            val quiz = quizOf(id)
+            assertEquals(20, quiz.questionCount, id)
+            assertEquals(QuizMode.NOTE_AND_FINGERING, quiz.mode, id)
+        }
     }
 
     @Test
-    fun `the octave unit ends on something that sounds like music`() {
-        val octave = SaxTrainerCurriculum.unitOf(OCTAVE_UNIT_ID)!!
+    fun `every trainer runs three rounds, each note held for two beats, grip not shown`() {
+        unitIds.forEach { id ->
+            val trainer = trainerOf(id)
+            assertEquals(3, trainer.rounds, id)
+            assertEquals(Beats.of(2), trainer.holdBeats, id)
+            assertFalse(trainer.showFingeringHint, id)
+        }
+    }
 
-        assertEquals(TrainerId.SEQUENCE, octave.lessons.last().firstStep.trainerId)
+    @Test
+    fun `a group's quiz and trainer practise the same notes`() {
+        unitIds.forEach { id -> assertEquals(quizOf(id).notes, trainerOf(id).notes, id) }
+    }
+
+    @Test
+    fun `the first group is C major over two octaves`() {
+        assertEquals(
+            listOf("C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5", "F5", "G5", "A5", "B5", "C6"),
+            tokensOf(C_MAJOR_TWO_OCTAVES_UNIT_ID),
+        )
+    }
+
+    @Test
+    fun `the second adds F sharp and C sharp in both octaves, and stops at C6`() {
+        val added = tokensOf(D_MAJOR_NOTES_UNIT_ID) - tokensOf(C_MAJOR_TWO_OCTAVES_UNIT_ID).toSet()
+
+        assertEquals(listOf("C#4", "F#4", "C#5", "F#5"), added)
+        assertEquals("C6", tokensOf(D_MAJOR_NOTES_UNIT_ID).last(), "the high D is left out")
+    }
+
+    @Test
+    fun `the third is every note from C4 to D6, written with sharps`() {
+        val tokens = tokensOf(CHROMATIC_SHARPS_UNIT_ID)
+        val pitches = quizOf(CHROMATIC_SHARPS_UNIT_ID).notes.map { it.note }
+
+        assertEquals(27, tokens.size, "C4 up to D6, every semitone")
+        assertEquals("C4", tokens.first())
+        assertEquals("D6", tokens.last())
+        assertEquals(tokens.size, pitches.distinct().size, "each pitch once")
+        assertTrue(tokens.none { 'b' in it }, "no flats: $tokens")
+        assertTrue("A#4" in tokens, "A sharp, not B flat")
+    }
+
+    @Test
+    fun `the fourth is the same pitches, every black key as a sharp and as a flat`() {
+        val sharps = quizOf(CHROMATIC_SHARPS_UNIT_ID).notes
+        val both = quizOf(CHROMATIC_SHARPS_AND_FLATS_UNIT_ID).notes
+        val tokens = both.map { it.token }
+
+        assertEquals(sharps.map { it.note }.toSet(), both.map { it.note }.toSet())
+        assertEquals(38, both.size, "27 pitches, 11 of them black keys written twice")
+        listOf("C#4", "Db4", "D#4", "Eb4", "A#5", "Bb5", "C#6", "Db6").forEach {
+            assertTrue(it in tokens, "$it is missing from $tokens")
+        }
+        assertTrue(
+            tokens.none { it.take(2) in setOf("E#", "B#", "Fb", "Cb") },
+            "white keys are written plain: $tokens",
+        )
     }
 
     @Test
@@ -70,73 +132,4 @@ class UnitLessonsTest {
             assertNotNull(lesson.firstStep)
         }
     }
-
-    // --- the keys ---------------------------------------------------------------------------------
-
-    private fun unitOf(id: String) = assertNotNull(SaxTrainerCurriculum.unitOf(id), "no unit $id")
-
-    @Test
-    fun `a key is asked in two ways and no others`() {
-        // Naming the note and playing it. Nothing else was asked for, and a fingering drill
-        // creeping into a scale unit is exactly the kind of thing this catches.
-        listOf(C_MAJOR_UNIT_ID, G_MAJOR_UNIT_ID).forEach { id ->
-            val trainers = unitOf(id).lessons.flatMap { it.steps }.map { it.trainerId }.toSet()
-            assertEquals(setOf(TrainerId.NOTE_QUIZ, TrainerId.NOTE_TRAINER), trainers, id)
-        }
-    }
-
-    @Test
-    fun `a key is quizzed on the name and the grip together`() {
-        listOf(C_MAJOR_UNIT_ID, G_MAJOR_UNIT_ID).forEach { id ->
-            val quiz = unitOf(id).lessons
-                .flatMap { it.steps }
-                .firstNotNullOf(::noteQuizPresetOf)
-
-            assertEquals(QuizMode.NOTE_AND_FINGERING, quiz.mode, id)
-        }
-    }
-
-    @Test
-    fun `playing a scale is done blind, and held`() {
-        listOf(C_MAJOR_UNIT_ID, G_MAJOR_UNIT_ID).forEach { id ->
-            val played = unitOf(id).lessons.flatMap { it.steps }.mapNotNull(::noteTrainerPresetOf)
-
-            assertTrue(played.isNotEmpty(), "$id never asks for a note to be played")
-            played.forEach { preset ->
-                assertFalse(preset.showFingeringHint, "$id shows the grip away")
-                assertTrue(
-                    preset.holdBeats > Beats.ZERO,
-                    "$id lets a note go as soon as it is right",
-                )
-            }
-        }
-    }
-
-    @Test
-    fun `C major is taught in both octaves, one lesson each`() {
-        val played = unitOf(C_MAJOR_UNIT_ID).lessons
-            .flatMap { it.steps }
-            .mapNotNull(::noteTrainerPresetOf)
-
-        assertEquals(2, played.size, "the lower octave and the upper one, kept apart")
-        assertEquals(
-            C_MAJOR_BOTH.toSet(),
-            played.flatMap { it.notes }.toSet(),
-            "between them they cover the whole two octaves",
-        )
-    }
-
-    @Test
-    fun `G major is the key it says it is`() {
-        val quiz = unitOf(G_MAJOR_UNIT_ID).lessons
-            .flatMap { it.steps }
-            .firstNotNullOf(::noteQuizPresetOf)
-
-        assertEquals(8, quiz.notes.size, "one octave, G to G")
-        assertTrue(
-            quiz.notes.any { it.note == Note(NoteName.F_SHARP, 5) && it.token == "F#5" },
-            "without the F sharp it is not G major",
-        )
-    }
-
 }

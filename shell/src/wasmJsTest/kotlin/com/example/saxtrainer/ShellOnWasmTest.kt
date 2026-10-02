@@ -66,13 +66,13 @@ class ShellOnWasmTest {
         onNodeWithContentDescription("Back").performClick()
 
         scrolledTo("Lessons").performClick()
-        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("The whole octave") }
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("C major, two octaves") }
         listOf(
             // Every learning unit, each with every lesson it was written with.
-            "Your first five notes",
-            "The whole octave",
-            "B flat and F sharp",
-            "The octave key",
+            "C major, two octaves",
+            "Adding F sharp and C sharp",
+            "Chromatic, with sharps",
+            "Chromatic, sharps and flats",
         ).forEach { scrolledTo(it).assertIsDisplayed() }
     }
 
@@ -84,7 +84,7 @@ class ShellOnWasmTest {
         // titles are also the text of the card that leads to them.
         openAndReturn(card = "Settings", shownThere = "Note naming")
         openAndReturn(card = "Practice", shownThere = "Know your notes")
-        openAndReturn(card = "Lessons", shownThere = "The whole octave")
+        openAndReturn(card = "Lessons", shownThere = "C major, two octaves")
         openAndReturn(
             card = "My Lessons",
             shownThere = "Tap to practise. Edit opens the setup it was saved with.",
@@ -111,8 +111,8 @@ class ShellOnWasmTest {
         onNodeWithContentDescription("Back").performClick()
 
         scrolledTo("Lessons").performClick()
-        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("The whole octave") }
-        openAndReturn(card = "Your first five notes", shownThere = "Read them")
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("C major, two octaves") }
+        openAndReturn(card = "C major, two octaves", shownThere = "Name and grip them")
     }
 
     @Test
@@ -143,14 +143,14 @@ class ShellOnWasmTest {
         setContent { App(host) }
 
         scrolledTo("Lessons").performClick()
-        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("The whole octave") }
-        scrolledTo("Your first five notes").performClick()
-        waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Read them") }
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("C major, two octaves") }
+        scrolledTo("C major, two octaves").performClick()
+        waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Name and grip them") }
 
-        onNodeWithText("Read them").performClick()
+        onNodeWithText("Name and grip them").performClick()
 
         // The quiz, started by the lesson rather than from the Practice card, already running.
-        waitUntil("the quiz", BROWSER_TIMEOUT_MS) { shows("1 / 10") }
+        waitUntil("the quiz", BROWSER_TIMEOUT_MS) { shows("1 / 20") }
         onNodeWithText("Stop").assertIsDisplayed()
     }
 
@@ -159,11 +159,11 @@ class ShellOnWasmTest {
         setContent { App(host) }
 
         scrolledTo("Lessons").performClick()
-        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("The whole octave") }
-        scrolledTo("The whole octave").performClick()
-        waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Play the octave") }
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("C major, two octaves") }
+        scrolledTo("C major, two octaves").performClick()
+        waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Play them") }
 
-        onNodeWithText("Play the octave").performClick()
+        onNodeWithText("Play them").performClick()
 
         // A ready-made exercise that starts by itself, so reaching the running trainer is the whole
         // path: the lesson's preset, the note trainer destination and the microphone behind it.

@@ -12,12 +12,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import com.example.saxtrainer.learning.catalog.units.ACCIDENTALS_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.C_MAJOR_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.FIRST_NOTES_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.G_MAJOR_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.OCTAVE_UNIT_ID
-import com.example.saxtrainer.learning.catalog.units.UPPER_OCTAVE_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.CHROMATIC_SHARPS_AND_FLATS_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.CHROMATIC_SHARPS_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.C_MAJOR_TWO_OCTAVES_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.D_MAJOR_NOTES_UNIT_ID
 
 /**
  * The shape of the whole curriculum.
@@ -29,18 +27,13 @@ import com.example.saxtrainer.learning.catalog.units.UPPER_OCTAVE_UNIT_ID
  */
 class CurriculumStructureTest {
 
-    /** The units that are rungs of one ladder, in order: each contains everything before it. */
+    /** The units that are rungs of one ladder, in order: each holds every pitch before it. */
     private val LADDER_UNIT_IDS = listOf(
-        FIRST_NOTES_UNIT_ID,
-        OCTAVE_UNIT_ID,
-        ACCIDENTALS_UNIT_ID,
+        C_MAJOR_TWO_OCTAVES_UNIT_ID,
+        D_MAJOR_NOTES_UNIT_ID,
+        CHROMATIC_SHARPS_UNIT_ID,
+        CHROMATIC_SHARPS_AND_FLATS_UNIT_ID,
     )
-
-    /**
-     * Every unit that introduces notes. The octave key adds a register rather than repeating the
-     * ladder below it, so it teaches notes without being a rung; the keys after it teach none.
-     */
-    private val NOTE_UNIT_IDS = LADDER_UNIT_IDS + UPPER_OCTAVE_UNIT_ID
 
     private val lessons = SaxTrainerCurriculum.lessons
     private val steps: List<LessonStep> = lessons.flatMap { it.steps }
@@ -109,47 +102,25 @@ class CurriculumStructureTest {
     }
 
     @Test
-    fun `a lesson never practises the same note twice in one selection`() {
+    fun `a lesson never lists the same written note twice`() {
+        // As written: D sharp and E flat in one lesson are two things to read, which is the point
+        // of the last group. The same spelling twice would only be a mistake in the data.
         steps.forEach { step ->
-            // By pitch: a beginner's selection holding D sharp and E flat would be the same key
-            // twice, whatever a lesson that set out to teach both spellings might one day want.
-            val pitches = notesOf(step).map { it.note }
-            if (pitches.isNotEmpty()) {
-                assertEquals(pitches.distinct().size, pitches.size, "${step.trainerId} repeats a note")
-            }
+            val notes = notesOf(step)
+            assertEquals(notes.distinct().size, notes.size, "${step.trainerId} repeats a note")
         }
     }
 
     @Test
     fun `the units of the ladder build on each other`() {
-        // A later unit contains everything an earlier one taught, so the ladder cannot develop a
-        // gap as levels are added. Only the ladder: a key is a second strand over the same notes,
-        // not another rung, and G major is not meant to contain every note C major does.
-        val notesPerUnit = LADDER_UNIT_IDS.map { id ->
+        // By pitch: a later group plays everything an earlier one did, whatever it is written as.
+        val pitchesPerUnit = LADDER_UNIT_IDS.map { id ->
             val unit = assertNotNull(SaxTrainerCurriculum.unitOf(id), "no unit $id")
-            unit.lessons.flatMap { it.steps }.flatMap(::notesOf).toSet()
+            unit.lessons.flatMap { it.steps }.flatMap(::notesOf).map { it.note }.toSet()
         }
 
-        notesPerUnit.zipWithNext().forEach { (earlier, later) ->
+        pitchesPerUnit.zipWithNext().forEach { (earlier, later) ->
             assertTrue(later.containsAll(earlier), "a unit dropped notes an earlier one taught")
-        }
-    }
-
-    @Test
-    fun `a key teaches notes the ladder has already taught`() {
-        // What replaces the rung-by-rung check for the keys: a scale unit may leave notes out, but
-        // it must never introduce one the player has not met, or it is a new set of grips wearing a
-        // key's name.
-        val taught = NOTE_UNIT_IDS
-            .flatMap { SaxTrainerCurriculum.unitOf(it)!!.lessons }
-            .flatMap { it.steps }
-            .flatMap(::notesOf)
-            .toSet()
-
-        listOf(C_MAJOR_UNIT_ID, G_MAJOR_UNIT_ID).forEach { id ->
-            val notes = SaxTrainerCurriculum.unitOf(id)!!
-                .lessons.flatMap { it.steps }.flatMap(::notesOf).toSet()
-            assertTrue(taught.containsAll(notes), "$id asks for a note nothing has taught")
         }
     }
 

@@ -33,6 +33,7 @@ import com.example.saxtrainer.core.designsystem.component.PracticeTitleActions
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
+import com.example.saxtrainer.core.designsystem.component.CheckableRow
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.component.StepSlider
@@ -77,6 +78,7 @@ fun QuizScreen(
     onAddToLessons: (() -> Unit)? = null,
     isFavorite: Boolean = false,
     onToggleFavorite: ((Boolean) -> Unit)? = null,
+    onAllFingeringsChange: (Boolean) -> Unit = {},
 ) {
     // What is being asked about, kept apart from the answers to it.
     val asked = when (val phase = state.phase) {
@@ -119,6 +121,7 @@ fun QuizScreen(
                     onEditCustomNotes = onEditCustomNotes,
                     onSelectMode = onSelectMode,
                     onSelectQuestionCount = onSelectQuestionCount,
+                    onAllFingeringsChange = onAllFingeringsChange,
                 )
             }
 
@@ -163,6 +166,7 @@ private fun Setup(
     onEditCustomNotes: () -> Unit,
     onSelectMode: (QuizMode) -> Unit,
     onSelectQuestionCount: (Int) -> Unit,
+    onAllFingeringsChange: (Boolean) -> Unit,
 ) {
     SectionHeader("Notes")
     state.noteSets.forEach { set ->
@@ -186,6 +190,14 @@ private fun Setup(
             onClick = { onSelectMode(mode) },
         )
     }
+    CheckableRow(
+        title = "All fingerings",
+        supportingText = "Alternate grips are shown too, and count as right",
+        checked = state.allFingerings,
+        onCheckedChange = onAllFingeringsChange,
+        // Naming a note shows no grip at all, so there is nothing for it to change.
+        enabled = state.mode != QuizMode.NOTE_TO_NAME,
+    )
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("How many")

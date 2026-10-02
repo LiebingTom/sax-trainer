@@ -1,6 +1,7 @@
 package com.example.saxtrainer.feature.notequiz
 
 import com.example.saxtrainer.core.exercise.randomNoteAvoiding
+import com.example.saxtrainer.core.fingering.Fingering
 import com.example.saxtrainer.core.fingering.FingeringChart
 import com.example.saxtrainer.core.music.SpelledNote
 import kotlin.random.Random
@@ -8,11 +9,12 @@ import kotlin.random.Random
 /**
  * Builds one question out of the notes the player chose.
  *
- * **Standard fingerings only.** A note's alternates never appear, as the answer or as a distractor.
- * That is what makes a question unambiguous without any special handling: the chart lists no two
- * notes with the same set of pressed keys, so distinct notes always mean distinct diagrams. An
- * alternates mode would need multiple right answers or sibling exclusion, and it is not what a
- * player learning their first octave should be asked.
+ * **Standard fingerings unless asked otherwise.** By default a note's alternates never appear, as
+ * the answer or as a distractor. With `allFingerings` each fingering shown is drawn from all of
+ * its note's fingerings - standard and alternates alike - once the notes themselves have been
+ * drawn, so an alternate the player meets is a right answer for its note. Either way a question
+ * stays unambiguous without any special handling: the chart lists no two notes with the same set
+ * of pressed keys, alternates included, so distinct notes always mean distinct diagrams.
  *
  * Distractors are drawn from the same pool by [distractorsFor]: near in pitch more often than not,
  * and of the same kind of note as the target where the pool has one. Near neighbours are what make
@@ -45,6 +47,7 @@ object QuizQuestionGenerator {
         chart: FingeringChart,
         random: Random = Random.Default,
         previous: SpelledNote? = null,
+        allFingerings: Boolean = false,
     ): QuizQuestion {
         val notes = pool.distinct().filter { chart.supports(it.note) }
         require(pitchCountOf(notes) >= MIN_OPTIONS) {
@@ -58,6 +61,13 @@ object QuizQuestionGenerator {
         fun optionsFor(slot: Int): List<SpelledNote> =
             candidatesFor(target, notes, asked.slots[slot].optionCount, random)
 
+        // Drawn after the notes, one note at a time, so leaving the box unticked draws exactly what
+        // it always did.
+        fun gripOf(note: SpelledNote): Fingering {
+            val fingerings = chart.fingeringsFor(note.note)!!
+            return if (allFingerings) fingerings.all.random(random) else fingerings.standard
+        }
+
         return when (asked) {
             QuizMode.NOTE_AND_FINGERING -> {
                 val names = optionsFor(0)
@@ -66,7 +76,7 @@ object QuizQuestionGenerator {
                     note = target,
                     names = NameAnswers(names, names.indexOf(target)),
                     fingerings = FingeringAnswers(
-                        options = grips.map { chart.fingeringsFor(it.note)!!.standard },
+                        options = grips.map(::gripOf),
                         correctIndex = grips.indexOf(target),
                     ),
                 )
@@ -75,7 +85,7 @@ object QuizQuestionGenerator {
             QuizMode.NOTE_TO_FINGERING -> optionsFor(0).let { answers ->
                 NoteToFingering(
                     note = target,
-                    options = answers.map { chart.fingeringsFor(it.note)!!.standard },
+                    options = answers.map(::gripOf),
                     correctIndex = answers.indexOf(target),
                 )
             }
@@ -91,7 +101,7 @@ object QuizQuestionGenerator {
             else -> optionsFor(0).let { answers ->
                 FingeringToNote(
                     note = target,
-                    fingering = chart.fingeringsFor(target.note)!!.standard,
+                    fingering = gripOf(target),
                     options = answers,
                     correctIndex = answers.indexOf(target),
                 )

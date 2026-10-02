@@ -301,4 +301,57 @@ class QuizQuestionGeneratorTest {
             generate(QuizMode.NOTE_TO_NAME, listOf("D#4", "Eb4").map(::written))
         }
     }
+
+    // --- all fingerings ---------------------------------------------------------------------
+
+    /** B flat 4 has two alternates in the chart; its neighbours keep the pool honest. */
+    private val withAlternates = listOf("A4", "Bb4", "B4", "C5", "D5").map(::written)
+
+    private fun allFingerings(mode: QuizMode, seed: Int) = QuizQuestionGenerator.generate(
+        pool = withAlternates,
+        mode = mode,
+        chart = chart,
+        random = Random(seed),
+        allFingerings = true,
+    )
+
+    @Test
+    fun `with all fingerings an alternate is shown, and is the right answer for its note`() {
+        val shownForTarget = (0 until 200).mapNotNull { seed ->
+            val question = allFingerings(QuizMode.NOTE_TO_FINGERING, seed) as NoteToFingering
+            val own = chart.fingeringsFor(question.note.note)!!.all
+            assertTrue(question.options[question.correctIndex] in own, "seed $seed: the answer is not one of its grips")
+            assertEquals(question.optionCount, question.options.distinct().size, "seed $seed showed a grip twice")
+            question.options[question.correctIndex].takeIf { question.note == written("Bb4") }
+        }
+
+        assertTrue(shownForTarget.any { it.kind == FingeringKind.ALTERNATE }, "an alternate never came up")
+        assertTrue(shownForTarget.any { it.kind == FingeringKind.STANDARD }, "the standard grip never came up")
+    }
+
+    @Test
+    fun `with all fingerings the grip asked about can be an alternate, and still names its note`() {
+        val asked = (0 until 200).map { seed ->
+            val question = allFingerings(QuizMode.FINGERING_TO_NOTE, seed) as FingeringToNote
+            assertTrue(question.fingering in chart.fingeringsFor(question.note.note)!!.all, "seed $seed")
+            assertEquals(question.note, question.options[question.correctIndex])
+            question.fingering
+        }
+
+        assertTrue(asked.any { it.kind == FingeringKind.ALTERNATE })
+    }
+
+    @Test
+    fun `with all fingerings a wrong grip is still a grip of a wrong note`() {
+        repeat(100) { seed ->
+            val question = allFingerings(QuizMode.NOTE_AND_FINGERING, seed) as NoteAndFingering
+            val target = chart.fingeringsFor(question.note.note)!!.all
+            question.fingerings.options.forEachIndexed { index, grip ->
+                if (index != question.fingerings.correctIndex) {
+                    assertTrue(grip !in target, "seed $seed offered one of the target's own grips as wrong")
+                }
+            }
+        }
+    }
 }
+

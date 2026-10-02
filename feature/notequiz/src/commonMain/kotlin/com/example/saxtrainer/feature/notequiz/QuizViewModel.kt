@@ -86,6 +86,8 @@ class QuizViewModel(
 
     fun selectQuestionCount(count: Int) = updateSetup { it.copy(questionCount = count) }
 
+    fun setAllFingerings(enabled: Boolean) = updateSetup { it.copy(allFingerings = enabled) }
+
     fun selectSuccessDelaySeconds(seconds: Double) = updateSetup {
         it.copy(successDelaySeconds = seconds.coerceAtLeast(0.0))
     }
@@ -229,6 +231,7 @@ class QuizViewModel(
                     chart = config.chart,
                     random = random,
                     previous = previous,
+                    allFingerings = state.allFingerings,
                 ),
                 index = index,
             ),
@@ -297,6 +300,7 @@ class QuizViewModel(
             customNotes = if (preset.editable) notes.toSet() else customNotes,
             activeNotes = notes,
             mode = preset.mode,
+            allFingerings = preset.allFingerings,
             questionCount = preset.questionCount,
             successDelaySeconds = preset.successDelaySeconds,
             isPreconfigured = !preset.editable,

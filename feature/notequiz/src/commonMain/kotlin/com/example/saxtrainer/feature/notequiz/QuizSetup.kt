@@ -21,6 +21,7 @@ internal fun QuizUiState.toSetup(): ExerciseSetup = exerciseSetup {
     put(KEY_NOTE_SET, noteSet)
     putWrittenNotes(KEY_CUSTOM_NOTES, KEY_CUSTOM_WRITTEN_NOTES, customNotes)
     put(KEY_MODE, mode)
+    put(KEY_ALL_FINGERINGS, allFingerings)
     put(KEY_QUESTION_COUNT, questionCount)
     put(KEY_SUCCESS_DELAY, successDelaySeconds)
 }
@@ -45,6 +46,7 @@ internal fun QuizUiState.withSetup(setup: ExerciseSetup, chart: FingeringChart):
         customNotes = custom,
         activeNotes = NoteSets.notesOf(noteSet, chart, custom),
         mode = setup.enum(KEY_MODE, QuizMode.entries, mode),
+        allFingerings = setup.boolean(KEY_ALL_FINGERINGS, allFingerings),
         questionCount = setup.int(KEY_QUESTION_COUNT, questionCount).coerceAtLeast(1),
         successDelaySeconds = setup.double(KEY_SUCCESS_DELAY, successDelaySeconds)
             .coerceAtLeast(0.0),
@@ -83,6 +85,7 @@ fun quizPresetOf(
     return QuizPreset(
         notes = notes,
         mode = setup.enum(KEY_MODE, QuizMode.entries, QuizMode.NOTE_AND_FINGERING),
+        allFingerings = setup.boolean(KEY_ALL_FINGERINGS, false),
         questionCount = setup.int(KEY_QUESTION_COUNT, DEFAULT_QUESTION_COUNT).coerceAtLeast(1),
         successDelaySeconds = setup.double(KEY_SUCCESS_DELAY, DEFAULT_SUCCESS_DELAY)
             .coerceAtLeast(0.0),
@@ -99,5 +102,6 @@ private const val KEY_NOTE_SET = "note_set"
 private const val KEY_CUSTOM_NOTES = "custom_notes"
 private const val KEY_CUSTOM_WRITTEN_NOTES = "custom_written_notes"
 private const val KEY_MODE = "mode"
+private const val KEY_ALL_FINGERINGS = "all_fingerings"
 private const val KEY_QUESTION_COUNT = "question_count"
 private const val KEY_SUCCESS_DELAY = "success_delay"

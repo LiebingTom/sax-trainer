@@ -83,6 +83,11 @@ data class QuizUiState(
     /** What the questions are about, each exactly as it is to be read. */
     val activeNotes: List<SpelledNote> = emptyList(),
     val mode: QuizMode = QuizMode.NOTE_AND_FINGERING,
+    /**
+     * Whether a fingering shown is drawn from all of its note's fingerings, alternates included,
+     * rather than always being the standard one. Off by default.
+     */
+    val allFingerings: Boolean = false,
     val modes: List<QuizMode> = QuizMode.entries,
     val questionCount: Int = 10,
     val questionCounts: List<Int> = emptyList(),

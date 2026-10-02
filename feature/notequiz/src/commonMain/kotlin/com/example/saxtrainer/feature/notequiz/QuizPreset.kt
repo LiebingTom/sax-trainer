@@ -16,6 +16,8 @@ data class QuizPreset(
      */
     val notes: List<SpelledNote>,
     val mode: QuizMode = QuizMode.NOTE_TO_FINGERING,
+    /** Whether alternate fingerings are shown too, and count as right for their note. */
+    val allFingerings: Boolean = false,
     val questionCount: Int = 10,
     /** How long a right answer stays up before the next question; zero moves on at once. */
     val successDelaySeconds: Double = 1.0,

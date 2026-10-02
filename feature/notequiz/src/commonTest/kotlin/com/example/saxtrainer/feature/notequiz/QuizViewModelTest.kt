@@ -617,4 +617,26 @@ class QuizViewModelTest {
         assertTrue(preset.notes.size >= QuizQuestionGenerator.MIN_OPTIONS)
     }
 
+    // --- all fingerings ---------------------------------------------------------------------
+
+    @Test
+    fun `all fingerings is off unless chosen, and is kept once it is`() = runTest(dispatcher) {
+        val setups = InMemoryExerciseSetupRepository()
+        assertFalse(viewModel(setups = setups).uiState.value.allFingerings)
+
+        viewModel(setups = setups).setAllFingerings(true)
+
+        assertTrue(viewModel(setups = setups).uiState.value.allFingerings, "reopened")
+        assertTrue(assertNotNull(quizPresetOf(setups.setupOf(Exercise.NOTE_QUIZ))).allFingerings, "saved as a lesson")
+    }
+
+    @Test
+    fun `a ready-made quiz can ask for all fingerings`() = runTest(dispatcher) {
+        val notes = listOf("A4", "Bb4", "B4").map(::written)
+
+        val state = viewModel(preset = QuizPreset(notes = notes, allFingerings = true, autoStart = false)).uiState.value
+
+        assertTrue(state.allFingerings)
+    }
 }
+

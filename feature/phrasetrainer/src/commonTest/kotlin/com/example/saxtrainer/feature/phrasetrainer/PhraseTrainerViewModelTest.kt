@@ -4,7 +4,11 @@ import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.exercise.MonotonicBeatClock
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.core.phrase.InMemoryPhraseCatalog
 import com.example.saxtrainer.core.phrase.PatternLibrary
+import com.example.saxtrainer.core.phrase.PhraseCatalog
+import com.example.saxtrainer.core.phrase.parsePhrases
 import com.example.saxtrainer.core.phrase.PhraseLibrary
 import com.example.saxtrainer.core.phrase.PhraseSource
 import com.example.saxtrainer.core.phrase.ScaleChoice
@@ -16,6 +20,7 @@ import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.testing.FakeMicrophone
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
+import kotlin.random.Random
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -69,12 +74,16 @@ class PhraseTrainerViewModelTest {
         ),
         setups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
         preset: PhraseTrainerPreset? = null,
+        random: Random = Random.Default,
+        phrases: PhraseCatalog = PhraseLibrary,
     ) = PhraseTrainerViewModel(
         settingsRepository = settings,
         exerciseSetups = setups,
         audioCapture = microphone,
+        phraseCatalog = phrases,
         preset = preset,
         config = config,
+        random = random,
         processingDispatcher = dispatcher,
         countInClock = MonotonicBeatClock(nanoTime = { testScheduler.currentTime * 1_000_000 }),
         nanoTime = { testScheduler.currentTime * 1_000_000 },
@@ -118,7 +127,8 @@ class PhraseTrainerViewModelTest {
     fun `a stored pattern is resolved against the chosen scale and octave`() = trainerTest {
         val dMajor = viewModel()
         dMajor.selectScaleChoice("d_major")
-        dMajor.selectPattern("one_two_three_five")
+        dMajor.selectPattern("woche_1_walk")
+        // The pattern's own first bar - degrees 1, 2, 3, 5.
         assertEquals(
             listOf(
                 Note(NoteName.D, 4),
@@ -126,15 +136,15 @@ class PhraseTrainerViewModelTest {
                 Note(NoteName.F_SHARP, 4),
                 Note(NoteName.A, 4),
             ),
-            dMajor.uiState.value.phrase?.toneSequence()?.notes,
+            dMajor.uiState.value.phrase?.toneSequence()?.notes?.take(4),
         )
 
         val cMajor = viewModel()
         cMajor.selectScaleChoice("c_major")
-        cMajor.selectPattern("one_two_three_five")
+        cMajor.selectPattern("woche_1_walk")
         assertEquals(
             listOf(Note(NoteName.C, 4), Note(NoteName.D, 4), Note(NoteName.E, 4), Note(NoteName.G, 4)),
-            cMajor.uiState.value.phrase?.toneSequence()?.notes,
+            cMajor.uiState.value.phrase?.toneSequence()?.notes?.take(4),
         )
     }
 
@@ -142,7 +152,7 @@ class PhraseTrainerViewModelTest {
     fun `the octaves are their own setting`() = trainerTest {
         val viewModel = viewModel()
         viewModel.selectScaleChoice("c_major")
-        viewModel.selectPattern("triad_up")
+        viewModel.selectPattern("woche_1_walk")
         viewModel.toggleOctave(PhraseTrainerUiState.DEFAULT_OCTAVE)
         viewModel.toggleOctave(5)
 
@@ -206,6 +216,34 @@ class PhraseTrainerViewModelTest {
     }
 
     @Test
+    fun `one stray frame while playing a note does not restart its hold`() = trainerTest {
+        val microphone = FakeMicrophone(FRAME_DURATION_MS)
+        val viewModel = viewModel(microphone = microphone)
+        viewModel.start()
+        advanceTimeBy(5_000) // past the count-in and the brief showing of the first unit
+
+        val expected = firstUnitNotes.first()
+        val decoy = Note(NoteName.C, 6) // far from anything in the phrase, so unmistakably wrong
+
+        microphone.frequencyHz = soundingFrequencyOf(expected)
+        advanceTimeBy(FRAME_DURATION_MS * 2)
+        // One glitch frame - a reed squeak, a harmonic the detector snapped onto for an instant -
+        // not a real change of note. What is left afterwards on its own is under the 0.1 s this
+        // config requires; only added to what came before the glitch does it clear that.
+        microphone.frequencyHz = soundingFrequencyOf(decoy)
+        advanceTimeBy(FRAME_DURATION_MS)
+        microphone.frequencyHz = soundingFrequencyOf(expected)
+        advanceTimeBy(FRAME_DURATION_MS + 500)
+
+        val progress = viewModel.uiState.value.progress
+        viewModel.stop()
+
+        if (progress != null) {
+            assertTrue(progress.stepIndex >= 1, "the note landed despite one stray frame, progress was $progress")
+        }
+    }
+
+    @Test
     fun `skip gives up on a note nobody can find`() = trainerTest {
         val microphone = FakeMicrophone(FRAME_DURATION_MS)
         val viewModel = viewModel(microphone = microphone)
@@ -225,6 +263,53 @@ class PhraseTrainerViewModelTest {
         val before = assertNotNull(stepBeforeSkip)
         val after = assertNotNull(stepAfterSkip)
         assertTrue(after > before, "skip moved on rather than waiting for ever")
+    }
+
+    @Test
+    fun `repeats walk the whole phrase more than once`() = trainerTest {
+        val microphone = FakeMicrophone(FRAME_DURATION_MS)
+        val viewModel = viewModel(microphone = microphone)
+        viewModel.selectScaleChoice("c_major")
+        viewModel.selectPattern("woche_1_walk") // eight bars, one unit each
+        viewModel.selectRepeats(2)
+
+        val root = assertNotNull(viewModel.uiState.value.scaleChoice)
+        val resolved = assertNotNull(viewModel.uiState.value.pattern)
+            .resolve(root.scale, root.root, setOf(PhraseTrainerUiState.DEFAULT_OCTAVE))
+        val unitCount = resolved.units.size
+        assertEquals(unitCount * 2, viewModel.uiState.value.plannedUnitCount)
+
+        viewModel.start()
+        advanceTimeBy(5_000)
+
+        repeat(2) {
+            resolved.units.forEach { unit ->
+                resolved.toneSequenceOf(unit).steps.mapNotNull { it.note }.forEach { note ->
+                    microphone.frequencyHz = soundingFrequencyOf(note)
+                    advanceTimeBy(700)
+                }
+                advanceTimeBy(700) // the moment on the landed note, and the next unit's own showing
+            }
+        }
+        advanceTimeBy(2_000)
+
+        val phase = viewModel.uiState.value.phase
+        viewModel.stop()
+
+        assertTrue(phase is PhraseTrainerPhase.Finished, "phase was $phase")
+        assertEquals(unitCount * 2, phase.result.attempts.size)
+        assertTrue(phase.result.completed)
+    }
+
+    @Test
+    fun `the preview time is clamped to the offered range`() = trainerTest {
+        val viewModel = viewModel()
+
+        viewModel.setShowSeconds(100.0)
+        assertEquals(PhraseTrainerUiState.SHOW_SECONDS_OPTIONS.last(), viewModel.uiState.value.showSeconds)
+
+        viewModel.setShowSeconds(-1.0)
+        assertEquals(PhraseTrainerUiState.SHOW_SECONDS_OPTIONS.first(), viewModel.uiState.value.showSeconds)
     }
 
     // --- ready-made runs --------------------------------------------------------------------
@@ -261,6 +346,9 @@ class PhraseTrainerViewModelTest {
         configured.selectScaleChoice(ScaleChoice.defaults[1].id)
         configured.selectPattern(PatternLibrary.all.last().id)
         configured.setCheckDuration(true)
+        configured.selectRepeats(3)
+        configured.setMixed(true)
+        configured.setShowSeconds(4.0)
         val written = configured.uiState.value.toSetup()
 
         val preset = assertNotNull(phraseTrainerPresetOf(written, editable = true))
@@ -281,6 +369,50 @@ class PhraseTrainerViewModelTest {
     private companion object {
         const val FRAME_DURATION_MS = 40L
     }
+
+    // --- written spelling ---------------------------------------------------------------------
+
+    /** One bar written with flats in a phrase whose fallback style is sharps. */
+    private val flatPhrase = InMemoryPhraseCatalog(
+        parsePhrases(
+            listOf(
+                """
+                {"id": "flats", "name": "Flats", "accidentalStyle": "sharps", "bars": [ { "steps": [
+                  { "note": "C4", "duration": "quarter" }, { "note": "Eb4", "duration": "quarter" },
+                  { "note": "G4", "duration": "quarter" }, { "note": "Bb4", "duration": "quarter" }
+                ] } ] }
+                """.trimIndent(),
+            ),
+        ),
+    )
+
+    private fun written(token: String) = assertNotNull(SpelledNote.parse(token))
+
+    @Test
+    fun `a phrase's notes are asked for as written, and a heard note is written the phrase's way`() =
+        trainerTest {
+            val microphone = FakeMicrophone(FRAME_DURATION_MS)
+            val viewModel = viewModel(microphone = microphone, phrases = flatPhrase)
+            viewModel.start()
+            advanceTimeBy(5_000)
+            assertEquals(written("C4"), viewModel.uiState.value.progress?.currentNote)
+
+            // The pitch of the phrase's E flat, played too early: named as the phrase writes it.
+            microphone.frequencyHz = soundingFrequencyOf(Note(NoteName.D_SHARP, 4))
+            advanceTimeBy(500)
+            assertEquals(written("Eb4"), viewModel.uiState.value.progress?.detectedNote)
+
+            // Nothing in the phrase sounds like this: the phrase's own style spells it.
+            microphone.frequencyHz = soundingFrequencyOf(Note(NoteName.F_SHARP, 4))
+            advanceTimeBy(500)
+            assertEquals(written("F#4"), viewModel.uiState.value.progress?.detectedNote)
+
+            microphone.frequencyHz = soundingFrequencyOf(Note(NoteName.C, 4))
+            advanceTimeBy(2_000)
+            assertEquals(written("Eb4"), viewModel.uiState.value.progress?.currentNote, "the next note, as written")
+
+            viewModel.stop()
+        }
 }
 
 private val DEADLINE = 15.seconds

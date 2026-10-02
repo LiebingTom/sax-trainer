@@ -26,6 +26,8 @@ internal fun PhraseTrainerUiState.toSetup(): ExerciseSetup = exerciseSetup {
     patternId?.let { put(KEY_PATTERN_ID, it) }
     put(KEY_SHOW_SECONDS, showSeconds)
     put(KEY_CHECK_DURATION, checkDuration)
+    put(KEY_REPEATS, repeats)
+    put(KEY_MIXED, mixed)
 }
 
 /**
@@ -62,6 +64,8 @@ internal fun PhraseTrainerUiState.withSetup(
         patternId = patternId,
         showSeconds = setup.double(KEY_SHOW_SECONDS, showSeconds).coerceAtLeast(0.0),
         checkDuration = setup.boolean(KEY_CHECK_DURATION, checkDuration),
+        repeats = setup.int(KEY_REPEATS, repeats).coerceIn(repeatRange),
+        mixed = setup.boolean(KEY_MIXED, mixed),
     )
 }
 
@@ -94,6 +98,8 @@ internal fun PhraseTrainerUiState.withPreset(
         patternId = scalePattern?.patternId ?: patternId,
         showSeconds = preset.showSeconds,
         checkDuration = preset.checkDuration,
+        repeats = preset.repeats.coerceIn(repeatRange),
+        mixed = preset.mixed,
         presetPhrase = if (preset.editable) null else resolved,
         isPreconfigured = !preset.editable,
     )
@@ -140,12 +146,15 @@ fun phraseTrainerPresetOf(
         source = source,
         showSeconds = setup.double(KEY_SHOW_SECONDS, DEFAULT_SHOW_SECONDS).coerceAtLeast(0.0),
         checkDuration = setup.boolean(KEY_CHECK_DURATION, false),
+        repeats = setup.int(KEY_REPEATS, DEFAULT_REPEATS).coerceAtLeast(1),
+        mixed = setup.boolean(KEY_MIXED, false),
         autoStart = autoStart,
         editable = editable,
     )
 }
 
 private const val DEFAULT_SHOW_SECONDS = 2.5
+private const val DEFAULT_REPEATS = 1
 
 private const val KEY_SOURCE_TYPE = "source_type"
 private const val KEY_PHRASE_ID = "phrase_id"
@@ -154,3 +163,5 @@ private const val KEY_OCTAVES = "octaves"
 private const val KEY_PATTERN_ID = "pattern_id"
 private const val KEY_SHOW_SECONDS = "show_seconds"
 private const val KEY_CHECK_DURATION = "check_duration"
+private const val KEY_REPEATS = "repeats"
+private const val KEY_MIXED = "mixed"

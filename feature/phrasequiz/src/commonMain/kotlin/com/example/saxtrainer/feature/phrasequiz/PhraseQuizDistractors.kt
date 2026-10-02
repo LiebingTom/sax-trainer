@@ -14,6 +14,9 @@ import kotlin.random.Random
  * A decoy is never one of [correct]'s own pitches, or a decoy already drawn: every tile in the grid
  * reads as its own note. Where the neighbourhood cannot supply enough distinct pitches, fewer than
  * [total] come back - the caller shows however many there are, never pads with something implausible.
+ *
+ * The neighbourhood never reaches past [SaxWrittenRange] either: a decoy nobody could ever play is
+ * not a plausible wrong answer, just a broken one.
  */
 internal fun decoysFor(correct: List<Note>, total: Int, random: Random): List<Note> {
     if (correct.isEmpty()) return emptyList()
@@ -21,9 +24,9 @@ internal fun decoysFor(correct: List<Note>, total: Int, random: Random): List<No
     if (wanted == 0) return emptyList()
 
     val used = correct.toMutableSet()
-    val low = correct.minOf { it.midiNumber } - DECOY_RANGE_SEMITONES
-    val high = correct.maxOf { it.midiNumber } + DECOY_RANGE_SEMITONES
-    val neighbourhood = (low..high).map(Note::fromMidi)
+    val low = maxOf(correct.minOf { it.midiNumber } - DECOY_RANGE_SEMITONES, SaxWrittenRange.LOWEST.midiNumber)
+    val high = minOf(correct.maxOf { it.midiNumber } + DECOY_RANGE_SEMITONES, SaxWrittenRange.HIGHEST.midiNumber)
+    val neighbourhood = if (low <= high) (low..high).map(Note::fromMidi) else emptyList()
 
     val decoys = mutableListOf<Note>()
     while (decoys.size < wanted) {

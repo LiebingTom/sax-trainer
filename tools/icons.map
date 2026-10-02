@@ -66,6 +66,9 @@ additional/icons/preview.svg -> core/designsystem/src/commonMain/kotlin/com/exam
 # A closed field that opens a dialog to change it - see FieldRow.kt.
 additional/icons/arrow_drop_down.svg -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/DropDown.kt
 
+# The phrase quiz's option grid: takes back the last note placed.
+additional/icons/undo.svg -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Undo.kt
+
 # Still hand-drawn, waiting for an SVG source. Their path data was written by hand and now
 # lives directly in the generated-looking files below; add a line above to replace one.
 #   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Fingering.kt

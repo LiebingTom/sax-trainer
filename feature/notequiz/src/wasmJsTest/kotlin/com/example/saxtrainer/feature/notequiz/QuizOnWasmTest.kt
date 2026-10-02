@@ -16,6 +16,7 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.spelledConventionally
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
@@ -158,4 +159,4 @@ private val QUIZ_NOTES = listOf(
     Note(NoteName.A, 4),
     Note(NoteName.A_SHARP, 4),
     Note(NoteName.C, 5),
-)
+).spelledConventionally()

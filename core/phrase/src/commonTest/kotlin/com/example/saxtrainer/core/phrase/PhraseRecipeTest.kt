@@ -1,5 +1,6 @@
 package com.example.saxtrainer.core.phrase
 
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
@@ -73,5 +74,55 @@ class PhraseRecipeTest {
         assertFailsWith<IllegalArgumentException> {
             PhraseRecipe(id = "p", name = "p", description = "", bars = listOf(bar(1)))
         }
+    }
+
+    // --- written spelling ------------------------------------------------------------------------
+
+    @Test
+    fun aSevenNoteScaleWritesEachDegreeOnItsOwnLetter() {
+        val pattern = PhraseRecipe(id = "p", name = "up", description = "", bars = listOf(bar(1, 2, 3, 4), bar(5, 6, 7, 8)))
+
+        val fMajor = pattern.resolve(Scales.MAJOR, Note(NoteName.F, 4)).toneSequence()
+
+        assertEquals(
+            listOf("F4", "G4", "A4", "Bb4", "C5", "D5", "E5", "F5"),
+            fMajor.writtenNotes.map { it.token },
+            "the fourth of F major is a B flat, whatever the phrase's fallback style",
+        )
+
+        val cMinor = pattern.resolve(Scales.NATURAL_MINOR, Note(NoteName.C, 4)).toneSequence()
+        assertEquals(listOf("C4", "D4", "Eb4", "F4", "G4", "Ab4", "Bb4", "C5"), cMinor.writtenNotes.map { it.token })
+
+        val dMajor = pattern.resolve(Scales.MAJOR, Note(NoteName.D, 4)).toneSequence()
+        assertEquals(listOf("D4", "E4", "F#4", "G4", "A4", "B4", "C#5", "D5"), dMajor.writtenNotes.map { it.token })
+    }
+
+    @Test
+    fun theBluesIsWrittenWithItsFlatsNotRespelledAsSharps() {
+        val pattern = PhraseRecipe(id = "p", name = "blues", description = "", bars = listOf(bar(1, 2, 3, 4), bar(5, 6, 7, 1)))
+
+        val cBlues = pattern.resolve(Scales.BLUES, Note(NoteName.C, 4)).toneSequence()
+        assertEquals(
+            listOf("C4", "Eb4", "F4", "Gb4", "G4", "Bb4", "C5", "C4"),
+            cBlues.writtenNotes.map { it.token },
+        )
+
+        val aBlues = pattern.resolve(Scales.BLUES, Note(NoteName.A, 4)).toneSequence()
+        assertEquals(listOf("A4", "C5", "D5", "Eb5", "E5", "G5", "A5", "A4"), aBlues.writtenNotes.map { it.token })
+    }
+
+    @Test
+    fun aScaleThatDoesNotSayHowItIsSpelledFallsBackToThePhrasesStyle() {
+        val wholeTone = com.example.saxtrainer.core.music.Scale(
+            id = "whole_tone",
+            name = "Whole tone",
+            intervals = listOf(0, 2, 4, 6, 8, 10),
+        )
+        val pattern = PhraseRecipe(id = "p", name = "up", description = "", bars = listOf(bar(1, 2, 3, 4)))
+
+        val sequence = pattern.resolve(wholeTone, Note(NoteName.C, 4)).toneSequence()
+
+        assertEquals(listOf(null, null, null, null), sequence.steps.map { it.written }, "no spelling decided for it")
+        assertEquals(listOf("C4", "D4", "E4", "F#4"), sequence.writtenNotes.map { it.token })
     }
 }

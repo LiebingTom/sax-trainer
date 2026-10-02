@@ -1,17 +1,19 @@
 package com.example.saxtrainer.feature.phrasequiz
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -30,17 +32,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.saxtrainer.core.designsystem.component.AnswerOption
+import com.example.saxtrainer.core.designsystem.component.BoundedMusicalPage
 import com.example.saxtrainer.core.designsystem.component.CheckableRow
 import com.example.saxtrainer.core.designsystem.component.FieldRow
 import com.example.saxtrainer.core.designsystem.component.IconSource
 import com.example.saxtrainer.core.designsystem.component.InlineIcon
 import com.example.saxtrainer.core.designsystem.component.MusicalNoteView
-import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
 import com.example.saxtrainer.core.designsystem.component.NotesPreviewDialog
 import com.example.saxtrainer.core.designsystem.component.PracticeTitleActions
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
@@ -51,19 +54,21 @@ import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableCard
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
-import com.example.saxtrainer.core.designsystem.component.StaffPrefix
-import com.example.saxtrainer.core.designsystem.component.reservedStepRange
+import com.example.saxtrainer.core.designsystem.component.StepSlider
+import com.example.saxtrainer.core.designsystem.component.reservedWrittenStepRange
 import com.example.saxtrainer.core.designsystem.icon.ArrowBack
 import com.example.saxtrainer.core.designsystem.icon.Preview as PreviewIcon
 import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
+import com.example.saxtrainer.core.designsystem.icon.Undo as UndoIcon
+import com.example.saxtrainer.core.designsystem.text.toFixed
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.ToneSequence
 import com.example.saxtrainer.core.music.ToneStep
-import com.example.saxtrainer.core.music.conventionalStyle
 import com.example.saxtrainer.core.phrase.Phrase
 import com.example.saxtrainer.core.phrase.PhraseRecipe
 import com.example.saxtrainer.core.phrase.PhraseSourceType
@@ -87,8 +92,13 @@ fun PhraseQuizScreen(
     onSelectScaleChoice: (String) -> Unit,
     onToggleOctave: (Int) -> Unit,
     onSelectPattern: (String) -> Unit,
+    onSelectRepeats: (Int) -> Unit,
+    onSetMixed: (Boolean) -> Unit,
+    onShowSecondsChange: (Double) -> Unit,
     onChoose: (Int) -> Unit,
-    onSkipRevealDelay: () -> Unit,
+    onUndo: () -> Unit,
+    onRevealNow: () -> Unit,
+    onNext: () -> Unit,
     onStart: () -> Unit,
     onStop: () -> Unit,
     onReset: () -> Unit,
@@ -117,11 +127,11 @@ fun PhraseQuizScreen(
             }
         },
         showTrail = !state.isRunning,
+        keepScreenOn = state.isRunning,
         header = headerOf(state),
         subject = subject,
         timing = timingOf(state),
-        actions = { Actions(state, onStart, onStop, onReset) },
-        verticalArrangement = Arrangement.Top,
+        actions = { Actions(state, onStart, onStop, onReset, onNext, onRevealNow) },
     ) {
         Spacer(Modifier.height(Dimens.spaceSm))
 
@@ -129,39 +139,29 @@ fun PhraseQuizScreen(
             is PhraseQuizPhase.Idle -> if (state.isPreconfigured) {
                 ReadyPanel(state)
             } else {
-                Setup(state = state, onOpenLibraryPicker = onOpenLibraryPicker, onOpenPatternPicker = onOpenPatternPicker)
+                Setup(
+                    state = state,
+                    onOpenLibraryPicker = onOpenLibraryPicker,
+                    onOpenPatternPicker = onOpenPatternPicker,
+                    onSelectRepeats = onSelectRepeats,
+                    onSetMixed = onSetMixed,
+                    onShowSecondsChange = onShowSecondsChange,
+                )
             }
 
             is PhraseQuizPhase.Showing -> Text(
                 text = "Watch closely - it is about to disappear.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
 
-            is PhraseQuizPhase.Asking -> OptionsPanel(phase.options, phase.chosen, enabled = true, onChoose)
+            is PhraseQuizPhase.Asking -> OptionsPanel(phase.options, phase.chosen, enabled = true, onChoose, onUndo)
 
-            is PhraseQuizPhase.Answered -> {
-                // The whole panel becomes the button once the order was right, exactly as the note
-                // quiz's own settled question does: a wrong order keeps its own wait, because
-                // there is something in it worth reading.
-                val skippable = phase.correctOrder
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(
-                            if (skippable) {
-                                Modifier.clickable(
-                                    onClickLabel = "Go on to the next unit",
-                                    onClick = onSkipRevealDelay,
-                                )
-                            } else {
-                                Modifier
-                            },
-                        ),
-                ) {
-                    OptionsPanel(phase.options, phase.chosen, enabled = false, onChoose)
-                }
-            }
+            // Settled and left up until the player is ready - see Actions, where "Next" replaces
+            // "Stop" here: nothing moves on by itself.
+            is PhraseQuizPhase.Answered -> OptionsPanel(phase.options, phase.chosen, enabled = false, onChoose, onUndo)
 
             is PhraseQuizPhase.Finished -> ResultCard(phase.result)
         }
@@ -187,7 +187,14 @@ fun PhraseQuizScreen(
  * edit a phrase or a pattern; both are plain lists to choose from.
  */
 @Composable
-private fun Setup(state: PhraseQuizUiState, onOpenLibraryPicker: () -> Unit, onOpenPatternPicker: () -> Unit) {
+private fun Setup(
+    state: PhraseQuizUiState,
+    onOpenLibraryPicker: () -> Unit,
+    onOpenPatternPicker: () -> Unit,
+    onSelectRepeats: (Int) -> Unit,
+    onSetMixed: (Boolean) -> Unit,
+    onShowSecondsChange: (Double) -> Unit,
+) {
     SectionHeader("Source")
     Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
         SourceButton(
@@ -206,6 +213,37 @@ private fun Setup(state: PhraseQuizUiState, onOpenLibraryPicker: () -> Unit, onO
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SelectionSummary(state)
+
+    Spacer(Modifier.height(Dimens.spaceSm))
+    SectionHeader("How much")
+    StepSlider(
+        title = "Repeat",
+        supportingText = "${state.repeats} time${if (state.repeats == 1) "" else "s"} through, " +
+            "${state.plannedUnitCount} unit${if (state.plannedUnitCount == 1) "" else "s"} in all",
+        value = state.repeats,
+        options = state.repeatRange.toList(),
+        valueLabel = { "$it" },
+        onValueChange = onSelectRepeats,
+    )
+    CheckableRow(
+        title = "Mixed order",
+        supportingText = "Shuffle the units instead of playing them in order - across every " +
+            "repeat together, not one pass at a time.",
+        checked = state.mixed,
+        onCheckedChange = onSetMixed,
+    )
+    StepSlider(
+        title = "Preview time",
+        supportingText = if (state.showSeconds.isFinite()) {
+            "How long a unit stays on screen before it disappears"
+        } else {
+            "Stays on screen until you press Ready"
+        },
+        value = state.showSeconds,
+        options = PhraseQuizUiState.SHOW_SECONDS_OPTIONS,
+        valueLabel = { if (it.isFinite()) "${it.toFixed(1)} s" else "Until ready" },
+        onValueChange = onShowSecondsChange,
+    )
 
     if (!state.canStart) {
         Spacer(Modifier.height(Dimens.spaceSm))
@@ -249,7 +287,7 @@ private fun SelectionSummary(state: PhraseQuizUiState) {
                 detail?.let {
                     Text(text = it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                val unitCount = state.units.size
+                val unitCount = state.plannedUnitCount
                 if (unitCount > 0) {
                     Text(
                         text = "$unitCount unit${if (unitCount == 1) "" else "s"} to rebuild, " +
@@ -398,6 +436,7 @@ private fun ScalePatternWindow(
         OctaveChoiceDialog(
             octaves = PhraseQuizUiState.OCTAVE_RANGE.toList(),
             chosen = state.octaves,
+            root = state.scaleChoice?.root,
             onToggle = onToggleOctave,
             onDismiss = { octaveDialogOpen = false },
         )
@@ -456,7 +495,13 @@ private fun ScaleChoiceDialog(
  * its own, separate action, the same as the note quiz's own custom-notes dialog.
  */
 @Composable
-private fun OctaveChoiceDialog(octaves: List<Int>, chosen: Set<Int>, onToggle: (Int) -> Unit, onDismiss: () -> Unit) {
+private fun OctaveChoiceDialog(
+    octaves: List<Int>,
+    chosen: Set<Int>,
+    root: NoteName?,
+    onToggle: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Choose octaves") },
@@ -465,6 +510,7 @@ private fun OctaveChoiceDialog(octaves: List<Int>, chosen: Set<Int>, onToggle: (
                 octaves.forEach { octave ->
                     CheckableRow(
                         title = "Octave $octave",
+                        supportingText = octaveHint(octave, root),
                         checked = octave in chosen,
                         onCheckedChange = { onToggle(octave) },
                     )
@@ -478,28 +524,80 @@ private fun OctaveChoiceDialog(octaves: List<Int>, chosen: Set<Int>, onToggle: (
     )
 }
 
+/**
+ * What octave [octave] actually means for [root]: the root note it starts on, so "octave 4" is
+ * never just a bare number, and a flag where that note falls outside what a saxophone can write -
+ * see [SaxWrittenRange].
+ */
+private fun octaveHint(octave: Int, root: NoteName?): String {
+    if (root == null) return "the root note in this octave"
+    val note = Note(root, octave)
+    val label = "${root.displayName}$octave"
+    return when {
+        note.midiNumber < SaxWrittenRange.LOWEST.midiNumber -> "starts on $label - below the saxophone's range"
+        note.midiNumber > SaxWrittenRange.HIGHEST.midiNumber -> "starts on $label - altissimo, needs years of practice"
+        else -> "starts on $label"
+    }
+}
+
+/**
+ * The written range every saxophone shares - low Bb up to high F#, no altissimo - the same across
+ * soprano, alto, tenor and baritone, since a fingering chart is written pitch (see
+ * `core/fingering/TenorSaxophoneFingerings`, which this only borrows the two ends of rather than
+ * depending on the whole chart: this quiz has no fingerings to show, only octaves to warn about).
+ *
+ * Internal, not private: [decoysFor] borrows the same two ends to keep a wrong-answer tile from
+ * ever landing outside what a saxophone can sound at all.
+ */
+internal object SaxWrittenRange {
+    val LOWEST = Note(NoteName.A_SHARP, 3)
+    val HIGHEST = Note(NoteName.F_SHARP, 6)
+}
+
 /** "Choose octaves" while nothing is picked, otherwise the chosen ones in order, lowest first. */
 private fun octaveSummary(octaves: Set<Int>): String =
     octaves.sorted().joinToString(", ").ifEmpty { "Choose octaves" }
 
 /**
  * The unit's notes, shuffled among near-pitch decoys, tapped back into order. Used notes stay in
- * place but go inert. Enough of them to fill even rows lay out as a fixed grid - see [OptionGridColumns]
- * - the same "keyboard" reading the note quiz's own name grid uses; a sparse unit flows instead.
+ * place but go inert - unless [onUndo] is reached for, which frees the last one placed and puts it
+ * back among the choices. Enough of them to fill even rows lay out as a fixed grid - see
+ * [OptionGridColumns] - the same "keyboard" reading the note quiz's own name grid uses; a sparse
+ * unit flows instead. Either way the grid opens on an undo tile - the same size as a note - rather
+ * than starting straight on the first choice, so taking a note back is always the same reach.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun OptionsPanel(options: List<ToneStep>, chosen: List<Int>, enabled: Boolean, onChoose: (Int) -> Unit) {
-    val extent = reservedNotesExtent(options.map { it.note })
-    if (options.size >= OptionGridColumns * 2) {
+private fun OptionsPanel(
+    options: List<ToneStep>,
+    chosen: List<Int>,
+    enabled: Boolean,
+    onChoose: (Int) -> Unit,
+    onUndo: () -> Unit,
+) {
+    val extent = reservedNotesExtent(options.map { it.written })
+    val canUndo = enabled && chosen.isNotEmpty()
+    val cells = buildList<@Composable (Modifier) -> Unit> {
+        add { modifier -> UndoTile(canUndo = canUndo, onUndo = onUndo, modifier = modifier) }
+        options.forEachIndexed { index, step ->
+            add { modifier ->
+                OptionTile(step, extent, used = index in chosen, enabled = enabled, modifier = modifier) {
+                    onChoose(index)
+                }
+            }
+        }
+    }
+
+    if (cells.size >= OptionGridColumns * 2) {
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-            options.withIndex().chunked(OptionGridColumns).forEach { row ->
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-                    row.forEach { (index, step) ->
-                        OptionTile(step, extent, used = index in chosen, enabled = enabled, modifier = Modifier.weight(1f)) {
-                            onChoose(index)
-                        }
-                    }
+            cells.chunked(OptionGridColumns).forEach { row ->
+                // Every tile in a row stretches to the tallest one in it - the undo tile included -
+                // so a plain icon reads as the same size button as a note glyph beside it.
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+                ) {
+                    row.forEach { cell -> cell(Modifier.weight(1f).fillMaxHeight()) }
                 }
             }
         }
@@ -508,10 +606,20 @@ private fun OptionsPanel(options: List<ToneStep>, chosen: List<Int>, enabled: Bo
             horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
             verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
         ) {
-            options.forEachIndexed { index, step ->
-                OptionTile(step, extent, used = index in chosen, enabled = enabled) { onChoose(index) }
-            }
+            cells.forEach { cell -> cell(Modifier) }
         }
+    }
+}
+
+/** Takes back the last note placed - drawn the same size as a note tile, so the grid keeps its shape. */
+@Composable
+private fun UndoTile(canUndo: Boolean, onUndo: () -> Unit, modifier: Modifier = Modifier) {
+    AnswerOption(onClick = onUndo, modifier = modifier, enabled = canUndo, contentDescription = "Undo the last note") {
+        InlineIcon(
+            IconSource.Vector(SaxTrainerIcons.UndoIcon),
+            contentDescription = null,
+            modifier = Modifier.size(UndoIconTileSize),
+        )
     }
 }
 
@@ -525,14 +633,14 @@ private fun OptionTile(
     onClick: () -> Unit,
 ) {
     AnswerOption(onClick = onClick, modifier = modifier, enabled = enabled && !used, selected = used) {
-        val note = step.note
+        // Drawn as the phrase writes it, never respelled: an E flat tile is an E flat.
+        val note = step.written
         if (note == null) {
             Text(text = "Rest", style = MaterialTheme.typography.titleMedium)
         } else {
             MusicalNoteView(
-                primaryNote = note,
+                written = note,
                 lineSpacing = OptionSpacing,
-                accidentalStyle = note.conventionalStyle(),
                 stepRange = extent,
                 primaryColor = if (used) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
@@ -544,13 +652,12 @@ private fun OptionTile(
 @Composable
 private fun ShowingSubject(state: PhraseQuizUiState, phase: PhraseQuizPhase.Showing) {
     val phrase = state.phrase ?: return
-    MusicalStaffView(
+    BoundedMusicalPage(
         sequence = ToneSequence(phase.correct, phrase.timeSignature, phrase.accidentalStyle),
         modifier = Modifier.fillMaxWidth(),
+        naming = state.noteNaming,
         color = MaterialTheme.colorScheme.primary,
         staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        prefix = StaffPrefix.Treble,
-        fillWidth = true,
     )
 }
 
@@ -559,40 +666,48 @@ private fun ShowingSubject(state: PhraseQuizUiState, phase: PhraseQuizPhase.Show
 private fun AskingSubject(state: PhraseQuizUiState, phase: PhraseQuizPhase.Asking) {
     val phrase = state.phrase ?: return
     val built = padTo(phase.builtNotes, phase.correct.size)
-    MusicalStaffView(
+    BoundedMusicalPage(
         sequence = ToneSequence(builtSteps(phase.correct, built), phrase.timeSignature, phrase.accidentalStyle),
         modifier = Modifier.fillMaxWidth(),
+        naming = state.noteNaming,
         color = MaterialTheme.colorScheme.primary,
         staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        prefix = StaffPrefix.Treble,
-        fillWidth = true,
     )
 }
 
-/** The order as it was built, coloured note by note against the order it should have been. */
+/**
+ * The order as it was built, coloured note by note against the order it should have been - and
+ * beside every wrong one, the note that should have been there instead, in the same green a right
+ * answer gets: a red note alone says only that something was wrong, not what to have played.
+ */
 @Composable
 private fun AnsweredSubject(state: PhraseQuizUiState, phase: PhraseQuizPhase.Answered) {
     val phrase = state.phrase ?: return
-    val correctNotes = phase.correct.map { it.note }
+    val correctNotes = phase.correct.map { it.written }
     val correctColor = FeedbackColors.correct
     val incorrectColor = FeedbackColors.incorrect
-    MusicalStaffView(
+    BoundedMusicalPage(
         sequence = ToneSequence(builtSteps(phase.correct, phase.builtNotes), phrase.timeSignature, phrase.accidentalStyle),
         modifier = Modifier.fillMaxWidth(),
+        naming = state.noteNaming,
         color = MaterialTheme.colorScheme.primary,
         staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        prefix = StaffPrefix.Treble,
-        fillWidth = true,
         noteColor = { index ->
             if (phase.builtNotes.getOrNull(index) == correctNotes.getOrNull(index)) correctColor else incorrectColor
         },
+        secondaryWritten = { index ->
+            correctNotes.getOrNull(index)?.takeIf { it != phase.builtNotes.getOrNull(index) }
+        },
+        secondaryColor = correctColor,
     )
 }
 
-/** [correct]'s own durations, paired with whichever pitches have been placed so far - a rest stands
- * in for a slot nobody has filled yet. */
-private fun builtSteps(correct: List<ToneStep>, built: List<Note?>): List<ToneStep> =
-    correct.mapIndexed { index, step -> ToneStep(built.getOrNull(index), step.duration) }
+/** [correct]'s own durations, paired with whichever notes have been placed so far, as written - a
+ * rest stands in for a slot nobody has filled yet. */
+private fun builtSteps(correct: List<ToneStep>, built: List<SpelledNote?>): List<ToneStep> =
+    correct.mapIndexed { index, step ->
+        built.getOrNull(index)?.let { ToneStep.of(it, step.duration) } ?: ToneStep.rest(step.duration)
+    }
 
 /** What a ready-made quiz is about to ask. There is nothing to change; it was decided elsewhere. */
 @Composable
@@ -615,7 +730,7 @@ private fun ReadyPanel(state: PhraseQuizUiState) {
             }
             if (state.units.isNotEmpty()) {
                 Text(
-                    text = "${state.units.size} to rebuild",
+                    text = "${state.plannedUnitCount} to rebuild",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -648,7 +763,14 @@ private fun ResultCard(result: PhraseQuizResult) {
 }
 
 @Composable
-private fun Actions(state: PhraseQuizUiState, onStart: () -> Unit, onStop: () -> Unit, onReset: () -> Unit) {
+private fun Actions(
+    state: PhraseQuizUiState,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onReset: () -> Unit,
+    onNext: () -> Unit,
+    onRevealNow: () -> Unit,
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
         when (state.phase) {
             is PhraseQuizPhase.Idle -> PrimaryButton(
@@ -658,8 +780,19 @@ private fun Actions(state: PhraseQuizUiState, onStart: () -> Unit, onStop: () ->
                 modifier = Modifier.weight(1f),
             )
 
-            is PhraseQuizPhase.Showing, is PhraseQuizPhase.Asking, is PhraseQuizPhase.Answered ->
+            // "Ready" cuts the preview short, whether it is about to end on its own or - shown
+            // until pressed - never would: either way, seen enough is seen enough.
+            is PhraseQuizPhase.Showing -> {
                 SecondaryButton(text = "Stop", onClick = onStop, modifier = Modifier.weight(1f))
+                SecondaryButton(text = "Ready", onClick = onRevealNow, modifier = Modifier.weight(1f))
+            }
+
+            is PhraseQuizPhase.Asking ->
+                SecondaryButton(text = "Stop", onClick = onStop, modifier = Modifier.weight(1f))
+
+            // Settled, right or wrong: the player decides when to move on, not a timer.
+            is PhraseQuizPhase.Answered ->
+                PrimaryButton(text = "Next", onClick = onNext, modifier = Modifier.weight(1f))
 
             is PhraseQuizPhase.Finished -> {
                 PrimaryButton(
@@ -676,17 +809,20 @@ private fun Actions(state: PhraseQuizUiState, onStart: () -> Unit, onStop: () ->
     }
 }
 
-private fun reservedNotesExtent(notes: List<Note?>): IntRange =
-    reservedStepRange(notes.filterNotNull().ifEmpty { listOf(Note(NoteName.C, 4)) })
+private fun reservedNotesExtent(notes: List<SpelledNote?>): IntRange =
+    reservedWrittenStepRange(notes.filterNotNull().ifEmpty { listOf(SpelledNote.of(Note(NoteName.C, 4))) })
 
 /** [notes] followed by enough nulls to reach [size] - the slots still waiting to be filled. */
-private fun padTo(notes: List<Note?>, size: Int): List<Note?> =
+private fun padTo(notes: List<SpelledNote?>, size: Int): List<SpelledNote?> =
     if (notes.size >= size) notes else notes + List(size - notes.size) { null }
 
 private val OptionSpacing = 9.dp
 
 /** How many option tiles sit side by side once there are enough of them to fill even rows. */
 private const val OptionGridColumns = 6
+
+/** About as tall as a note tile's own glyph, so the undo tile reads as one of the row. */
+private val UndoIconTileSize = 28.dp
 
 /**
  * What the screen says for itself, above the rule at the top.
@@ -707,7 +843,7 @@ private fun headerOf(state: PhraseQuizUiState): ScreenHeader = when (state.phase
 
 /** How far through the phrase's units, for the bar across the foot of the screen. */
 private fun timingOf(state: PhraseQuizUiState): ScreenTiming? {
-    val plannedCount = state.units.size.takeIf { it > 0 } ?: return null
+    val plannedCount = state.plannedUnitCount.takeIf { it > 0 } ?: return null
     val step = when (val phase = state.phase) {
         is PhraseQuizPhase.Showing -> phase.unitIndex + 1
         is PhraseQuizPhase.Asking -> phase.unitIndex + 1
@@ -738,8 +874,13 @@ private fun PhraseQuizSetupPreview() {
             onSelectScaleChoice = {},
             onToggleOctave = {},
             onSelectPattern = {},
+            onSelectRepeats = {},
+            onSetMixed = {},
+            onShowSecondsChange = {},
             onChoose = {},
-            onSkipRevealDelay = {},
+            onUndo = {},
+            onRevealNow = {},
+            onNext = {},
             onStart = {},
             onStop = {},
             onReset = {},

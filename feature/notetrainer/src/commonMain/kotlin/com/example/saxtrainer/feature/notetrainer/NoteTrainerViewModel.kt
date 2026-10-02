@@ -21,6 +21,8 @@ import com.example.saxtrainer.core.exercise.practiceOrder
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.core.music.spelledAs
 import com.example.saxtrainer.core.settings.Exercise
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
@@ -117,12 +119,15 @@ class NoteTrainerViewModel(
 
     fun editCustomNotes() = updateSetup { it.copy(customNotesDraft = it.customNotes) }
 
-    fun toggleCustomNote(note: Note) = updateSetup { state ->
+    fun toggleCustomNote(note: SpelledNote) = updateSetup { state ->
         val draft = state.customNotesDraft ?: return@updateSetup state
         state.copy(customNotesDraft = if (note in draft) draft - note else draft + note)
     }
 
-    fun selectAllCustomNotes() = updateSetup { it.copy(customNotesDraft = it.availableNotes.toSet()) }
+    /** Every pitch once, written the way it usually is - not every spelling of it. */
+    fun selectAllCustomNotes() = updateSetup {
+        it.copy(customNotesDraft = NoteSets.notesOf(NoteSet.CHROMATIC, config.chart, emptySet()).toSet())
+    }
 
     fun clearCustomNotes() = updateSetup { it.copy(customNotesDraft = emptySet()) }
 
@@ -180,7 +185,8 @@ class NoteTrainerViewModel(
         val state = _uiState.value
         if (!state.canStart || audioCapture == null) return
 
-        val notes = practiceOrder(state.activeNotes, state.order, state.rounds, random)
+        // By pitch: E flat straight after D sharp is the same key twice, however differently written.
+        val notes = practiceOrder(state.activeNotes, state.order, state.rounds, random) { it.note }
 
         // Already written down as it was chosen; this is the setup as it is actually started.
         rememberSetup(state)
@@ -235,7 +241,7 @@ class NoteTrainerViewModel(
         super.onCleared()
     }
 
-    private suspend fun runExercise(notes: List<Note>) = coroutineScope {
+    private suspend fun runExercise(notes: List<SpelledNote>) = coroutineScope {
         val attempts = mutableListOf<NoteAttempt>()
         // Not a StateFlow: it would conflate, and frame after frame of silence is exactly the same
         // value. Every frame has to reach the note being played, because that is what makes a skip
@@ -282,12 +288,12 @@ class NoteTrainerViewModel(
      * pause is picked up on the next frame rather than only when something is played.
      */
     private suspend fun playNote(
-        note: Note,
+        note: SpelledNote,
         index: Int,
         noteCount: Int,
         heard: SharedFlow<Hearing>,
     ): NoteAttempt {
-        val expected = _uiState.value.soundingNoteOf(note)
+        val expected = _uiState.value.soundingNoteOf(note.note)
         // The one place the hold stops being music and becomes clock time, because what it is
         // measured against is the microphone, which reports seconds.
         val holdSeconds = _uiState.value.let { it.tempo.secondsFor(it.holdBeats) }
@@ -299,6 +305,10 @@ class NoteTrainerViewModel(
         var presentedAt: Double? = seconds()
         var firstCorrectAt: Double? = null
         var correctSince: Double? = null
+        // One frame reporting something other than the right pitch - a reed squeak, a harmonic the
+        // detector snapped onto for an instant - is not the same as the note actually changing. Only
+        // a second one in a row, with no correct frame between, is trusted to mean that.
+        var consecutiveBadFrames = 0
         var wrongSince: Double? = null
         var wrongCounted = false
         var lastSounding: Note? = null
@@ -316,6 +326,7 @@ class NoteTrainerViewModel(
                 presentedAt = null
                 firstCorrectAt = null
                 correctSince = null
+                consecutiveBadFrames = 0
                 wrongSince = null
                 wrongCounted = false
                 lastSounding = null
@@ -334,13 +345,17 @@ class NoteTrainerViewModel(
                 correct -> {
                     if (firstCorrectAt == null) firstCorrectAt = now
                     if (correctSince == null) correctSince = now
+                    consecutiveBadFrames = 0
                     wrongSince = null
                     wrongCounted = false
                 }
 
                 sounding != null -> {
-                    correctSince = null
-                    firstCorrectAt = null
+                    consecutiveBadFrames++
+                    if (consecutiveBadFrames >= BAD_FRAME_TOLERANCE) {
+                        correctSince = null
+                        firstCorrectAt = null
+                    }
                     if (sounding != lastSounding) {
                         wrongSince = now
                         wrongCounted = false
@@ -356,17 +371,20 @@ class NoteTrainerViewModel(
                 hearing is Hearing.Unclear -> Unit
 
                 else -> {
-                    correctSince = null
-                    firstCorrectAt = null
+                    consecutiveBadFrames++
+                    if (consecutiveBadFrames >= BAD_FRAME_TOLERANCE) {
+                        correctSince = null
+                        firstCorrectAt = null
+                    }
                     wrongSince = null
                     wrongCounted = false
                 }
             }
             lastSounding = sounding
 
-            // Kept since the note last became right, and back to nothing the moment it stopped
-            // being right - which is what makes a hold have to be started again rather than
-            // continued.
+            // Kept since the note last became right, and lost only once the note has been
+            // consecutively wrong or silent for [BAD_FRAME_TOLERANCE] frames - one stray frame
+            // never costs the hold, so a hold has to genuinely stop rather than merely flicker.
             val heldSeconds = correctSince?.let { now - it }
             played = heldSeconds != null && heldSeconds >= requiredSeconds
 
@@ -468,7 +486,7 @@ class NoteTrainerViewModel(
     }
 
     private fun publish(
-        note: Note,
+        note: SpelledNote,
         index: Int,
         noteCount: Int,
         listening: Listening,
@@ -484,9 +502,12 @@ class NoteTrainerViewModel(
                 noteIndex = index,
                 noteCount = noteCount,
                 currentNote = note,
-                fingering = if (state.showFingeringHint) config.chart.fingeringFor(note) else null,
+                fingering = if (state.showFingeringHint) config.chart.fingeringFor(note.note) else null,
                 listening = listening,
-                detectedNote = detected?.let(state::writtenNoteOf),
+                // Heard as a pitch and written as the exercise writes it: the note asked for if that is
+                // what was played, another note of the exercise sounding the same, or else as it
+                // usually is.
+                detectedNote = detected?.let(state::writtenNoteOf)?.spelledAs(listOf(note) + state.activeNotes),
                 wrongTries = wrongTries,
                 lastReactionSeconds = reactionSeconds,
                 holdFraction = holdFraction,
@@ -548,7 +569,7 @@ class NoteTrainerViewModel(
      * practising: a preset names notes, so as something to edit it is always a custom set.
      */
     private fun NoteTrainerUiState.withPreset(preset: NoteTrainerPreset): NoteTrainerUiState {
-        val notes = preset.notes.filter(config.chart::supports)
+        val notes = preset.notes.filter { config.chart.supports(it.note) }
         return copy(
             noteSet = if (preset.editable) NoteSet.CUSTOM else noteSet,
             customNotes = if (preset.editable) notes.toSet() else customNotes,
@@ -564,13 +585,13 @@ class NoteTrainerViewModel(
     }
 
     private fun initialState(): NoteTrainerUiState {
-        val notes = config.chart.supportedNotes
+        val everyPitch = NoteSets.notesOf(NoteSet.CHROMATIC, config.chart, emptySet()).toSet()
         val settings = settingsRepository.settings.value
         val state = NoteTrainerUiState(
-            availableNotes = notes,
+            availableNotes = NoteSets.choicesOf(config.chart),
             noteSet = NoteSet.BEGINNER,
-            customNotes = notes.toSet(),
-            activeNotes = NoteSets.notesOf(NoteSet.BEGINNER, config.chart, notes.toSet()),
+            customNotes = everyPitch,
+            activeNotes = NoteSets.notesOf(NoteSet.BEGINNER, config.chart, everyPitch),
             order = NoteOrder.RANDOM,
             rounds = config.defaultRounds,
             targetSeconds = config.quickSeconds,
@@ -596,5 +617,12 @@ class NoteTrainerViewModel(
         const val HEARD_BUFFER = 4
         const val NANOS_PER_SECOND = 1_000_000_000.0
         const val MILLIS_PER_SECOND = 1_000
+
+        /**
+         * Consecutive wrong-or-silent frames needed before a hold in progress is thrown away. One
+         * is a glitch; a real change of note or a real silence still reads as one at the next frame,
+         * roughly 40 ms later, so this costs nothing when the note genuinely did change.
+         */
+        const val BAD_FRAME_TOLERANCE = 2
     }
 }

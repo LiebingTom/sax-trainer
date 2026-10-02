@@ -1,6 +1,7 @@
 package com.example.saxtrainer.feature.phrasetrainer
 
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.Transposition
@@ -43,7 +44,7 @@ enum class Listening {
 }
 
 /** One note of a unit as it turned out: played, or given up on. */
-data class StepAttempt(val note: Note?, val played: Boolean)
+data class StepAttempt(val note: SpelledNote?, val played: Boolean)
 
 /** One practice unit as it turned out: every one of its notes has to have been played. */
 data class UnitAttempt(val steps: List<StepAttempt>) {
@@ -62,10 +63,14 @@ data class PhraseTrainerProgress(
     val stepIndex: Int,
     val stepCount: Int,
     /** Null while the current step is a rest: nothing to play, nothing to listen for. */
-    val currentNote: Note?,
+    /** As the phrase writes it. */
+    val currentNote: SpelledNote?,
     val listening: Listening = Listening.WAITING,
-    /** What the microphone hears, as the player would write it; null when nothing is heard. */
-    val detectedNote: Note? = null,
+    /**
+     * What the microphone hears, as the player would write it; null when nothing is heard. Heard as
+     * a pitch, so written as the phrase would write it - see the view model's `playUnit`.
+     */
+    val detectedNote: SpelledNote? = null,
     /** True while the note is being shown as landed, between confirmation and the next note. */
     val landed: Boolean = false,
 ) {
@@ -101,6 +106,14 @@ data class PhraseTrainerUiState(
     /** Whether the scale-pattern window is open: octave, scale and the stored patterns to choose. */
     val patternPickerOpen: Boolean = false,
     val showSeconds: Double = 2.5,
+    /** How many times through the whole run - see [com.example.saxtrainer.core.phrase.repeated]. */
+    val repeats: Int = 1,
+    val repeatRange: IntRange = 1..12,
+    /**
+     * Whether every repeat's units are drawn from one shuffled pool instead of being walked one
+     * whole pass after another - see [com.example.saxtrainer.core.phrase.repeated].
+     */
+    val mixed: Boolean = false,
     /** Whether a note also has to be held for its written length - see [PhraseTrainerPreset]. */
     val checkDuration: Boolean = false,
     val tempo: Tempo = Tempo(80),
@@ -143,10 +156,19 @@ data class PhraseTrainerUiState(
     /** The practice units the current phrase is walked in - a unit is one or more bars wide. */
     val units: List<PracticeUnit> get() = phrase?.units.orEmpty()
 
+    /**
+     * How many units the whole run has: [units] repeated [repeats] times.
+     *
+     * A count only - which units land where is decided once, when the run actually starts, since
+     * [mixed] shuffles them and a setup screen must not reshuffle every time it is read.
+     */
+    val plannedUnitCount: Int get() = units.size * repeats
+
     /** Playing a phrase needs a microphone; without one there is nothing to check. */
     val canStart: Boolean get() = phrase != null && !microphoneUnavailable
 
-    fun nameOf(note: Note): String = noteNaming.labelOf(note)
+    /** The name of a written note, as written, under the chosen naming. */
+    fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note)
 
     /** The pitch a written note should sound as on the chosen instrument. */
     fun soundingNoteOf(writtenNote: Note): Note = transposition.concertFor(writtenNote)
@@ -155,8 +177,19 @@ data class PhraseTrainerUiState(
     fun writtenNoteOf(concertNote: Note): Note = transposition.writtenFor(concertNote)
 
     companion object {
-        /** Octaves offered on the setup screen. */
-        val OCTAVE_RANGE: IntRange = 3..6
+        /**
+         * Octaves offered on the setup screen.
+         *
+         * Starts at 4, not lower: written octave 3 is below the saxophone family's lowest note
+         * (low Bb, A#3) for every root this app offers, so it could never be played - offering it
+         * would be a choice with no honest answer.
+         */
+        val OCTAVE_RANGE: IntRange = 4..6
         val DEFAULT_OCTAVE: Int = 4
+
+        /** How long a unit may be shown before it disappears: half-second steps up to five seconds. */
+        val SHOW_SECONDS_OPTIONS: List<Double> = (1..10).map { it * 0.5 }
+        val SHOW_SECONDS_RANGE: ClosedFloatingPointRange<Double> =
+            SHOW_SECONDS_OPTIONS.first()..SHOW_SECONDS_OPTIONS.last()
     }
 }

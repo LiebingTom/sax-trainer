@@ -4,6 +4,7 @@ import com.example.saxtrainer.core.learning.ExerciseOutcome
 import com.example.saxtrainer.core.learning.asLessonOutcome
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.feature.notequiz.AnsweredQuestion
 import com.example.saxtrainer.feature.notequiz.QuizResult
 import com.example.saxtrainer.feature.notetrainer.NoteAttempt
@@ -23,11 +24,12 @@ import kotlin.test.assertTrue
 class LessonOutcomeMappingTest {
 
     private val c4 = Note(NoteName.C, 4)
+    private val writtenC4 = SpelledNote.of(c4)
 
     // --- the note quiz --------------------------------------------------------------------------
 
     private fun quiz(answered: Int, planned: Int, right: Int) = QuizResult(
-        answers = List(answered) { AnsweredQuestion(c4, correct = it < right) },
+        answers = List(answered) { AnsweredQuestion(writtenC4, correct = it < right) },
         plannedCount = planned,
     )
 
@@ -47,8 +49,8 @@ class LessonOutcomeMappingTest {
     // --- the note trainer ------------------------------------------------------------------------
 
     private fun noteTrainer(played: Int, skipped: Int, planned: Int) = NoteTrainerResult(
-        attempts = List(played) { NoteAttempt(c4, 1.5, wrongTries = 0, skipped = false) } +
-            List(skipped) { NoteAttempt(c4, null, wrongTries = 2, skipped = true) },
+        attempts = List(played) { NoteAttempt(writtenC4, 1.5, wrongTries = 0, skipped = false) } +
+            List(skipped) { NoteAttempt(writtenC4, null, wrongTries = 2, skipped = true) },
         plannedNoteCount = planned,
     )
 

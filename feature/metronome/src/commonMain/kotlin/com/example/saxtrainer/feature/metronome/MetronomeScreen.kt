@@ -23,11 +23,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
-import com.example.saxtrainer.core.designsystem.component.PracticeTitleActions
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.theme.Dimens
@@ -45,17 +46,13 @@ fun MetronomeScreen(
     onTap: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    isFavorite: Boolean = false,
-    onToggleFavorite: ((Boolean) -> Unit)? = null,
 ) {
     ScreenScaffold(
         title = "Metronome",
         onBack = onBack,
         modifier = modifier,
-        // Nothing to set up, so nothing to keep in My Lessons: the star alone.
-        titleActions = {
-            PracticeTitleActions("Metronome", isFavorite, onToggleFavorite, onAddToLessons = null)
-        },
+        // Starring lives on the settings screen this is reached from - see [MetronomeSetupScreen].
+        keepScreenOn = state.isRunning,
         actions = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -81,13 +78,15 @@ fun MetronomeScreen(
             Spacer(Modifier.height(Dimens.spaceMd))
         }
 
-        TempoDisplay(bpm = state.bpm)
+        TempoDisplay(bpm = state.bpm, beatsPerBar = state.beatsPerBar)
         Spacer(Modifier.height(Dimens.spaceMd))
 
         BeatIndicator(
             beatsPerBar = state.beatsPerBar,
             currentBeat = state.currentBeat,
+            halfBeatActive = state.halfBeatActive,
             isRunning = state.isRunning,
+            visualizeHalfBeats = state.visualizeHalfBeats,
         )
         Spacer(Modifier.height(Dimens.spaceLg))
 
@@ -131,7 +130,7 @@ fun MetronomeScreen(
 }
 
 @Composable
-private fun TempoDisplay(bpm: Int) {
+private fun TempoDisplay(bpm: Int, beatsPerBar: Int) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -143,15 +142,27 @@ private fun TempoDisplay(bpm: Int) {
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "BPM  -  4/4",
+            // The beat unit is always a quarter note among what the settings screen offers.
+            text = "BPM  -  $beatsPerBar/4",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
+/**
+ * The beats of the bar as same-size circles, and, when [visualizeHalfBeats] is on, a smaller circle
+ * of its own color between one beat and the next: the midpoint between them, lit up in turn once it
+ * has actually sounded.
+ */
 @Composable
-private fun BeatIndicator(beatsPerBar: Int, currentBeat: Int, isRunning: Boolean) {
+private fun BeatIndicator(
+    beatsPerBar: Int,
+    currentBeat: Int,
+    halfBeatActive: Boolean,
+    isRunning: Boolean,
+    visualizeHalfBeats: Boolean,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -166,26 +177,58 @@ private fun BeatIndicator(beatsPerBar: Int, currentBeat: Int, isRunning: Boolean
         verticalAlignment = Alignment.CenterVertically,
     ) {
         for (beat in 0 until beatsPerBar) {
-            val active = isRunning && beat == currentBeat
             val isAccent = beat == 0
-            val scale by animateFloatAsState(
-                targetValue = if (active) 1f else 0.7f,
-                label = "beatScale",
+            PulseCircle(
+                active = isRunning && beat == currentBeat,
+                size = Dimens.beatIndicatorSize,
+                activeColor = if (isAccent) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.secondary
+                },
+                inactiveColor = if (isAccent) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHighest
+                },
             )
-            val color = when {
-                active && isAccent -> MaterialTheme.colorScheme.primary
-                active -> MaterialTheme.colorScheme.secondary
-                else -> MaterialTheme.colorScheme.surfaceContainerHighest
+            if (visualizeHalfBeats) {
+                PulseCircle(
+                    active = isRunning && halfBeatActive && beat == currentBeat,
+                    size = Dimens.halfBeatIndicatorSize,
+                    activeColor = MaterialTheme.colorScheme.tertiary,
+                    inactiveColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    horizontalPadding = Dimens.spaceXs,
+                )
             }
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = Dimens.spaceSm)
-                    .size(if (isAccent) Dimens.beatIndicatorAccentSize else Dimens.beatIndicatorSize)
-                    .scale(scale)
-                    .background(color, CircleShape),
-            )
         }
     }
+}
+
+/**
+ * One beat - or, smaller, the half beat after it - as a circle that scales up and switches from
+ * [inactiveColor] to [activeColor] the moment it is the one sounding.
+ */
+@Composable
+private fun PulseCircle(
+    active: Boolean,
+    size: Dp,
+    activeColor: Color,
+    inactiveColor: Color,
+    horizontalPadding: Dp = Dimens.spaceSm,
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (active) 1f else 0.7f,
+        label = "beatScale",
+    )
+    val color = if (active) activeColor else inactiveColor
+    Box(
+        modifier = Modifier
+            .padding(horizontal = horizontalPadding)
+            .size(size)
+            .scale(scale)
+            .background(color, CircleShape),
+    )
 }
 
 @Composable

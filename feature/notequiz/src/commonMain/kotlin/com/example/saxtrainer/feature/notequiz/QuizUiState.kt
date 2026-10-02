@@ -2,8 +2,8 @@ package com.example.saxtrainer.feature.notequiz
 
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.NoteSets
-import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.SpelledNote
 
 /** Where the quiz is. */
 sealed interface QuizPhase {
@@ -50,7 +50,7 @@ sealed interface QuizPhase {
 }
 
 /** One question as it turned out. */
-data class AnsweredQuestion(val note: Note, val correct: Boolean)
+data class AnsweredQuestion(val note: SpelledNote, val correct: Boolean)
 
 data class QuizResult(
     val answers: List<AnsweredQuestion>,
@@ -61,7 +61,7 @@ data class QuizResult(
     val correctCount: Int get() = answers.count { it.correct }
 
     /** The notes that were got wrong, each named once however often it came up. */
-    val missedNotes: List<Note> get() = answers.filterNot { it.correct }.map { it.note }.distinct()
+    val missedNotes: List<SpelledNote> get() = answers.filterNot { it.correct }.map { it.note }.distinct()
 }
 
 /**
@@ -73,13 +73,15 @@ data class QuizResult(
  */
 data class QuizUiState(
     val phase: QuizPhase = QuizPhase.Idle,
-    val availableNotes: List<Note> = emptyList(),
+    /** Every written note the player can choose from - each pitch once per way of writing it. */
+    val availableNotes: List<SpelledNote> = emptyList(),
     val noteSet: NoteSet = NoteSet.BEGINNER,
     val noteSets: List<NoteSet> = NoteSet.entries,
-    val customNotes: Set<Note> = emptySet(),
+    val customNotes: Set<SpelledNote> = emptySet(),
     /** Non-null while the note dialog is open; edits stay here until they are applied. */
-    val customNotesDraft: Set<Note>? = null,
-    val activeNotes: List<Note> = emptyList(),
+    val customNotesDraft: Set<SpelledNote>? = null,
+    /** What the questions are about, each exactly as it is to be read. */
+    val activeNotes: List<SpelledNote> = emptyList(),
     val mode: QuizMode = QuizMode.NOTE_AND_FINGERING,
     val modes: List<QuizMode> = QuizMode.entries,
     val questionCount: Int = 10,
@@ -93,8 +95,12 @@ data class QuizUiState(
 ) {
     val isRunning: Boolean get() = phase is QuizPhase.Asking || phase is QuizPhase.Answered
 
-    /** A question needs something to choose between, so one note is not a quiz. */
-    val canStart: Boolean get() = activeNotes.size >= QuizQuestionGenerator.MIN_OPTIONS
+    /**
+     * A question needs something to choose between, so one note is not a quiz - and nor is one
+     * pitch written two ways, since the one cannot be offered as wrong against the other.
+     */
+    val canStart: Boolean
+        get() = QuizQuestionGenerator.pitchCountOf(activeNotes) >= QuizQuestionGenerator.MIN_OPTIONS
 
     val isEditingCustomNotes: Boolean get() = customNotesDraft != null
 
@@ -105,5 +111,6 @@ data class QuizUiState(
             ?.joinToString(" ") { nameOf(it) }
             ?: "No notes chosen yet"
 
-    fun nameOf(note: Note): String = noteNaming.labelOf(note)
+    /** The name of a written note, as written, under the chosen naming. */
+    fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note)
 }

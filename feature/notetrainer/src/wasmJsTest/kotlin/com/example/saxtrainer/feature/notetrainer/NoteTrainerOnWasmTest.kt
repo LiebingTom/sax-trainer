@@ -19,6 +19,7 @@ import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.spelledConventionally
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.testing.FakeMicrophone
@@ -132,7 +133,7 @@ class NoteTrainerOnWasmTest {
 
 /** Two notes in a fixed order, so a run is short enough to play through in real time. */
 private fun twoNotes(autoStart: Boolean = true) = NoteTrainerPreset(
-    notes = listOf(Note(NoteName.C, 4), Note(NoteName.D, 4)),
+    notes = listOf(Note(NoteName.C, 4), Note(NoteName.D, 4)).spelledConventionally(),
     order = NoteOrder.ORDERED,
     autoStart = autoStart,
 )

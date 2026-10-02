@@ -88,6 +88,20 @@ object TrebleStaff {
     }
 
     /**
+     * Staff position of a note exactly as [written]: its own letter and sign, whatever pitch that
+     * comes to - C flat sits on the C line even though it sounds as B.
+     */
+    fun placementOf(written: SpelledNote, naturalsExplicit: Boolean = false): StaffPlacement =
+        StaffPlacement(
+            stepsFromBottomLine = written.diatonicIndex - BOTTOM_LINE_INDEX,
+            accidental = if (written.accidental == Accidental.NONE && naturalsExplicit) {
+                Accidental.NATURAL
+            } else {
+                written.accidental
+            },
+        )
+
+    /**
      * How [note] is written: the letter it sits on and the sign in front of it.
      *
      * The one place that decides, so a name and a staff position are always two views of the same

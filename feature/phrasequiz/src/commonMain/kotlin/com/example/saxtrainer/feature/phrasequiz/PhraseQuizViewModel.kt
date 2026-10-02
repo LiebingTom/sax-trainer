@@ -2,13 +2,17 @@ package com.example.saxtrainer.feature.phrasequiz
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.saxtrainer.core.music.AccidentalStyle
 import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.ToneStep
 import com.example.saxtrainer.core.phrase.PatternCatalog
 import com.example.saxtrainer.core.phrase.PatternLibrary
 import com.example.saxtrainer.core.phrase.PhraseCatalog
 import com.example.saxtrainer.core.phrase.PhraseLibrary
 import com.example.saxtrainer.core.phrase.PhraseSourceType
+import com.example.saxtrainer.core.phrase.PracticeUnit
+import com.example.saxtrainer.core.phrase.repeated
 import com.example.saxtrainer.core.settings.Exercise
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
@@ -49,7 +53,13 @@ class PhraseQuizViewModel(
 
     private val attempted = mutableListOf<Boolean>()
     private var showJob: Job? = null
-    private var revealJob: Job? = null
+
+    /**
+     * The units this run actually walks: [PhraseQuizUiState.units] repeated and, if
+     * [PhraseQuizUiState.mixed] asked for it, shuffled - decided once, in [start], and never
+     * touched again for the rest of the run. See [repeated].
+     */
+    private var runUnits: List<PracticeUnit> = emptyList()
 
     /** A preset that asked to start does so once, not again on every recomposition or rotation. */
     private var autoStartPending = preset?.autoStart == true
@@ -87,6 +97,25 @@ class PhraseQuizViewModel(
         state.copy(sourceType = PhraseSourceType.SCALE_PATTERN, patternId = id, patternPickerOpen = false)
     }
 
+    fun selectRepeats(times: Int) = updateSetup { it.copy(repeats = times.coerceIn(it.repeatRange)) }
+
+    /** Whether every repeat's units come from one shuffled pool instead of one pass at a time. */
+    fun setMixed(enabled: Boolean) = updateSetup { it.copy(mixed = enabled) }
+
+    /**
+     * How long a unit stays on screen before it is hidden and has to be rebuilt from memory.
+     *
+     * Infinite - shown until [revealNow] is called by hand - is only ever reached by asking for it
+     * exactly: an out-of-range number lands on the largest timed step instead, so a stray or
+     * corrupted value never silently turns into "forever" on its own.
+     */
+    fun setShowSeconds(seconds: Double) = updateSetup {
+        val options = PhraseQuizUiState.SHOW_SECONDS_OPTIONS
+        val largestTimed = options[options.lastIndex - 1]
+        val clamped = if (seconds.isInfinite()) Double.POSITIVE_INFINITY else seconds.coerceIn(options.first(), largestTimed)
+        it.copy(showSeconds = clamped)
+    }
+
     /**
      * Writes the current setup down now, without waiting for it to be changed or started.
      *
@@ -107,8 +136,8 @@ class PhraseQuizViewModel(
 
         rememberSetup(state)
         showJob?.cancel()
-        revealJob?.cancel()
         attempted.clear()
+        runUnits = state.units.repeated(state.repeats, state.mixed, random)
         beginUnit(0)
     }
 
@@ -128,23 +157,39 @@ class PhraseQuizViewModel(
         }
     }
 
+    /** Frees the last note placed, putting it back among the choices - only while still building. */
+    fun undoLast() {
+        val phase = _uiState.value.phase as? PhraseQuizPhase.Asking ?: return
+        if (phase.chosen.isEmpty()) return
+        _uiState.value = _uiState.value.copy(phase = phase.copy(chosen = phase.chosen.dropLast(1)))
+    }
+
     /**
-     * Cuts the wait after a correctly rebuilt unit short.
-     *
-     * Only heard while a right order is on screen: a wrong one keeps its own wait, because there is
-     * something in it worth reading.
+     * Hides the unit and starts asking for it right now, cutting the preview short - the one way to
+     * move on at all while it is shown until pressed, and, whatever the preview time is set to, a
+     * player who has already seen enough should never have to wait out the rest of it.
      */
-    fun skipRevealDelay() {
+    fun revealNow() {
+        val phase = _uiState.value.phase as? PhraseQuizPhase.Showing ?: return
+        showJob?.cancel()
+        showJob = null
+        beginAsking(phase.unitIndex, phase.correct)
+    }
+
+    /**
+     * Moves on from a settled unit, right or wrong - there is no timer doing this on its own: a
+     * phrase can take longer to read back than a single note does, so it is the player who decides
+     * when they are done looking at it.
+     */
+    fun continueToNextUnit() {
         val phase = _uiState.value.phase
-        if (phase is PhraseQuizPhase.Answered && phase.correctOrder) continueFrom(phase)
+        if (phase is PhraseQuizPhase.Answered) continueFrom(phase)
     }
 
     /** Ends the quiz early and keeps the units that were attempted. */
     fun stop() {
         showJob?.cancel()
         showJob = null
-        revealJob?.cancel()
-        revealJob = null
         if (_uiState.value.isRunning) finish()
     }
 
@@ -157,24 +202,27 @@ class PhraseQuizViewModel(
 
     override fun onCleared() {
         showJob?.cancel()
-        revealJob?.cancel()
         super.onCleared()
     }
 
     private fun beginUnit(index: Int) {
         val state = _uiState.value
         val phrase = state.phrase
-        val units = state.units
-        if (phrase == null || index >= units.size) {
+        if (phrase == null || index >= runUnits.size) {
             finish()
             return
         }
 
-        val steps = phrase.toneSequenceOf(units[index]).steps
+        // Each step keeps the spelling the phrase gives it, so the tiles it becomes - and the line
+        // they are put back into - are written the same way the phrase was shown.
+        val steps = phrase.toneSequenceOf(runUnits[index]).spelledSteps()
         _uiState.value = state.copy(phase = PhraseQuizPhase.Showing(index, steps))
-        showJob = viewModelScope.launch(processingDispatcher) {
-            delay((state.showSeconds * MILLIS_PER_SECOND).toLong())
-            beginAsking(index, steps)
+        // Infinite is shown until revealNow() is called by hand; anything else times itself out.
+        if (state.showSeconds.isFinite()) {
+            showJob = viewModelScope.launch(processingDispatcher) {
+                delay((state.showSeconds * MILLIS_PER_SECOND).toLong())
+                beginAsking(index, steps)
+            }
         }
     }
 
@@ -184,40 +232,29 @@ class PhraseQuizViewModel(
         // Padded with near-pitch decoys, never fewer of the unit's own notes than it has: rebuilding
         // the order is still finding every real note exactly once, just among tiles that are not all
         // real.
+        val style = _uiState.value.phrase?.accidentalStyle ?: AccidentalStyle.SHARPS
         val decoys = decoysFor(steps.mapNotNull { it.note }, config.optionGridSize, random)
-            .map { ToneStep(it, DECOY_DURATION) }
+            .map { ToneStep.of(SpelledNote.of(it, style), DECOY_DURATION) }
         _uiState.value = _uiState.value.copy(
             phase = PhraseQuizPhase.Asking(unitIndex = index, correct = steps, options = (steps + decoys).shuffled(random)),
         )
     }
 
-    /** The last note is in: the unit is judged, kept, and left up for its moment. */
+    /** The last note is in: the unit is judged, kept, and left up until the player moves on. */
     private fun settle(taken: PhraseQuizPhase.Asking) {
         val answered = PhraseQuizPhase.Answered(taken.unitIndex, taken.correct, taken.options, taken.chosen)
         attempted += answered.correctOrder
         _uiState.value = _uiState.value.copy(phase = answered)
-
-        val millis = (config.revealSeconds * MILLIS_PER_SECOND).toLong()
-        if (millis <= 0) {
-            continueFrom(answered)
-            return
-        }
-        revealJob = viewModelScope.launch(processingDispatcher) {
-            delay(millis)
-            continueFrom(answered)
-        }
     }
 
     private fun continueFrom(answered: PhraseQuizPhase.Answered) {
-        revealJob?.cancel()
-        revealJob = null
-        // The phase may already have moved on - a second tap and the waiting job can both arrive.
+        // The phase may already have moved on - a second tap can still arrive after the first.
         if (_uiState.value.phase !== answered) return
         beginUnit(answered.unitIndex + 1)
     }
 
     private fun finish() {
-        val planned = _uiState.value.units.size.takeIf { it > 0 } ?: attempted.size
+        val planned = runUnits.size.takeIf { it > 0 } ?: attempted.size
         _uiState.value = _uiState.value.copy(
             phase = PhraseQuizPhase.Finished(PhraseQuizResult(attempted.toList(), planned)),
         )

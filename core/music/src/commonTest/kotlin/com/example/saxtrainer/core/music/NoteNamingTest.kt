@@ -93,6 +93,37 @@ class NoteNamingTest {
     }
 
     @Test
+    fun `a written note is named exactly as written, in either naming`() {
+        fun names(token: String) = SpelledNote.parse(token)!!.let {
+            NoteNaming.INTERNATIONAL.labelOf(it) to NoteNaming.GERMAN.labelOf(it)
+        }
+
+        assertEquals("E♭4" to "Es4", names("Eb4"))
+        assertEquals("D♯4" to "Dis4", names("D#4"))
+        assertEquals("A♭4" to "As4", names("Ab4"))
+        assertEquals("B♭4" to "B4", names("Bb4"))
+        assertEquals("B4" to "H4", names("B4"))
+        assertEquals("C♭5" to "Ces5", names("Cb5"))
+        assertEquals("F♭4" to "Fes4", names("Fb4"))
+        assertEquals("E♯4" to "Eis4", names("E#4"))
+        assertEquals("B♯3" to "His3", names("B#3"))
+    }
+
+    @Test
+    fun `a written note and the same pitch spelled by style agree where they spell it alike`() {
+        NoteName.entries.forEach { name ->
+            val note = note(name)
+            AccidentalStyle.entries.forEach { style ->
+                assertEquals(
+                    NoteNaming.INTERNATIONAL.labelOf(note, style),
+                    NoteNaming.INTERNATIONAL.labelOf(SpelledNote.of(note, style)),
+                    "$name in $style",
+                )
+            }
+        }
+    }
+
+    @Test
     fun `naming changes no pitch`() {
         NoteName.entries.forEach {
             val note = note(it)

@@ -191,7 +191,7 @@ object StaffLayoutBuilder {
         var nextBarBeat = beatsPerBar
 
         written.forEachIndexed { position, piece ->
-            val spelling = piece.note?.let { TrebleStaff.placementOf(it, sequence.accidentalStyle) }
+            val spelling = sequence.writtenAt(piece.stepIndex)?.let { TrebleStaff.placementOf(it) }
                 // A rest is registered on the middle line whatever is around it: it says how long
                 // the silence is, not how high it is.
                 ?: StaffPlacement(REST_LINE_STEP, Accidental.NONE)
@@ -254,7 +254,7 @@ object StaffLayoutBuilder {
         val extent = if (sequence.notes.isEmpty()) {
             0..TOP_LINE_STEP
         } else {
-            staffStepRange(sequence.notes, sequence.accidentalStyle)
+            writtenStepRange(sequence.writtenNotes)
         }
         // A written name is taller than the head it stands in for, and a clef reaches past both
         // outer lines. Either one clipped is the easiest way to get this wrong, so both are asked.

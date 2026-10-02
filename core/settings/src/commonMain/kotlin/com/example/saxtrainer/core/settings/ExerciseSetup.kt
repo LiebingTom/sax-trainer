@@ -58,6 +58,12 @@ class ExerciseSetup(private val values: Map<String, String> = emptyMap()) {
         ?.filter { it.isNotBlank() }
         ?.mapNotNull(String::toIntOrNull)
 
+    /** A stored list of words, or null when nothing was stored - null and empty differ as for [ints]. */
+    fun strings(key: String): List<String>? = values[key]
+        ?.split(LIST_SEPARATOR)
+        ?.map(String::trim)
+        ?.filter { it.isNotEmpty() }
+
     internal fun asMap(): Map<String, String> = values
 
     /**
@@ -100,6 +106,13 @@ class ExerciseSetupBuilder internal constructor() {
 
     fun putInts(key: String, values: Iterable<Int>) =
         put(key, values.joinToString(ExerciseSetup.LIST_SEPARATOR))
+
+    /** Words containing no comma; one that does is a bug in the caller, not something to store. */
+    fun putStrings(key: String, values: Iterable<String>) {
+        val words = values.toList()
+        require(words.none { ExerciseSetup.LIST_SEPARATOR in it }) { "a stored word cannot hold a comma" }
+        put(key, words.joinToString(ExerciseSetup.LIST_SEPARATOR))
+    }
 
     internal fun build() = ExerciseSetup(values.toMap())
 }

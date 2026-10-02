@@ -2,6 +2,7 @@ package com.example.saxtrainer.feature.notequiz
 
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.SpelledNote
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,7 +16,7 @@ import kotlin.test.assertTrue
  */
 class DistractorsTest {
 
-    private fun note(name: NoteName, octave: Int = 4) = Note(name, octave)
+    private fun note(name: NoteName, octave: Int = 4) = SpelledNote.of(Note(name, octave))
 
     private val c4 = note(NoteName.C)
     private val cSharp4 = note(NoteName.C_SHARP)
@@ -39,12 +40,12 @@ class DistractorsTest {
 
     /** Every distractor drawn over [draws] questions, counted by note. */
     private fun counts(
-        target: Note,
-        pool: List<Note>,
+        target: SpelledNote,
+        pool: List<SpelledNote>,
         count: Int = 1,
         draws: Int = 4000,
         seed: Int = 1,
-    ): Map<Note, Int> {
+    ): Map<SpelledNote, Int> {
         val random = Random(seed)
         return (1..draws)
             .flatMap { distractorsFor(target, pool, count, random) }
@@ -52,7 +53,7 @@ class DistractorsTest {
             .eachCount()
     }
 
-    private fun Map<Note, Int>.of(note: Note) = this[note] ?: 0
+    private fun Map<SpelledNote, Int>.of(note: SpelledNote) = this[note] ?: 0
 
     // --- what is drawn at all ----------------------------------------------------------------------
 
@@ -63,7 +64,7 @@ class DistractorsTest {
                 repeat(100) { seed ->
                     val drawn = distractorsFor(target, pool, count = 3, random = Random(seed))
 
-                    assertEquals(3, drawn.size, "${target.label}, seed $seed")
+                    assertEquals(3, drawn.size, "${target.token}, seed $seed")
                     assertTrue(pool.containsAll(drawn), "seed $seed strayed outside the pool")
                     assertTrue(target !in drawn, "seed $seed offered the answer as a wrong one")
                     assertEquals(drawn.size, drawn.distinct().size, "seed $seed repeated an option")
@@ -152,7 +153,7 @@ class DistractorsTest {
     fun `the chromatic distractor is still chosen by distance`() {
         val drawn = counts(target = cSharp4, pool = sparse)
 
-        assertTrue(drawn.keys.all { it.name.isAccidental }, "one distractor, so it is the rule's: $drawn")
+        assertTrue(drawn.keys.all { it.note.name.isAccidental }, "one distractor, so it is the rule's: $drawn")
         assertTrue(drawn.of(dSharp4) > drawn.of(fSharp4), "D# is nearer than F#: $drawn")
         assertTrue(drawn.of(fSharp4) > 0, "F# is less likely, not excluded")
     }
@@ -174,7 +175,7 @@ class DistractorsTest {
         repeat(50) { seed ->
             val forSharp = distractorsFor(cSharp4, listOf(cSharp4, c4, d4, e4), 2, Random(seed))
             assertEquals(2, forSharp.size)
-            assertTrue(forSharp.none { it.name.isAccidental }, "there was no other accidental to offer")
+            assertTrue(forSharp.none { it.note.name.isAccidental }, "there was no other accidental to offer")
 
             val forNatural = distractorsFor(d4, listOf(d4, cSharp4, dSharp4, fSharp4), 3, Random(seed))
             assertEquals(setOf(cSharp4, dSharp4, fSharp4), forNatural.toSet())
@@ -188,4 +189,57 @@ class DistractorsTest {
 
         assertTrue(drawn.of(b4) > 0 || drawn.of(c4) > 0, "no natural was ever drawn: $drawn")
     }
+
+    // --- written notes ----------------------------------------------------------------------
+
+    private fun written(token: String) = SpelledNote.parse(token)!!
+
+    @Test
+    fun `no other spelling of the target is ever a wrong answer`() {
+        val eFlat = written("Eb4")
+        val pool = listOf("C4", "D4", "D#4", "Eb4", "E4", "F4").map(::written)
+
+        repeat(50) { seed ->
+            val drawn = distractorsFor(eFlat, pool, count = 5, random = Random(seed))
+            assertTrue(drawn.none { it.note == eFlat.note }, "seed $seed offered the same key: $drawn")
+        }
+    }
+
+    @Test
+    fun `a pitch the pool holds twice is offered once`() {
+        val pool = listOf("C4", "C#4", "Db4", "D4", "E4").map(::written)
+
+        repeat(50) { seed ->
+            val drawn = distractorsFor(written("E4"), pool, count = 4, random = Random(seed))
+            assertEquals(drawn.size, drawn.map { it.note }.distinct().size, "seed $seed: $drawn")
+            assertEquals(3, drawn.size, "three pitches besides the target, however many spellings")
+        }
+    }
+
+    @Test
+    fun `the same kind of note is decided by how it is written`() {
+        // F flat sounds as E, a white key, but it is written with a flat: as an answer next to
+        // naturals it would give itself away just as a black key would.
+        val fFlat = written("Fb4")
+        val pool = listOf(fFlat, written("C4"), written("D4"), written("Bb4"), written("G4"))
+
+        repeat(30) { seed ->
+            val drawn = distractorsFor(fFlat, pool, count = 1, random = Random(seed))
+            assertEquals(listOf(written("Bb4")), drawn, "seed $seed")
+        }
+    }
+
+    @Test
+    fun `neither spelling of a pitch held twice is favoured for coming first`() {
+        // C sharp is listed before D flat; over many questions both have to turn up.
+        val pool = listOf("C4", "C#4", "Db4", "E4").map(::written)
+
+        val offered = (0 until 200)
+            .flatMap { seed -> distractorsFor(written("C4"), pool, count = 2, random = Random(seed)) }
+            .filter { it.note == written("C#4").note }
+            .toSet()
+
+        assertEquals(setOf(written("C#4"), written("Db4")), offered)
+    }
 }
+

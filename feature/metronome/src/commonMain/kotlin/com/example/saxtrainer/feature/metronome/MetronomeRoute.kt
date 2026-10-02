@@ -14,6 +14,9 @@ import com.example.saxtrainer.core.settings.ExerciseSetupRepository
  * Stateful entry point of the metronome feature. The app module navigates here and supplies only
  * [newMetronome], [exerciseSetups] and [onBack], so the feature stays independent of both the
  * navigation implementation and of how a click is produced.
+ *
+ * Starring the metronome is offered on [MetronomeSetupRoute], the screen that leads here, not on
+ * this one - a player mid-click has no business reaching for it.
  */
 @Composable
 fun MetronomeRoute(
@@ -21,10 +24,6 @@ fun MetronomeRoute(
     exerciseSetups: ExerciseSetupRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    /** Whether the player has starred the metronome. */
-    isFavorite: Boolean = false,
-    /** Stars or unstars it, or null where starring makes no sense. */
-    onToggleFavorite: ((Boolean) -> Unit)? = null,
     viewModel: MetronomeViewModel = viewModel {
         MetronomeViewModel(engine = newMetronome.create(), exerciseSetups = exerciseSetups)
     },
@@ -44,7 +43,5 @@ fun MetronomeRoute(
         onTap = viewModel::tap,
         onBack = onBack,
         modifier = modifier,
-        isFavorite = isFavorite,
-        onToggleFavorite = onToggleFavorite,
     )
 }

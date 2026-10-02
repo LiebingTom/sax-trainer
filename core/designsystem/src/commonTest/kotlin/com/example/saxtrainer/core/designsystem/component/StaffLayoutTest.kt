@@ -6,6 +6,8 @@ import com.example.saxtrainer.core.music.NotatedDuration
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.NoteValue
+import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.core.music.TrebleStaff
 import com.example.saxtrainer.core.music.ToneSequence
 import com.example.saxtrainer.core.music.ToneStep
 import kotlin.test.Test
@@ -431,4 +433,36 @@ class StaffLayoutTest {
         assertEquals(listOf(2..3), layout.beamGroups)
     }
 
+    // --- written spelling ---------------------------------------------------------------------
+
+    private fun written(token: String) = SpelledNote.parse(token)!!
+
+    @Test
+    fun `a note written with its own spelling is drawn on its own letter, whatever the sequence's style`() {
+        val tokens = listOf("Eb4", "D#4", "Cb5", "B#4", "E#4", "Fb4")
+        val layout = StaffLayoutBuilder.of(
+            ToneSequence(
+                steps = tokens.map { ToneStep.of(written(it), quarter.beats()) },
+                accidentalStyle = AccidentalStyle.SHARPS,
+            ),
+        )
+
+        assertEquals(
+            tokens.map { TrebleStaff.placementOf(written(it)) },
+            layout.notes.map { it.placement },
+        )
+        assertEquals(
+            listOf(Accidental.FLAT, Accidental.SHARP, Accidental.FLAT, Accidental.SHARP, Accidental.SHARP, Accidental.FLAT),
+            layout.notes.map { it.placement.accidental },
+        )
+    }
+
+    @Test
+    fun `the staff is sized for the notes as written`() {
+        // C flat 6 is written on the C line above the staff, a step higher than the B5 it sounds as.
+        val cFlat = StaffLayoutBuilder.of(ToneSequence(steps = listOf(ToneStep.of(written("Cb6"), quarter.beats()))))
+        val b = StaffLayoutBuilder.of(ToneSequence(steps = listOf(ToneStep(Note(NoteName.B, 5), quarter.beats()))))
+
+        assertTrue(cFlat.stepRange.last > b.stepRange.last)
+    }
 }

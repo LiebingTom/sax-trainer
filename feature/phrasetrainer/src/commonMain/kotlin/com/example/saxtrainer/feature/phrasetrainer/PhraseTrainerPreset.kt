@@ -20,6 +20,10 @@ data class PhraseTrainerPreset(
      * they were written to last.
      */
     val checkDuration: Boolean = false,
+    /** How many times through the whole run. */
+    val repeats: Int = 1,
+    /** Whether every repeat's units are drawn from one shuffled pool instead of one pass at a time. */
+    val mixed: Boolean = false,
     /** Whether the trainer begins by itself rather than waiting for Start. */
     val autoStart: Boolean = true,
     /**
@@ -32,5 +36,6 @@ data class PhraseTrainerPreset(
 ) {
     init {
         require(showSeconds >= 0.0) { "a show time cannot be negative" }
+        require(repeats >= 1) { "a trainer run happens at least once, not $repeats times" }
     }
 }

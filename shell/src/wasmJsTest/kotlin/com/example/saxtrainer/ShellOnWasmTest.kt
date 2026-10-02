@@ -97,7 +97,17 @@ class ShellOnWasmTest {
         openAndReturn(card = "Note Trainer", shownThere = "Show the fingering")
         openAndReturn(card = "Long Tones", shownThere = "Starting note")
         openAndReturn(card = "Sequence Trainer", shownThere = "Add inverse")
-        openAndReturn(card = "Metronome", shownThere = "Tap tempo")
+
+        // The metronome's own settings screen, then the click itself one Start tap beyond it.
+        openAndReturn(card = "Metronome", shownThere = "Time signature")
+        scrolledTo("Metronome").performClick()
+        waitUntil("the metronome settings", BROWSER_TIMEOUT_MS) { shows("Time signature") }
+        onNodeWithText("Start").performClick()
+        waitUntil("the metronome", BROWSER_TIMEOUT_MS) { shows("Tap tempo") }
+        onNodeWithContentDescription("Back").performClick()
+        waitUntil("the metronome settings again", BROWSER_TIMEOUT_MS) { shows("Time signature") }
+        onNodeWithContentDescription("Back").performClick()
+
         onNodeWithContentDescription("Back").performClick()
 
         scrolledTo("Lessons").performClick()

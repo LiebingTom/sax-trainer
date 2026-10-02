@@ -30,9 +30,9 @@ import androidx.compose.ui.unit.isFinite
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.NoteValue
 import com.example.saxtrainer.core.music.NotatedDuration
-import com.example.saxtrainer.core.music.AccidentalStyle
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.ToneSequence
 import com.example.saxtrainer.core.music.ToneStep
 import com.example.saxtrainer.core.music.TrebleStaff
@@ -120,6 +120,13 @@ fun MusicalStaffView(
      */
     secondaryNote: (index: Int) -> Note? = { null },
     secondaryColor: Color = staffColor,
+    /**
+     * The same second note as it is to be written, for a caller that knows. By default
+     * [secondaryNote] is spelled the way the sequence spells its own notes.
+     */
+    secondaryWritten: (index: Int) -> SpelledNote? = { index ->
+        secondaryNote(index)?.let { SpelledNote.of(it, sequence.accidentalStyle) }
+    },
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -155,8 +162,8 @@ fun MusicalStaffView(
         scrollState.animateScrollTo(target)
     }
 
-    val description = sequence.steps.joinToString(" ") { step ->
-        step.note?.let { naming.labelOf(it, sequence.accidentalStyle) } ?: "rest"
+    val description = sequence.steps.indices.joinToString(" ") { index ->
+        sequence.writtenAt(index)?.let { naming.labelOf(it) } ?: "rest"
     }
 
     // Outside the scroll on purpose: inside it the width offered is infinite and says nothing.
@@ -234,8 +241,8 @@ fun MusicalStaffView(
                                 measurer = measurer,
                                 // A rest is never written as a name - the layout draws it as a
                                 // rest - so there is always a pitch here to name.
-                                text = sequence.steps[note.index].note
-                                    ?.let { naming.labelOf(it, sequence.accidentalStyle) }
+                                text = sequence.writtenAt(note.index)
+                                    ?.let { naming.labelOf(it) }
                                     .orEmpty(),
                                 style = labelStyle,
                                 color = paint,
@@ -264,13 +271,12 @@ fun MusicalStaffView(
                         val heard = if (note.isRest || note.continuesPrevious(layout, position)) {
                             null
                         } else {
-                            secondaryNote(note.index)
+                            secondaryWritten(note.index)
                         }
                         heard?.let {
                             drawSecondaryNote(
                                 geometry = geometry,
-                                note = it,
-                                accidentalStyle = sequence.accidentalStyle,
+                                written = it,
                                 color = secondaryColor,
                                 headX = (note.headXSpaces + SECONDARY_NOTE_GAP_SPACES) * space,
                             )
@@ -300,8 +306,8 @@ private fun widestLabelSpaces(
     lineSpacing: Dp,
     density: Density,
 ): Float {
-    val widestPx = sequence.steps.mapNotNull { it.note }.maxOf {
-        val label = naming.labelOf(it, sequence.accidentalStyle)
+    val widestPx = sequence.writtenNotes.maxOf {
+        val label = naming.labelOf(it)
         measurer.measure(AnnotatedString(label), labelStyle).size.width
     }
     val spacingPx = with(density) { lineSpacing.toPx() }
@@ -331,12 +337,11 @@ private const val SECONDARY_NOTE_GAP_SPACES = 2.6f
  */
 private fun DrawScope.drawSecondaryNote(
     geometry: StaffGeometry,
-    note: Note,
-    accidentalStyle: AccidentalStyle,
+    written: SpelledNote,
     color: Color,
     headX: Float,
 ) {
-    val placement = TrebleStaff.placementOf(note, accidentalStyle)
+    val placement = TrebleStaff.placementOf(written)
     drawLedgerLines(geometry, placement, color, headX)
     drawNoteHead(geometry, placement, color, headX, filled = true)
     drawAccidental(
@@ -444,24 +449,26 @@ private fun DrawScope.drawBeamGroup(
     val members = group.map { layout.notes[it] }
     if (members.size < 2) return
 
-    val first = members.first()
-    val last = members.last()
-    val stem = stemming[first.index] ?: return
-    val startX = stemX(geometry, first.headXSpaces * geometry.spacing, stem.stemUp)
-    val endX = stemX(geometry, last.headXSpaces * geometry.spacing, stem.stemUp)
-
-    // The beam belongs to the whole group, so it takes the group's colour: highlighted if the note
-    // being played is one of them, otherwise plain.
-    val beamColor = if (highlightIndex != null && members.any { it.index == highlightIndex }) {
-        noteColor(highlightIndex) ?: highlightColor
-    } else {
-        color
-    }
-
+    val stem = stemming[members.first().index] ?: return
     // As many beams as the shortest note in the group asks for.
     val beams = members.maxOf { it.notated?.value?.beamCount ?: 0 }
-    repeat(beams) { index ->
-        drawBeam(geometry, beamColor, startX, endX, stem.endY, stem.stemUp, index)
+
+    fun colorOf(note: StaffNotePlacement): Color =
+        noteColor(note.index) ?: if (note.index == highlightIndex) highlightColor else color
+
+    // One straight line, but drawn as a segment between each pair of neighbours rather than one
+    // rectangle across the whole group: a beam is otherwise the one place a per-note colour -
+    // right or wrong, in the phrase quiz's own feedback - never showed up, since it used to take
+    // the group's plain colour whatever the notes under it were marked. Each segment takes the
+    // colour of the note it leaves from, so the beam reads the same left to right as the stems and
+    // heads beside it.
+    for (index in 0 until members.size - 1) {
+        val left = members[index]
+        val right = members[index + 1]
+        val startX = stemX(geometry, left.headXSpaces * geometry.spacing, stem.stemUp)
+        val endX = stemX(geometry, right.headXSpaces * geometry.spacing, stem.stemUp)
+        val segmentColor = colorOf(left)
+        repeat(beams) { beam -> drawBeam(geometry, segmentColor, startX, endX, stem.endY, stem.stemUp, beam) }
     }
 }
 

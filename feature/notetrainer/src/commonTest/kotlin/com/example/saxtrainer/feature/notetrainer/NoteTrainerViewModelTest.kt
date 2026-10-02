@@ -5,6 +5,8 @@ import com.example.saxtrainer.core.exercise.MonotonicBeatClock
 import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.Exercise
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
@@ -34,6 +36,7 @@ import kotlin.time.Duration.Companion.seconds
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.settings.ExerciseSetup
+import com.example.saxtrainer.core.settings.exerciseSetup
 
 /** Reading a note, playing it, and what the trainer makes of that. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -83,7 +86,7 @@ class NoteTrainerViewModelTest {
     )
 
     /** Puts exactly these notes into the custom set and switches to it, as the dialog would. */
-    private fun NoteTrainerViewModel.selectOnly(vararg notes: Note) {
+    private fun NoteTrainerViewModel.selectOnly(vararg notes: SpelledNote) {
         editCustomNotes()
         clearCustomNotes()
         notes.forEach(::toggleCustomNote)
@@ -91,13 +94,15 @@ class NoteTrainerViewModelTest {
         setRandomOrder(false)
     }
 
-    private val c4 = Note(NoteName.C, 4)
-    private val d4 = Note(NoteName.D, 4)
-    private val e4 = Note(NoteName.E, 4)
+    private val c4 = SpelledNote.of(Note(NoteName.C, 4))
+    private val d4 = SpelledNote.of(Note(NoteName.D, 4))
+    private val e4 = SpelledNote.of(Note(NoteName.E, 4))
 
-    /** What a written note sounds like on the default tenor saxophone. */
-    private fun soundingFrequencyOf(written: Note) =
-        Instrument.TENOR_SAX.transposition.concertFor(written).frequencyHz()
+    private fun written(token: String) = assertNotNull(SpelledNote.parse(token))
+
+    /** What a written note sounds like on the default tenor saxophone - its pitch, whatever its spelling. */
+    private fun soundingFrequencyOf(written: SpelledNote) =
+        Instrument.TENOR_SAX.transposition.concertFor(written.note).frequencyHz()
 
     /**
      * Runs virtual time on for long enough to settle, and no longer.
@@ -488,6 +493,113 @@ class NoteTrainerViewModelTest {
         assertTrue(state.isPreconfigured)
     }
 
+    // --- written spelling ------------------------------------------------------------------
+
+    @Test
+    fun `a preset keeps every note as it is written, one pitch in two spellings included`() = trainerTest {
+        val dSharp = written("D#4")
+        val eFlat = written("Eb4")
+        val aFlat = written("Ab4")
+        val state = viewModel(preset = NoteTrainerPreset(notes = listOf(c4, dSharp, eFlat, aFlat))).uiState.value
+
+        assertEquals(listOf(c4, dSharp, eFlat, aFlat), state.activeNotes)
+        assertEquals(listOf("C4", "D♯4", "E♭4", "A♭4"), state.activeNotes.map(state::nameOf))
+        assertEquals(dSharp.note, eFlat.note, "two spellings, one pitch")
+    }
+
+    @Test
+    fun `a flat chosen by hand is still a flat when the trainer is opened again`() = trainerTest {
+        val setups = InMemoryExerciseSetupRepository()
+        val chosen = listOf(c4, d4, written("Eb4"), written("F4"), written("G4"), written("Ab4"), written("Bb4"))
+        viewModel(setups = setups).selectOnly(*chosen.toTypedArray())
+
+        val opened = viewModel(setups = setups).uiState.value
+
+        assertEquals(chosen, opened.activeNotes)
+        assertEquals(
+            listOf("C4", "D4", "E♭4", "F4", "G4", "A♭4", "B♭4"),
+            opened.activeNotes.map(opened::nameOf),
+        )
+    }
+
+    @Test
+    fun `a saved practice keeps its spelling when started and when reopened to be edited`() = trainerTest {
+        val configured = viewModel()
+        configured.selectOnly(c4, written("D#4"), written("Eb4"), written("Cb5"))
+        val saved = configured.uiState.value.toSetup()
+
+        val started = assertNotNull(noteTrainerPresetOf(saved))
+        assertEquals(listOf(c4, written("D#4"), written("Eb4"), written("Cb5")), started.notes)
+
+        val edited = viewModel(preset = assertNotNull(noteTrainerPresetOf(saved, editable = true))).uiState.value
+        assertEquals(setOf(c4, written("D#4"), written("Eb4"), written("Cb5")), edited.customNotes)
+        assertEquals(saved, edited.toSetup(), "editing it writes down the same spellings again")
+    }
+
+    @Test
+    fun `a setup saved before spellings were kept opens with the usual spellings`() = trainerTest {
+        val old = exerciseSetup {
+            put("note_set", "CUSTOM")
+            putInts("custom_notes", listOf(60, 63, 66, 70))
+        }
+
+        val preset = assertNotNull(noteTrainerPresetOf(old))
+
+        assertEquals(listOf("C4", "D♯4", "F♯4", "B♭4"), preset.notes.map { NoteNaming.INTERNATIONAL.labelOf(it) })
+    }
+
+    @Test
+    fun `a heard note is written the way the exercise writes it, or as it usually is`() = trainerTest {
+        val microphone = FakeMicrophone(frameDurationMs)
+        val viewModel = viewModel(microphone = microphone)
+        viewModel.selectOnly(c4, written("Eb4"))
+
+        viewModel.start()
+        advanceTimeBy(200)
+        microphone.frequencyHz = soundingFrequencyOf(written("D#4"))
+        advanceTimeBy(1_000)
+        assertEquals(written("Eb4"), viewModel.uiState.value.progress!!.detectedNote, "the exercise writes this pitch as E flat")
+
+        microphone.frequencyHz = soundingFrequencyOf(written("F#4"))
+        advanceTimeBy(1_000)
+        assertEquals(written("F#4"), viewModel.uiState.value.progress!!.detectedNote, "nothing in the exercise sounds like it")
+
+        viewModel.stop()
+        settle()
+    }
+
+    @Test
+    fun `a pitch the player plays is checked as a pitch, however the note is written`() = trainerTest {
+        val microphone = FakeMicrophone(frameDurationMs)
+        val viewModel = viewModel(microphone = microphone)
+        viewModel.selectOnly(written("Cb5"))
+
+        viewModel.start()
+        advanceTimeBy(200)
+        microphone.frequencyHz = soundingFrequencyOf(written("B4"))
+        advanceTimeBy(400)
+
+        val progress = viewModel.uiState.value.progress!!
+        assertEquals(Listening.CORRECT, progress.listening, "C flat 5 is fingered and heard as B4")
+        assertEquals(written("Cb5"), progress.detectedNote)
+
+        viewModel.stop()
+        settle()
+    }
+
+    @Test
+    fun `all selects every pitch once, not every spelling of it`() = trainerTest {
+        val viewModel = viewModel()
+        viewModel.editCustomNotes()
+        viewModel.selectAllCustomNotes()
+
+        val state = viewModel.uiState.value
+        val draft = state.customNotesDraft!!
+        assertEquals(draft.size, draft.map { it.note }.distinct().size)
+        assertTrue(state.availableNotes.size > draft.size, "the picker offers more spellings than pitches")
+        assertTrue(written("Eb4") in state.availableNotes && written("D#4") in state.availableNotes)
+    }
+
     @Test
     fun `the hint shows the fingering while the note is being asked for`() = trainerTest {
         val viewModel = viewModel(
@@ -527,7 +639,7 @@ class NoteTrainerViewModelTest {
     @Test
     fun `a preset cannot ask for a note the chart does not know`() = trainerTest {
         val state = viewModel(
-            preset = NoteTrainerPreset(notes = listOf(c4, Note(NoteName.C, 2))),
+            preset = NoteTrainerPreset(notes = listOf(c4, SpelledNote.of(Note(NoteName.C, 2)))),
         ).uiState.value
 
         assertEquals(listOf(c4), state.activeNotes)
@@ -667,6 +779,32 @@ class NoteTrainerViewModelTest {
             advanceTimeBy(1_500)
 
             assertEquals(0, viewModel.uiState.value.progress!!.noteIndex)
+        } finally {
+            viewModel.stop()
+            settle()
+        }
+    }
+
+    @Test
+    fun `one stray frame during a hold does not start it again`() = trainerTest {
+        val microphone = FakeMicrophone(frameDurationMs)
+        val viewModel = viewModel(microphone = microphone)
+        viewModel.selectOnly(c4, d4)
+        viewModel.setHoldBeats(Beats.of(2))
+
+        try {
+            viewModel.start()
+            advanceTimeBy(200)
+            microphone.frequencyHz = soundingFrequencyOf(c4)
+            advanceTimeBy(1_500)
+            // One glitch frame - a reed squeak, a harmonic the detector snapped onto for an
+            // instant - and straight back, unlike the sustained change in the test above.
+            microphone.frequencyHz = soundingFrequencyOf(e4)
+            advanceTimeBy(frameDurationMs)
+            microphone.frequencyHz = soundingFrequencyOf(c4)
+            advanceTimeBy(2_000)
+
+            assertEquals(1, viewModel.uiState.value.progress!!.noteIndex, "the hold survived one stray frame")
         } finally {
             viewModel.stop()
             settle()

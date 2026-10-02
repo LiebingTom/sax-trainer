@@ -1,6 +1,6 @@
 package com.example.saxtrainer.feature.notequiz
 
-import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.SpelledNote
 
 /**
  * A fully decided quiz: everything the setup screen would otherwise ask.
@@ -10,8 +10,11 @@ import com.example.saxtrainer.core.music.Note
  * button all come through this same door - which is why nothing here mentions lessons.
  */
 data class QuizPreset(
-    /** Notes the questions are drawn from. Anything the chart cannot show is dropped. */
-    val notes: List<Note>,
+    /**
+     * Notes the questions are drawn from, each written as it is to be read - E flat and D sharp are
+     * different entries though they sound the same. Anything the chart cannot show is dropped.
+     */
+    val notes: List<SpelledNote>,
     val mode: QuizMode = QuizMode.NOTE_TO_FINGERING,
     val questionCount: Int = 10,
     /** How long a right answer stays up before the next question; zero moves on at once. */
@@ -27,8 +30,10 @@ data class QuizPreset(
     val editable: Boolean = false,
 ) {
     init {
-        require(notes.size >= QuizQuestionGenerator.MIN_OPTIONS) {
-            "a quiz needs at least ${QuizQuestionGenerator.MIN_OPTIONS} notes to choose between"
+        // Pitches, not written notes, as everywhere else in the quiz: D sharp and E flat are one
+        // pitch and cannot be offered as wrong against each other, so together they are not a quiz.
+        require(QuizQuestionGenerator.pitchCountOf(notes) >= QuizQuestionGenerator.MIN_OPTIONS) {
+            "a quiz needs at least ${QuizQuestionGenerator.MIN_OPTIONS} different pitches to choose between"
         }
         require(questionCount >= 1) { "a quiz needs at least one question" }
         require(successDelaySeconds >= 0.0) { "a wait cannot be negative" }

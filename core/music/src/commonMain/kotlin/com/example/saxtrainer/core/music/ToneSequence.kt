@@ -12,16 +12,32 @@ data class ToneStep(
     /** The pitch to play, or null for a rest. */
     val note: Note?,
     val duration: Beats,
+    /**
+     * How the note is written, where the material has decided - E flat rather than D sharp. Null
+     * leaves it to the sequence's [ToneSequence.accidentalStyle]; see [ToneSequence.writtenAt].
+     */
+    val written: SpelledNote? = null,
 ) {
     init {
         require(duration > Beats.ZERO) { "a step must last at least some beats" }
+        require(written == null || written.note == note) {
+            "$written is not a way of writing $note"
+        }
     }
 
     val isRest: Boolean get() = note == null
 
+    /** How this step is written: its own spelling, or [style]'s when it has none. Null for a rest. */
+    fun writtenIn(style: AccidentalStyle): SpelledNote? =
+        written ?: note?.let { SpelledNote.of(it, style) }
+
     companion object {
         /** A silence of [duration]. */
         fun rest(duration: Beats): ToneStep = ToneStep(note = null, duration = duration)
+
+        /** A note written exactly as [written], sounding as its pitch. */
+        fun of(written: SpelledNote, duration: Beats): ToneStep =
+            ToneStep(note = written.note, duration = duration, written = written)
     }
 }
 
@@ -66,6 +82,23 @@ data class ToneSequence(
     /** The notes to be played, rests left out: a rest has no pitch to be one of these. */
     val notes: List<Note> get() = steps.mapNotNull { it.note }
 
+    /** The same notes as they are written, rests left out. */
+    val writtenNotes: List<SpelledNote> get() = steps.mapNotNull { it.writtenIn(accidentalStyle) }
+
+    /**
+     * How the step at [index] is written - the one answer the staff and every name drawn from this
+     * sequence share. A step's own spelling wins; otherwise [accidentalStyle] decides.
+     */
+    fun writtenAt(index: Int): SpelledNote? = steps[index].writtenIn(accidentalStyle)
+
+    /**
+     * The steps with each note's spelling written into it, so a step taken out of this sequence -
+     * into another one, or on its own - is still written the way this sequence writes it.
+     */
+    fun spelledSteps(): List<ToneStep> = steps.mapIndexed { index, step ->
+        writtenAt(index)?.let { step.copy(written = it) } ?: step
+    }
+
     val totalBeats: Beats
         get() = steps.fold(Beats.ZERO) { total, step -> total + step.duration }
 
@@ -97,6 +130,16 @@ data class ToneSequence(
             steps = listOf(ToneStep(note, notated.beats(timeSignature.beatUnit))),
             timeSignature = timeSignature,
             accidentalStyle = accidentalStyle,
+        )
+
+        /** One note, written exactly as [written]. */
+        fun of(
+            written: SpelledNote,
+            notated: NotatedDuration = NotatedDuration(NoteValue.QUARTER),
+            timeSignature: TimeSignature = TimeSignature.FOUR_FOUR,
+        ): ToneSequence = ToneSequence(
+            steps = listOf(ToneStep.of(written, notated.beats(timeSignature.beatUnit))),
+            timeSignature = timeSignature,
         )
     }
 }

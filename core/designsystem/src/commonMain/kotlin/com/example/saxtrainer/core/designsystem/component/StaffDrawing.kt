@@ -17,6 +17,7 @@ import com.example.saxtrainer.core.music.AccidentalStyle
 import com.example.saxtrainer.core.music.NotatedDuration
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteValue
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.conventionalStyle
 import com.example.saxtrainer.core.music.StaffPlacement
 import com.example.saxtrainer.core.music.TimeSignature
@@ -593,6 +594,22 @@ fun reservedStepRange(
     margin: Int = DEFAULT_STAFF_MARGIN,
 ): IntRange {
     val needed = staffStepRange(notes, styleOf)
+    return (needed.first - margin)..(needed.last + margin)
+}
+
+/**
+ * The room every one of [notes] needs together, each exactly as written - a C flat is measured on
+ * the C line, not on the B one it sounds as.
+ */
+fun writtenStepRange(notes: List<SpelledNote>): IntRange {
+    require(notes.isNotEmpty()) { "no notes to make room for" }
+    val extents = notes.map { extentOf(listOf(TrebleStaff.placementOf(it))) }
+    return extents.minOf { it.first }..extents.maxOf { it.last }
+}
+
+/** [reservedStepRange] for written notes: their room together, plus [margin] around it. */
+fun reservedWrittenStepRange(notes: List<SpelledNote>, margin: Int = DEFAULT_STAFF_MARGIN): IntRange {
+    val needed = writtenStepRange(notes)
     return (needed.first - margin)..(needed.last + margin)
 }
 

@@ -100,6 +100,7 @@ fun LongToneScreen(
             }
         },
         showTrail = !state.isBusy,
+        keepScreenOn = state.isBusy,
         header = headerOf(state),
         // The note being held is the subject; the meters that measure it belong below.
         subject = { NoteHeader(state, detectedNoteColor) },

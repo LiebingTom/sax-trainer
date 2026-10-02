@@ -3,9 +3,9 @@ package com.example.saxtrainer.core.phrase
 import com.example.saxtrainer.core.music.AccidentalStyle
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.NotatedDuration
 import com.example.saxtrainer.core.music.NoteValue
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.TimeSignature
 import com.example.saxtrainer.core.music.ToneStep
 import kotlinx.serialization.Serializable
@@ -79,7 +79,15 @@ fun parseManifest(text: String): List<String> =
 private fun toPhrase(source: PhraseJson): Phrase? {
     val timeSignature = timeSignatureOf(source.timeSignature)
     val bars = source.bars.map { bar ->
-        PhraseBar(bar.steps.map { step -> ToneStep(step.note?.let(::parseNote), durationOf(step.duration, timeSignature) ?: return null) })
+        PhraseBar(
+            bar.steps.map { step ->
+                val duration = durationOf(step.duration, timeSignature) ?: return null
+                // Kept exactly as the file writes it: an "Eb4" is an E flat on the page, not the
+                // D sharp its pitch would otherwise be spelled as.
+                step.note?.let(::parseWrittenNote)?.let { ToneStep.of(it, duration) }
+                    ?: ToneStep(null, duration)
+            },
+        )
     }
     return runCatching {
         Phrase(
@@ -111,19 +119,14 @@ private fun toPattern(source: PatternJson): PhraseRecipe? {
     }.getOrNull()
 }
 
-/** "C4", "F#4", "Bb3" - a letter, an optional sharp or flat, and an octave. Null if none of that. */
-internal fun parseNote(token: String): Note? {
-    val match = NOTE_PATTERN.matchEntire(token.trim()) ?: return null
-    val (letter, accidental, octaveText) = match.destructured
-    val base = NATURAL_SEMITONES[letter.uppercase().first()] ?: return null
-    val semitones = when (accidental) {
-        "#" -> base + 1
-        "b" -> base - 1
-        else -> base
-    }
-    val octave = octaveText.toIntOrNull() ?: return null
-    return Note(NoteName.ofSemitone(semitones), octave)
-}
+/**
+ * "C4", "F#4", "Bb3", "Cb4" - a letter, an optional sharp or flat, and the octave of that letter,
+ * kept as written. Null if it is none of that.
+ */
+internal fun parseWrittenNote(token: String): SpelledNote? = SpelledNote.parse(token)
+
+/** The pitch [parseWrittenNote] reads: "Cb4" sounds as B3, "B#3" as C4. */
+internal fun parseNote(token: String): Note? = parseWrittenNote(token)?.note
 
 /** "quarter", "eighth.", and so on - a note value, dotted or not, read the way a musician says it. */
 internal fun durationOf(token: String, timeSignature: TimeSignature): Beats? {
@@ -143,12 +146,6 @@ private fun accidentalStyleOf(token: String?): AccidentalStyle = when (token?.lo
     "flats" -> AccidentalStyle.FLATS
     else -> AccidentalStyle.SHARPS
 }
-
-private val NOTE_PATTERN = Regex("^([A-Ga-g])([#b]?)(-?\\d+)$")
-
-private val NATURAL_SEMITONES = mapOf(
-    'C' to 0, 'D' to 2, 'E' to 4, 'F' to 5, 'G' to 7, 'A' to 9, 'B' to 11,
-)
 
 private val NOTE_VALUES = mapOf(
     "whole" to NoteValue.WHOLE,

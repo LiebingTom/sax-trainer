@@ -7,6 +7,9 @@ import com.example.saxtrainer.core.settings.Exercise
 object SaxTrainerDestination {
     const val HOME = "home"
     const val METRONOME = "metronome"
+
+    /** Where the metronome is configured - the time signature it clicks in - and starred. */
+    const val METRONOME_SETUP = "metronome/setup"
     const val LONG_TONES = "longtones"
     const val NOTE_QUIZ = "notequiz"
     const val NOTE_TRAINER = "notetrainer"

@@ -1,6 +1,6 @@
 package com.example.saxtrainer.feature.phrasequiz
 
-import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.ToneStep
 import com.example.saxtrainer.core.phrase.Phrase
@@ -32,8 +32,11 @@ sealed interface PhraseQuizPhase {
         /** True once every note has a place, right or wrong. */
         val isSettled: Boolean get() = chosen.size == correct.size
 
-        /** The order built so far, read as pitches - what the top row draws as it fills up. */
-        val builtNotes: List<Note?> get() = chosen.map { options[it].note }
+        /**
+         * The order built so far, read as written notes - what the top row draws as it fills up.
+         * Every step here carries its spelling, so a tile is drawn and judged as it was written.
+         */
+        val builtNotes: List<SpelledNote?> get() = chosen.map { options[it].written }
     }
 
     /** Every note placed, held up for a moment before the next unit. */
@@ -43,10 +46,16 @@ sealed interface PhraseQuizPhase {
         val options: List<ToneStep>,
         val chosen: List<Int>,
     ) : PhraseQuizPhase {
-        val builtNotes: List<Note?> get() = chosen.map { options[it].note }
+        val builtNotes: List<SpelledNote?> get() = chosen.map { options[it].written }
 
-        /** Right only if every note landed in the right place - which tile it was never matters. */
-        val correctOrder: Boolean get() = builtNotes == correct.map { it.note }
+        /**
+         * Right only if every note landed in the right place - which tile it was never matters.
+         *
+         * Compared as written: where a unit holds one pitch twice, as D sharp and as E flat, the two
+         * are different things to put back and swapping them is wrong. No decoy shares a pitch with
+         * a note of the unit, so this never turns on a spelling the player was not shown.
+         */
+        val correctOrder: Boolean get() = builtNotes == correct.map { it.written }
     }
 
     data class Finished(val result: PhraseQuizResult) : PhraseQuizPhase
@@ -87,6 +96,14 @@ data class PhraseQuizUiState(
     /** Whether the scale-pattern window is open: octave, scale and the stored patterns to choose. */
     val patternPickerOpen: Boolean = false,
     val showSeconds: Double = 2.5,
+    /** How many times through the whole run - see [com.example.saxtrainer.core.phrase.repeated]. */
+    val repeats: Int = 1,
+    val repeatRange: IntRange = 1..12,
+    /**
+     * Whether every repeat's units are drawn from one shuffled pool instead of being walked one
+     * whole pass after another - see [com.example.saxtrainer.core.phrase.repeated].
+     */
+    val mixed: Boolean = false,
     /** Set only by a preset that is not being edited: the phrase to run, bypassing setup entirely. */
     val presetPhrase: Phrase? = null,
     /** True when a lesson handed the quiz a ready-made run, so there is no setup to show. */
@@ -118,12 +135,35 @@ data class PhraseQuizUiState(
     /** The practice units the current phrase is walked in - a unit is one or more bars wide. */
     val units: List<PracticeUnit> get() = phrase?.units.orEmpty()
 
+    /**
+     * How many units the whole run has: [units] repeated [repeats] times.
+     *
+     * A count only - which units land where is decided once, when the run actually starts, since
+     * [mixed] shuffles them and a setup screen must not reshuffle every time it is read.
+     */
+    val plannedUnitCount: Int get() = units.size * repeats
+
     /** A phrase needs notes to rebuild, so nothing chosen yet is not a quiz that can be started. */
     val canStart: Boolean get() = phrase != null
 
     companion object {
-        /** Octaves offered on the setup screen. */
-        val OCTAVE_RANGE: IntRange = 3..6
+        /**
+         * Octaves offered on the setup screen.
+         *
+         * Starts at 4, not lower: written octave 3 is below the saxophone family's lowest note
+         * (low Bb, A#3) for every root this app offers, so it could never be played - offering it
+         * would be a choice with no honest answer.
+         */
+        val OCTAVE_RANGE: IntRange = 4..6
         val DEFAULT_OCTAVE: Int = 4
+
+        /**
+         * How long a unit may be shown before it disappears: half-second steps up to five seconds,
+         * and, at the far end, shown until the player says they are ready - see the ViewModel's own
+         * `revealNow`, which moves a unit on early whichever of these is chosen.
+         */
+        val SHOW_SECONDS_OPTIONS: List<Double> = (1..10).map { it * 0.5 } + Double.POSITIVE_INFINITY
+        val SHOW_SECONDS_RANGE: ClosedFloatingPointRange<Double> =
+            SHOW_SECONDS_OPTIONS.first()..SHOW_SECONDS_OPTIONS.last()
     }
 }

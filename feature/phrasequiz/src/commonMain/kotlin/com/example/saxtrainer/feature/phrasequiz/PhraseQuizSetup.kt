@@ -25,6 +25,8 @@ internal fun PhraseQuizUiState.toSetup(): ExerciseSetup = exerciseSetup {
     putInts(KEY_OCTAVES, octaves)
     patternId?.let { put(KEY_PATTERN_ID, it) }
     put(KEY_SHOW_SECONDS, showSeconds)
+    put(KEY_REPEATS, repeats)
+    put(KEY_MIXED, mixed)
 }
 
 /**
@@ -60,6 +62,8 @@ internal fun PhraseQuizUiState.withSetup(
         octaves = storedOctaves,
         patternId = patternId,
         showSeconds = setup.double(KEY_SHOW_SECONDS, showSeconds).coerceAtLeast(0.0),
+        repeats = setup.int(KEY_REPEATS, repeats).coerceIn(repeatRange),
+        mixed = setup.boolean(KEY_MIXED, mixed),
     )
 }
 
@@ -91,6 +95,8 @@ internal fun PhraseQuizUiState.withPreset(
         octaves = scalePattern?.octaves ?: octaves,
         patternId = scalePattern?.patternId ?: patternId,
         showSeconds = preset.showSeconds,
+        repeats = preset.repeats.coerceIn(repeatRange),
+        mixed = preset.mixed,
         presetPhrase = if (preset.editable) null else resolved,
         isPreconfigured = !preset.editable,
     )
@@ -136,12 +142,15 @@ fun phraseQuizPresetOf(
     return PhraseQuizPreset(
         source = source,
         showSeconds = setup.double(KEY_SHOW_SECONDS, DEFAULT_SHOW_SECONDS).coerceAtLeast(0.0),
+        repeats = setup.int(KEY_REPEATS, DEFAULT_REPEATS).coerceAtLeast(1),
+        mixed = setup.boolean(KEY_MIXED, false),
         autoStart = autoStart,
         editable = editable,
     )
 }
 
 private const val DEFAULT_SHOW_SECONDS = 2.5
+private const val DEFAULT_REPEATS = 1
 
 private const val KEY_SOURCE_TYPE = "source_type"
 private const val KEY_PHRASE_ID = "phrase_id"
@@ -149,3 +158,5 @@ private const val KEY_SCALE_CHOICE = "scale_choice"
 private const val KEY_OCTAVES = "octaves"
 private const val KEY_PATTERN_ID = "pattern_id"
 private const val KEY_SHOW_SECONDS = "show_seconds"
+private const val KEY_REPEATS = "repeats"
+private const val KEY_MIXED = "mixed"

@@ -7,6 +7,8 @@ import com.example.saxtrainer.core.settings.UserLessonBook
 import com.example.saxtrainer.core.settings.exerciseSetup
 import com.example.saxtrainer.core.settings.plusGroup
 import com.example.saxtrainer.core.settings.plusLesson
+import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
+import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -38,6 +40,33 @@ class UserLessonsTest {
         assertEquals("Ledger lines", lesson.title)
         assertEquals(1, lesson.stepCount)
         assertEquals(TrainerId.NOTE_TRAINER, lesson.firstStep.trainerId)
+    }
+
+    @Test
+    fun `a saved practice is started with the spellings it was saved with`() {
+        // As the setup screens write it: the pitches, and beside them how each is written.
+        val spelled = exerciseSetup {
+            put("note_set", "CUSTOM")
+            putInts("custom_notes", listOf(60, 63, 68, 70))
+            putStrings("custom_written_notes", listOf("C4", "Eb4", "Ab4", "Bb4"))
+        }
+
+        val trainer = userUnitsOf(bookWith(TrainerId.NOTE_TRAINER, spelled)).single().lessons.single()
+        val quiz = userUnitsOf(bookWith(TrainerId.NOTE_QUIZ, spelled)).single().lessons.single()
+
+        val expected = listOf("C4", "Eb4", "Ab4", "Bb4")
+        assertEquals(expected, assertNotNull(noteTrainerPresetOf(trainer.firstStep)).notes.map { it.token })
+        assertEquals(expected, assertNotNull(noteQuizPresetOf(quiz.firstStep)).notes.map { it.token })
+    }
+
+    @Test
+    fun `a practice saved before spellings were kept is spelled as it always was`() {
+        val trainer = userUnitsOf(bookWith(TrainerId.NOTE_TRAINER)).single().lessons.single()
+
+        assertEquals(
+            listOf("C4", "D4", "E4", "F4"),
+            assertNotNull(noteTrainerPresetOf(trainer.firstStep)).notes.map { it.token },
+        )
     }
 
     @Test

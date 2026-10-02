@@ -1,6 +1,7 @@
 package com.example.saxtrainer.core.audio.metronome
 
 import com.example.saxtrainer.core.music.Tempo
+import com.example.saxtrainer.core.music.TimeSignature
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -114,6 +115,14 @@ class ClickCountInTest {
         override fun setBpm(bpm: Int) {
             _state.value = _state.value.copy(bpm = bpm)
         }
+
+        override fun setTimeSignature(signature: TimeSignature) {
+            _state.value = _state.value.copy(beatsPerBar = signature.beatsPerBar)
+        }
+
+        override fun setAccentFirstBeat(enabled: Boolean) = Unit
+
+        override fun setHalfBeatSound(enabled: Boolean) = Unit
 
         override fun start() {
             started = true

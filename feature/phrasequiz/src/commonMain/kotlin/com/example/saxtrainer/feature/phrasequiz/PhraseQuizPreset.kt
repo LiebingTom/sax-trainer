@@ -13,6 +13,10 @@ data class PhraseQuizPreset(
     val source: PhraseSource,
     /** How long a unit is shown before it is hidden. */
     val showSeconds: Double = 2.5,
+    /** How many times through the whole run. */
+    val repeats: Int = 1,
+    /** Whether every repeat's units are drawn from one shuffled pool instead of one pass at a time. */
+    val mixed: Boolean = false,
     /** Whether the quiz begins by itself rather than waiting for Start. */
     val autoStart: Boolean = true,
     /**
@@ -25,5 +29,6 @@ data class PhraseQuizPreset(
 ) {
     init {
         require(showSeconds >= 0.0) { "a show time cannot be negative" }
+        require(repeats >= 1) { "a quiz is run at least once, not $repeats times" }
     }
 }

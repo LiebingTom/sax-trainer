@@ -36,14 +36,14 @@ import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.component.StepSlider
-import com.example.saxtrainer.core.designsystem.component.reservedStepRange
-import com.example.saxtrainer.core.designsystem.component.staffStepRange
+import com.example.saxtrainer.core.designsystem.component.reservedWrittenStepRange
+import com.example.saxtrainer.core.designsystem.component.writtenStepRange
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.core.music.conventionalStyle
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
 import com.example.saxtrainer.core.designsystem.component.StaffPrefix
 import com.example.saxtrainer.core.music.ToneSequence
@@ -60,7 +60,7 @@ fun QuizScreen(
     state: QuizUiState,
     onSelectNoteSet: (NoteSet) -> Unit,
     onEditCustomNotes: () -> Unit,
-    onToggleCustomNote: (Note) -> Unit,
+    onToggleCustomNote: (SpelledNote) -> Unit,
     onSelectAllCustomNotes: () -> Unit,
     onClearCustomNotes: () -> Unit,
     onApplyCustomNotes: () -> Unit,
@@ -99,6 +99,7 @@ fun QuizScreen(
             }
         },
         showTrail = !state.isRunning,
+        keepScreenOn = state.isRunning,
         header = headerOf(state),
         subject = subject,
         timing = timingOf(state),
@@ -311,7 +312,7 @@ private fun AnswerSlotOptions(
         is StaffNoteAnswers -> {
             // Every option is drawn on a staff of the same height, so a high answer and a low
             // one line up and the row does not jump as the question changes.
-            val extent = staffStepRange(answers.options, Note::conventionalStyle)
+            val extent = writtenStepRange(answers.options)
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
                 verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
@@ -323,9 +324,8 @@ private fun AnswerSlotOptions(
                         contentDescription = state.nameOf(note),
                     ) {
                         MusicalNoteView(
-                            primaryNote = note,
+                            written = note,
                             lineSpacing = OptionStaffSpacing,
-                            accidentalStyle = note.conventionalStyle(),
                             stepRange = extent,
                             primaryColor = MaterialTheme.colorScheme.onSurface,
                             staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -538,7 +538,7 @@ private fun QuizSetupPreview() {
     SaxTrainerTheme {
         QuizScreen(
             state = QuizUiState(
-                activeNotes = listOf(Note(com.example.saxtrainer.core.music.NoteName.C, 4)),
+                activeNotes = listOf(SpelledNote.of(Note(com.example.saxtrainer.core.music.NoteName.C, 4))),
                 questionCounts = listOf(10, 20, 30),
             ),
             onSelectNoteSet = {},
@@ -611,7 +611,10 @@ private fun sessionFractionOf(step: Int, stepCount: Int): Float =
  * Kept out of the panel below it so the question and the answers to it never run together.
  */
 @Composable
-private fun QuestionSubject(question: QuizQuestion, pool: List<Note>) {
+private fun QuestionSubject(
+    question: QuizQuestion,
+    pool: List<SpelledNote>,
+) {
     when (question) {
         // Sized for every note the quiz can ask about, so the band does not change height when a
         // note that hangs below the staff comes up.
@@ -628,7 +631,7 @@ private fun QuestionSubject(question: QuizQuestion, pool: List<Note>) {
             closingBar = false,
             centerMusic = true,
             reserveAccidentals = true,
-            stepRange = reservedStepRange(pool.ifEmpty { listOf(question.note) }),
+            stepRange = reservedWrittenStepRange(pool.ifEmpty { listOf(question.note) }),
         )
 
         is FingeringToNote -> SaxophoneFingeringView(

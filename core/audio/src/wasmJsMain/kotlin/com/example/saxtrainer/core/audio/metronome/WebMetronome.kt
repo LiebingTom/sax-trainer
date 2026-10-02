@@ -49,8 +49,12 @@ import kotlinx.coroutines.launch
  * latency either, so this is the same behaviour on both platforms rather than a web shortfall.
  */
 class WebMetronome(
-    private val timeSignature: TimeSignature = TimeSignature.FOUR_FOUR,
+    timeSignature: TimeSignature = TimeSignature.FOUR_FOUR,
 ) : Metronome {
+
+    // Read fresh every bar by the scheduling coroutine while it is written from the caller, the
+    // same way targetBpm is - a signature change takes effect from the next bar, not mid-bar.
+    private var timeSignature: TimeSignature = timeSignature
 
     private val _state = MutableStateFlow(
         MetronomeEngineState(beatsPerBar = timeSignature.beatsPerBar),
@@ -61,6 +65,8 @@ class WebMetronome(
 
     private var running = false
     private var targetBpm = Metronome.DEFAULT_BPM
+    private var accentFirstBeat = true
+    private var halfBeatSound = true
     private var job: Job? = null
     private var context: AudioContextHandle? = null
 
@@ -74,10 +80,28 @@ class WebMetronome(
         _state.value = _state.value.copy(bpm = clamped)
     }
 
+    override fun setTimeSignature(signature: TimeSignature) {
+        timeSignature = signature
+        _state.value = _state.value.copy(beatsPerBar = signature.beatsPerBar)
+    }
+
+    override fun setAccentFirstBeat(enabled: Boolean) {
+        accentFirstBeat = enabled
+    }
+
+    override fun setHalfBeatSound(enabled: Boolean) {
+        halfBeatSound = enabled
+    }
+
     override fun start() {
         if (running) return
         running = true
-        _state.value = _state.value.copy(isRunning = true, beatInBar = 0, error = null)
+        _state.value = _state.value.copy(
+            isRunning = true,
+            beatInBar = 0,
+            halfBeatActive = false,
+            error = null,
+        )
         job = scope.launch { schedule() }
     }
 
@@ -86,7 +110,7 @@ class WebMetronome(
         job?.cancel()
         job = null
         closeAudio()
-        _state.value = _state.value.copy(isRunning = false, beatInBar = 0)
+        _state.value = _state.value.copy(isRunning = false, beatInBar = 0, halfBeatActive = false)
     }
 
     /** Gives up the audio context. The metronome can be started again afterwards. */
@@ -107,35 +131,60 @@ class WebMetronome(
         val clicks = ClickSynth(sampleRate)
         val accent = opened.bufferOf(clicks.accentClick)
         val normal = opened.bufferOf(clicks.normalClick)
+        val halfBuffer = opened.bufferOf(clicks.halfClick)
 
-        // Scheduled beats waiting to be heard, oldest first: their audio-clock times and which beat
-        // of the bar each is. The queue is what turns "scheduled" into "published once played".
+        // Scheduled events waiting to be heard, oldest first: their audio-clock times, which beat of
+        // the bar each belongs to, and whether it is the half beat after that beat rather than the
+        // beat itself. The queue is what turns "scheduled" into "published once played".
         val pendingTime = ArrayDeque<Double>()
         val pendingBeatInBar = ArrayDeque<Int>()
+        val pendingIsHalf = ArrayDeque<Boolean>()
 
         var beatInBar = 0
+        // Which beat the half beat about to play sits after - captured when its full beat is
+        // scheduled, since [beatInBar] has already moved on to the next one by then.
+        var lastBeat = 0
+        // False: the next event is a full beat. True: the next event is the half beat after it.
+        var halfPhase = false
         var beatCounter = _state.value.beatCounter
         // Far enough ahead that the first click is scheduled rather than already late.
-        var nextBeat = currentTimeOf(opened) + FIRST_BEAT_DELAY_SECONDS
+        var nextEvent = currentTimeOf(opened) + FIRST_BEAT_DELAY_SECONDS
 
         while (currentCoroutineIsActive() && running) {
             val now = currentTimeOf(opened)
 
-            while (nextBeat < now + LOOKAHEAD_SECONDS) {
-                playBufferAt(opened, if (beatInBar == 0) accent else normal, nextBeat)
-                pendingTime.addLast(nextBeat)
-                pendingBeatInBar.addLast(beatInBar)
-                beatInBar = (beatInBar + 1) % timeSignature.beatsPerBar
-                // Read afresh each time, so a tempo change takes effect from the next beat that has
+            while (nextEvent < now + LOOKAHEAD_SECONDS) {
+                if (!halfPhase) {
+                    val beat = beatInBar
+                    val click = if (beat == 0 && accentFirstBeat) accent else normal
+                    playBufferAt(opened, click, nextEvent)
+                    pendingTime.addLast(nextEvent)
+                    pendingBeatInBar.addLast(beat)
+                    pendingIsHalf.addLast(false)
+                    lastBeat = beat
+                    beatInBar = (beat + 1) % timeSignature.beatsPerBar
+                } else {
+                    if (halfBeatSound) playBufferAt(opened, halfBuffer, nextEvent)
+                    pendingTime.addLast(nextEvent)
+                    pendingBeatInBar.addLast(lastBeat)
+                    pendingIsHalf.addLast(true)
+                }
+                halfPhase = !halfPhase
+                // Read afresh each time, so a tempo change takes effect from the next event that has
                 // not been scheduled yet - the same behaviour the Android engine has.
-                nextBeat += SECONDS_PER_MINUTE / targetBpm
+                nextEvent += SECONDS_PER_MINUTE / targetBpm / 2.0
             }
 
             while (pendingTime.isNotEmpty() && pendingTime.first() <= now) {
                 pendingTime.removeFirst()
-                beatCounter++
+                // Only a full beat advances beatCounter: clickCountIn and anything else that
+                // counts on it depends on exactly one increment per beat, half beats included or
+                // not would silently double every count it drives.
+                val isHalf = pendingIsHalf.removeFirst()
+                if (!isHalf) beatCounter++
                 _state.value = _state.value.copy(
                     beatInBar = pendingBeatInBar.removeFirst(),
+                    halfBeatActive = isHalf,
                     beatCounter = beatCounter,
                 )
             }

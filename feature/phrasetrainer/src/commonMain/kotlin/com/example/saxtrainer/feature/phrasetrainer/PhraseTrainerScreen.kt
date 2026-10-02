@@ -32,11 +32,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.saxtrainer.core.designsystem.component.BoundedMusicalPage
 import com.example.saxtrainer.core.designsystem.component.CheckableRow
 import com.example.saxtrainer.core.designsystem.component.FieldRow
 import com.example.saxtrainer.core.designsystem.component.IconSource
 import com.example.saxtrainer.core.designsystem.component.InlineIcon
-import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
 import com.example.saxtrainer.core.designsystem.component.NotesPreviewDialog
 import com.example.saxtrainer.core.designsystem.component.PracticeTitleActions
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
@@ -46,13 +46,16 @@ import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.SelectableCard
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
-import com.example.saxtrainer.core.designsystem.component.StaffPrefix
+import com.example.saxtrainer.core.designsystem.component.StepSlider
 import com.example.saxtrainer.core.designsystem.icon.ArrowBack
 import com.example.saxtrainer.core.designsystem.icon.Preview as PreviewIcon
 import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
+import com.example.saxtrainer.core.designsystem.text.toFixed
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
+import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.phrase.Phrase
 import com.example.saxtrainer.core.phrase.PhraseRecipe
 import com.example.saxtrainer.core.phrase.PhraseSourceType
@@ -75,6 +78,9 @@ fun PhraseTrainerScreen(
     onSelectScaleChoice: (String) -> Unit,
     onToggleOctave: (Int) -> Unit,
     onSelectPattern: (String) -> Unit,
+    onSelectRepeats: (Int) -> Unit,
+    onSetMixed: (Boolean) -> Unit,
+    onShowSecondsChange: (Double) -> Unit,
     onCheckDurationChange: (Boolean) -> Unit,
     onStart: () -> Unit,
     onTogglePause: () -> Unit,
@@ -102,10 +108,10 @@ fun PhraseTrainerScreen(
             }
         },
         showTrail = !state.isBusy,
+        keepScreenOn = state.isBusy,
         header = headerOf(state),
         subject = subject,
         actions = { Actions(state, onStart, onTogglePause, onSkip, onStop, onReset) },
-        verticalArrangement = Arrangement.Top,
     ) {
         Spacer(Modifier.height(Dimens.spaceSm))
 
@@ -117,6 +123,9 @@ fun PhraseTrainerScreen(
                     state = state,
                     onOpenLibraryPicker = onOpenLibraryPicker,
                     onOpenPatternPicker = onOpenPatternPicker,
+                    onSelectRepeats = onSelectRepeats,
+                    onSetMixed = onSetMixed,
+                    onShowSecondsChange = onShowSecondsChange,
                     onCheckDurationChange = onCheckDurationChange,
                 )
             }
@@ -127,6 +136,8 @@ fun PhraseTrainerScreen(
                 text = "Watch closely - it is about to disappear.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
 
             is PhraseTrainerPhase.Listening -> ListeningPanel(state)
@@ -169,6 +180,9 @@ private fun Setup(
     state: PhraseTrainerUiState,
     onOpenLibraryPicker: () -> Unit,
     onOpenPatternPicker: () -> Unit,
+    onSelectRepeats: (Int) -> Unit,
+    onSetMixed: (Boolean) -> Unit,
+    onShowSecondsChange: (Double) -> Unit,
     onCheckDurationChange: (Boolean) -> Unit,
 ) {
     SectionHeader("Source")
@@ -189,6 +203,33 @@ private fun Setup(
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SelectionSummary(state)
+
+    Spacer(Modifier.height(Dimens.spaceSm))
+    SectionHeader("How much")
+    StepSlider(
+        title = "Repeat",
+        supportingText = "${state.repeats} time${if (state.repeats == 1) "" else "s"} through, " +
+            "${state.plannedUnitCount} unit${if (state.plannedUnitCount == 1) "" else "s"} in all",
+        value = state.repeats,
+        options = state.repeatRange.toList(),
+        valueLabel = { "$it" },
+        onValueChange = onSelectRepeats,
+    )
+    CheckableRow(
+        title = "Mixed order",
+        supportingText = "Shuffle the units instead of playing them in order - across every " +
+            "repeat together, not one pass at a time.",
+        checked = state.mixed,
+        onCheckedChange = onSetMixed,
+    )
+    StepSlider(
+        title = "Preview time",
+        supportingText = "How long a unit stays on screen before it disappears",
+        value = state.showSeconds,
+        options = PhraseTrainerUiState.SHOW_SECONDS_OPTIONS,
+        valueLabel = { "${it.toFixed(1)} s" },
+        onValueChange = onShowSecondsChange,
+    )
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("Checking")
@@ -245,7 +286,7 @@ private fun SelectionSummary(state: PhraseTrainerUiState) {
                 detail?.let {
                     Text(text = it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                val unitCount = state.units.size
+                val unitCount = state.plannedUnitCount
                 if (unitCount > 0) {
                     Text(
                         text = "$unitCount unit${if (unitCount == 1) "" else "s"} to play, " +
@@ -393,6 +434,7 @@ private fun ScalePatternWindow(
         OctaveChoiceDialog(
             octaves = PhraseTrainerUiState.OCTAVE_RANGE.toList(),
             chosen = state.octaves,
+            root = state.scaleChoice?.root,
             onToggle = onToggleOctave,
             onDismiss = { octaveDialogOpen = false },
         )
@@ -448,7 +490,13 @@ private fun ScaleChoiceDialog(
  * its own, separate action, the same as the note quiz's own custom-notes dialog.
  */
 @Composable
-private fun OctaveChoiceDialog(octaves: List<Int>, chosen: Set<Int>, onToggle: (Int) -> Unit, onDismiss: () -> Unit) {
+private fun OctaveChoiceDialog(
+    octaves: List<Int>,
+    chosen: Set<Int>,
+    root: NoteName?,
+    onToggle: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Choose octaves") },
@@ -457,6 +505,7 @@ private fun OctaveChoiceDialog(octaves: List<Int>, chosen: Set<Int>, onToggle: (
                 octaves.forEach { octave ->
                     CheckableRow(
                         title = "Octave $octave",
+                        supportingText = octaveHint(octave, root),
                         checked = octave in chosen,
                         onCheckedChange = { onToggle(octave) },
                     )
@@ -470,6 +519,33 @@ private fun OctaveChoiceDialog(octaves: List<Int>, chosen: Set<Int>, onToggle: (
     )
 }
 
+/**
+ * What octave [octave] actually means for [root]: the root note it starts on, so "octave 4" is
+ * never just a bare number, and a flag where that note falls outside what a saxophone can write -
+ * see [SaxWrittenRange].
+ */
+private fun octaveHint(octave: Int, root: NoteName?): String {
+    if (root == null) return "the root note in this octave"
+    val note = Note(root, octave)
+    val label = "${root.displayName}$octave"
+    return when {
+        note.midiNumber < SaxWrittenRange.LOWEST.midiNumber -> "starts on $label - below the saxophone's range"
+        note.midiNumber > SaxWrittenRange.HIGHEST.midiNumber -> "starts on $label - altissimo, needs years of practice"
+        else -> "starts on $label"
+    }
+}
+
+/**
+ * The written range every saxophone shares - low Bb up to high F#, no altissimo - the same across
+ * soprano, alto, tenor and baritone, since a fingering chart is written pitch (see
+ * `core/fingering/TenorSaxophoneFingerings`, which this only borrows the two ends of rather than
+ * depending on the whole chart - this trainer already keeps core:fingering out on purpose).
+ */
+private object SaxWrittenRange {
+    val LOWEST = Note(NoteName.A_SHARP, 3)
+    val HIGHEST = Note(NoteName.F_SHARP, 6)
+}
+
 /** "Choose octaves" while nothing is picked, otherwise the chosen ones in order, lowest first. */
 private fun octaveSummary(octaves: Set<Int>): String =
     octaves.sorted().joinToString(", ").ifEmpty { "Choose octaves" }
@@ -479,13 +555,12 @@ private fun octaveSummary(octaves: Set<Int>): String =
 private fun ShowingSubject(state: PhraseTrainerUiState, phase: PhraseTrainerPhase.Showing) {
     val phrase = state.phrase ?: return
     val unit = state.units.getOrNull(phase.unitIndex) ?: return
-    MusicalStaffView(
+    BoundedMusicalPage(
         sequence = phrase.toneSequenceOf(unit),
         modifier = Modifier.fillMaxWidth(),
+        naming = state.noteNaming,
         color = MaterialTheme.colorScheme.primary,
         staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        prefix = StaffPrefix.Treble,
-        fillWidth = true,
     )
 }
 
@@ -494,6 +569,7 @@ private fun ShowingSubject(state: PhraseTrainerUiState, phase: PhraseTrainerPhas
 private fun ListeningPanel(state: PhraseTrainerUiState) {
     val progress = state.progress
     Column(
+        modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
     ) {
@@ -551,7 +627,7 @@ private fun ReadyPanel(state: PhraseTrainerUiState) {
             }
             if (state.units.isNotEmpty()) {
                 Text(
-                    text = "${state.units.size} to play",
+                    text = "${state.plannedUnitCount} to play",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -662,6 +738,9 @@ private fun PhraseTrainerSetupPreview() {
             onSelectScaleChoice = {},
             onToggleOctave = {},
             onSelectPattern = {},
+            onSelectRepeats = {},
+            onSetMixed = {},
+            onShowSecondsChange = {},
             onCheckDurationChange = {},
             onStart = {},
             onTogglePause = {},

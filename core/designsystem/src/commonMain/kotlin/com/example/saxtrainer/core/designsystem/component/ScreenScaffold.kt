@@ -158,8 +158,15 @@ fun ScreenScaffold(
     scrollable: Boolean = true,
     /** How [content] is spaced within that space. */
     verticalArrangement: Arrangement.Vertical = Arrangement.Center,
+    /**
+     * Whether the device should be kept from sleeping right now - see [KeepScreenOn]. Off by
+     * default: only a screen mid-exercise passes true, and only for as long as it actually is.
+     */
+    keepScreenOn: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    KeepScreenOn(keepScreenOn)
+
     // The same surface family as the cards, one step below them, so band and cards always match.
     val chrome = MaterialTheme.colorScheme.surfaceContainer
     val trail = if (showTrail) LocalScreenTrail.current else emptyList()

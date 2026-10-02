@@ -121,7 +121,9 @@ private val metronome = HomeEntry(
     title = "Metronome",
     description = "Steady click with accented downbeat and tap tempo.",
     icon = IconSource.Vector(SaxTrainerIcons.Metronome),
-    route = SaxTrainerDestination.METRONOME,
+    // Its settings screen, not the click itself: that is where the time signature is chosen and
+    // where the star lives, the one place a practice tool offers it.
+    route = SaxTrainerDestination.METRONOME_SETUP,
     trainerId = TrainerId.METRONOME,
 )
 

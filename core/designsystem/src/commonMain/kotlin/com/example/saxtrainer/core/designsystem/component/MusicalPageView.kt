@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -20,8 +23,10 @@ import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.NoteValue
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.ToneSequence
 import com.example.saxtrainer.core.music.ToneStep
+import com.example.saxtrainer.core.music.TrebleStaff
 import com.example.saxtrainer.core.music.bars
 
 /**
@@ -139,6 +144,13 @@ fun MusicalPageView(
     barsPerSystem: Int = DefaultBarsPerSystem,
     /** Rows shown at once. [Int.MAX_VALUE] puts the whole piece on one page, however long it is. */
     systemsPerPage: Int = DefaultSystemsPerPage,
+    /** A second note shown beside the one at that index - see [MusicalStaffView]'s own parameter. */
+    secondaryNote: (index: Int) -> Note? = { null },
+    secondaryColor: Color = staffColor,
+    /** The second note as written - see [MusicalStaffView]'s own parameter. */
+    secondaryWritten: (index: Int) -> SpelledNote? = { index ->
+        secondaryNote(index)?.let { SpelledNote.of(it, sequence.accidentalStyle) }
+    },
 ) {
     val firstPrefix = StaffPrefix.treble(sequence.timeSignature)
     // A clef on every row, a time signature only on the first - and the same room kept for it
@@ -162,7 +174,19 @@ fun MusicalPageView(
         }
         // Sized once for the whole piece: every row is then the same height, whatever happens to
         // be written on it, and the page does not jog as it turns.
-        val stepRange = remember(sequence) { StaffLayoutBuilder.of(sequence, firstPrefix).stepRange }
+        //
+        // Widened for whichever secondary notes there are, not just the primary sequence's own:
+        // without this a secondary note far enough from its primary in pitch would fall outside the
+        // row's own vertical extent and land on the row above or below it rather than beside the
+        // note it belongs next to.
+        val stepRange = remember(sequence, secondaryWritten) {
+            val primary = StaffLayoutBuilder.of(sequence, firstPrefix).stepRange
+            sequence.steps.indices.fold(primary) { range, index ->
+                val written = secondaryWritten(index) ?: return@fold range
+                val placement = TrebleStaff.placementOf(written)
+                range.including(extentOf(listOf(placement)))
+            }
+        }
 
         val pages = systems.chunked(systemsPerPage.coerceIn(1, systems.size))
         val page = pages.indexOfFirst { rows ->
@@ -190,6 +214,9 @@ fun MusicalPageView(
                     // Only the last row of the last page ends the piece; the others are carried on.
                     closingBar = system.firstStep == systems.last().firstStep,
                     stepRange = stepRange,
+                    secondaryNote = { index -> secondaryNote(system.firstStep + index) },
+                    secondaryColor = secondaryColor,
+                    secondaryWritten = { index -> secondaryWritten(system.firstStep + index) },
                 )
             }
         }
@@ -217,6 +244,62 @@ private fun spacingFor(
     if (wanted <= 0f) return lineSpacing
     return (width / wanted).coerceIn(minOf(minLineSpacing, lineSpacing), lineSpacing)
 }
+
+/**
+ * [MusicalPageView] with no paging at all - every row of the piece drawn at once - bounded to at
+ * most [maxHeight] and scrolling internally past it rather than growing into whatever sits below.
+ *
+ * A phrase or a scale pattern shown whole this way never pushes the screen's own action buttons
+ * off the bottom: short units - most of them - never scroll, since their rows fit well inside
+ * [maxHeight] and a scroll container shorter than its content does nothing visible. Only a unit
+ * with more bars than a phone screen can show a row of falls back to scrolling, the way a page of
+ * sheet music would be turned by hand rather than shrunk to fit.
+ */
+@Composable
+fun BoundedMusicalPage(
+    sequence: ToneSequence,
+    modifier: Modifier = Modifier,
+    highlightIndex: Int? = null,
+    noteColor: (index: Int) -> Color? = { null },
+    naming: NoteNaming = NoteNaming.INTERNATIONAL,
+    color: Color = LocalContentColor.current,
+    staffColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    highlightColor: Color = MaterialTheme.colorScheme.primary,
+    lineSpacing: Dp = DefaultPageLineSpacing,
+    minLineSpacing: Dp = MinPageLineSpacing,
+    barsPerSystem: Int = DefaultBarsPerSystem,
+    maxHeight: Dp = DefaultBoundedPageMaxHeight,
+    /** A second note shown beside the one at that index - see [MusicalStaffView]'s own parameter. */
+    secondaryNote: (index: Int) -> Note? = { null },
+    secondaryColor: Color = staffColor,
+    /** The second note as written - see [MusicalStaffView]'s own parameter. */
+    secondaryWritten: (index: Int) -> SpelledNote? = { index ->
+        secondaryNote(index)?.let { SpelledNote.of(it, sequence.accidentalStyle) }
+    },
+) {
+    Column(modifier = modifier.heightIn(max = maxHeight).verticalScroll(rememberScrollState())) {
+        MusicalPageView(
+            sequence = sequence,
+            modifier = Modifier.fillMaxWidth(),
+            highlightIndex = highlightIndex,
+            noteColor = noteColor,
+            naming = naming,
+            color = color,
+            staffColor = staffColor,
+            highlightColor = highlightColor,
+            lineSpacing = lineSpacing,
+            minLineSpacing = minLineSpacing,
+            barsPerSystem = barsPerSystem,
+            systemsPerPage = Int.MAX_VALUE,
+            secondaryNote = secondaryNote,
+            secondaryColor = secondaryColor,
+            secondaryWritten = secondaryWritten,
+        )
+    }
+}
+
+/** Room for about four rows before a very long unit starts scrolling instead of growing. */
+private val DefaultBoundedPageMaxHeight = 320.dp
 
 /** Big enough to read from where a saxophone puts the player, small enough for two bars of it. */
 private val DefaultPageLineSpacing = 13.dp

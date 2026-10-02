@@ -49,6 +49,8 @@ data class TimeSignature(
     override fun toString(): String = "$beatsPerBar/$beatUnit"
 
     companion object {
+        val TWO_FOUR = TimeSignature(2, 4)
+        val THREE_FOUR = TimeSignature(3, 4)
         val FOUR_FOUR = TimeSignature(4, 4)
     }
 }

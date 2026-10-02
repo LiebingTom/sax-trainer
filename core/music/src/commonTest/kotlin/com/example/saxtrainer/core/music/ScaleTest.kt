@@ -38,4 +38,25 @@ class ScaleTest {
         assertEquals(Scales.BLUES, Scales.byId("blues"))
         assertEquals(null, Scales.byId("does_not_exist"))
     }
+
+    @Test
+    fun aSevenNoteScaleWritesEachDegreeOnTheNextLetter() {
+        assertEquals((0..6).toList(), (1..7).map { Scales.MAJOR.letterStep(it) })
+        assertEquals(7, Scales.MAJOR.letterStep(8), "the octave is the root's letter again, one up")
+    }
+
+    @Test
+    fun theBluesSaysWhichLetterEachOfItsSixDegreesIsWrittenOn() {
+        assertEquals(listOf(0, 2, 3, 4, 4, 6), (1..6).map { Scales.BLUES.letterStep(it) })
+        assertEquals(7, Scales.BLUES.letterStep(7))
+    }
+
+    @Test
+    fun aScaleOfAnotherSizeSaysNothingAboutSpellingUnlessTold() {
+        val wholeTone = Scale(id = "wt", name = "Whole tone", intervals = listOf(0, 2, 4, 6, 8, 10))
+        assertEquals(null, wholeTone.letterStep(1))
+        assertFailsWith<IllegalArgumentException> {
+            Scale(id = "bad", name = "Bad", intervals = listOf(0, 3, 7), letterSteps = listOf(0, 2))
+        }
+    }
 }

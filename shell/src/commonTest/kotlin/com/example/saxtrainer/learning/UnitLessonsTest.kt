@@ -134,7 +134,7 @@ class UnitLessonsTest {
 
         assertEquals(8, quiz.notes.size, "one octave, G to G")
         assertTrue(
-            quiz.notes.any { it == Note(NoteName.F_SHARP, 5) },
+            quiz.notes.any { it.note == Note(NoteName.F_SHARP, 5) && it.token == "F#5" },
             "without the F sharp it is not G major",
         )
     }

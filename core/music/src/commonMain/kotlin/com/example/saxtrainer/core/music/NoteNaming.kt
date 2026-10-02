@@ -46,6 +46,12 @@ enum class NoteNaming(val displayName: String, val description: String) {
     fun labelOf(note: Note, style: AccidentalStyle = note.conventionalStyle()): String =
         nameOf(note, style) + note.octave
 
+    /** The name of a written note, exactly as written: E flat stays E flat, B sharp stays B sharp. */
+    fun nameOf(written: SpelledNote): String = nameOf(written.spelling)
+
+    /** The same with its written octave, as in "C♭4" - the octave of the letter, not of the pitch. */
+    fun labelOf(written: SpelledNote): String = nameOf(written) + written.octave
+
     private fun nameOf(spelling: NoteSpelling): String {
         val letter = LETTERS[spelling.letterIndex]
         return when (this) {

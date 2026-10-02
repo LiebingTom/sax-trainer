@@ -4,6 +4,8 @@ import com.example.saxtrainer.core.fingering.FingeringKind
 import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.core.music.spelledConventionally
 import kotlin.math.abs
 import kotlin.random.Random
 import kotlin.test.Test
@@ -25,11 +27,13 @@ class QuizQuestionGeneratorTest {
         Note(NoteName.A, 4),
         Note(NoteName.B, 4),
         Note(NoteName.C, 5),
-    )
+    ).spelledConventionally()
+
+    private fun written(token: String) = SpelledNote.parse(token)!!
 
     private fun generate(
         mode: QuizMode = QuizMode.NOTE_TO_FINGERING,
-        pool: List<Note> = octave,
+        pool: List<SpelledNote> = octave,
         seed: Int = 1,
     ) = QuizQuestionGenerator.generate(pool, mode, chart, Random(seed))
 
@@ -39,7 +43,7 @@ class QuizQuestionGeneratorTest {
             val question = generate(seed = seed) as NoteToFingering
 
             assertEquals(
-                chart.fingeringsFor(question.note)!!.standard,
+                chart.fingeringsFor(question.note.note)!!.standard,
                 question.options[question.correctIndex],
                 "seed $seed",
             )
@@ -52,7 +56,7 @@ class QuizQuestionGeneratorTest {
             val question = generate(QuizMode.FINGERING_TO_NOTE, seed = seed) as FingeringToNote
 
             assertEquals(question.note, question.options[question.correctIndex], "seed $seed")
-            assertEquals(chart.fingeringsFor(question.note)!!.standard, question.fingering)
+            assertEquals(chart.fingeringsFor(question.note.note)!!.standard, question.fingering)
         }
     }
 
@@ -60,7 +64,7 @@ class QuizQuestionGeneratorTest {
     fun `no alternate fingering ever appears`() {
         // Standard grips only. It is what makes a question unambiguous without any special
         // handling, and what a player learning their first octave should be asked.
-        val notes = listOf(Note(NoteName.A_SHARP, 4), Note(NoteName.F_SHARP, 4)) + octave
+        val notes = listOf(Note(NoteName.A_SHARP, 4), Note(NoteName.F_SHARP, 4)).spelledConventionally() + octave
 
         repeat(40) { seed ->
             val question = generate(pool = notes, seed = seed)
@@ -103,13 +107,13 @@ class QuizQuestionGeneratorTest {
         // Distractors far from the target make the question a test of eyesight rather than of
         // recognition, so they are drawn mostly from around the note being asked about. Drawn, not
         // ranked, so this is a tendency over many questions rather than a bound on every one.
-        val wide = Note.range(Note(NoteName.B, 3), Note(NoteName.F_SHARP, 6))
+        val wide = Note.range(Note(NoteName.B, 3), Note(NoteName.F_SHARP, 6)).spelledConventionally()
 
         val distances = (0 until 300).flatMap { seed ->
             val question = generate(QuizMode.FINGERING_TO_NOTE, wide, seed) as FingeringToNote
             question.options
                 .filterNot { it == question.note }
-                .map { abs(it.midiNumber - question.note.midiNumber) }
+                .map { abs(it.note.midiNumber - question.note.note.midiNumber) }
         }
 
         val near = distances.count { it <= 4 }.toDouble() / distances.size
@@ -131,7 +135,7 @@ class QuizQuestionGeneratorTest {
                         previous = previous,
                     )
 
-                    assertNotEquals(previous, question.note, "seed $seed asked ${previous.label} again")
+                    assertNotEquals(previous, question.note, "seed $seed asked $previous again")
                 }
             }
         }
@@ -190,13 +194,13 @@ class QuizQuestionGeneratorTest {
     @Test
     fun `a note the chart cannot finger is never asked about`() {
         // Well below the lowest note a tenor saxophone has.
-        val pool = octave + Note(NoteName.C, 2)
+        val pool = octave + SpelledNote.of(Note(NoteName.C, 2))
 
         repeat(20) { seed ->
             val question = generate(QuizMode.FINGERING_TO_NOTE, pool, seed) as FingeringToNote
 
-            assertNotEquals(Note(NoteName.C, 2), question.note)
-            assertTrue(question.options.all(chart::supports))
+            assertNotEquals(Note(NoteName.C, 2), question.note.note)
+            assertTrue(question.options.all { chart.supports(it.note) })
         }
     }
 
@@ -204,7 +208,7 @@ class QuizQuestionGeneratorTest {
 
     @Test
     fun `the combined question asks ten names and four grips`() {
-        val question = generate(QuizMode.NOTE_AND_FINGERING, pool = chart.supportedNotes)
+        val question = generate(QuizMode.NOTE_AND_FINGERING, pool = chart.supportedNotes.spelledConventionally())
             as NoteAndFingering
 
         val names = question.names
@@ -214,7 +218,7 @@ class QuizQuestionGeneratorTest {
         assertEquals(1, names.options.count { it == question.note }, "the answer appears once")
 
         val grips = question.fingerings
-        val correctGrip = chart.fingeringsFor(question.note)!!.standard
+        val correctGrip = chart.fingeringsFor(question.note.note)!!.standard
         assertEquals(4, grips.optionCount, "four grips is a screenful; ten would not be")
         assertEquals(4, grips.options.distinct().size)
         assertEquals(correctGrip, grips.options[grips.correctIndex])
@@ -235,6 +239,66 @@ class QuizQuestionGeneratorTest {
 
         val grips = question.fingerings
         assertEquals(4, grips.optionCount, "the grips were never short of candidates")
-        assertEquals(chart.fingeringsFor(question.note)!!.standard, grips.options[grips.correctIndex])
+        assertEquals(chart.fingeringsFor(question.note.note)!!.standard, grips.options[grips.correctIndex])
+    }
+
+    // --- written notes ----------------------------------------------------------------------
+
+    @Test
+    fun `no spelling of the asked pitch is ever offered as a wrong answer`() {
+        // D sharp and E flat both chosen: whichever is asked, the other is the same key.
+        val pool = listOf("C4", "D4", "D#4", "Eb4", "E4", "F4", "F#4", "Gb4", "G4").map(::written)
+
+        QuizMode.entries.forEach { mode ->
+            repeat(60) { seed ->
+                val question = generate(mode, pool, seed)
+                question.answers.forEach { answers ->
+                    val options = when (answers) {
+                        is NameAnswers -> answers.options
+                        is StaffNoteAnswers -> answers.options
+                        is FingeringAnswers -> null
+                    } ?: return@forEach
+                    val wrong = options.filterIndexed { index, _ -> index != answers.correctIndex }
+                    assertTrue(
+                        wrong.none { it.note == question.note.note },
+                        "$mode seed $seed offered another spelling of ${question.note} as wrong: $options",
+                    )
+                    assertEquals(options.size, options.map { it.note }.distinct().size, "two options, one pitch")
+                    assertEquals(question.note, options[answers.correctIndex], "the answer is the note as written")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `both spellings of one pitch can each be asked`() {
+        val pool = listOf("C4", "D#4", "Eb4", "F4").map(::written)
+
+        val asked = (0 until 80).map { generate(QuizMode.NOTE_TO_NAME, pool, it).note }.toSet()
+
+        assertTrue(written("D#4") in asked && written("Eb4") in asked, "asked only $asked")
+    }
+
+    @Test
+    fun `the next question is never the previous pitch respelled`() {
+        val pool = listOf("D#4", "Eb4", "F4").map(::written)
+
+        repeat(50) { seed ->
+            val question = QuizQuestionGenerator.generate(
+                pool = pool,
+                mode = QuizMode.NOTE_TO_NAME,
+                chart = chart,
+                random = Random(seed),
+                previous = written("D#4"),
+            )
+            assertEquals(written("F4"), question.note, "seed $seed asked the same key again")
+        }
+    }
+
+    @Test
+    fun `one pitch in two spellings is not a question`() {
+        assertFailsWith<IllegalArgumentException> {
+            generate(QuizMode.NOTE_TO_NAME, listOf("D#4", "Eb4").map(::written))
+        }
     }
 }

@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.NoteSets
-import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.settings.Exercise
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
@@ -63,12 +63,15 @@ class QuizViewModel(
 
     fun editCustomNotes() = updateSetup { it.copy(customNotesDraft = it.customNotes) }
 
-    fun toggleCustomNote(note: Note) = updateSetup { state ->
+    fun toggleCustomNote(note: SpelledNote) = updateSetup { state ->
         val draft = state.customNotesDraft ?: return@updateSetup state
         state.copy(customNotesDraft = if (note in draft) draft - note else draft + note)
     }
 
-    fun selectAllCustomNotes() = updateSetup { it.copy(customNotesDraft = it.availableNotes.toSet()) }
+    /** Every pitch once, written the way it usually is - not every spelling of it. */
+    fun selectAllCustomNotes() = updateSetup {
+        it.copy(customNotesDraft = NoteSets.notesOf(NoteSet.CHROMATIC, config.chart, emptySet()).toSet())
+    }
 
     fun clearCustomNotes() = updateSetup { it.copy(customNotesDraft = emptySet()) }
 
@@ -288,7 +291,7 @@ class QuizViewModel(
      * about: a preset names notes, so as something to edit it is always a custom set.
      */
     private fun QuizUiState.withPreset(preset: QuizPreset): QuizUiState {
-        val notes = preset.notes.filter(config.chart::supports)
+        val notes = preset.notes.filter { config.chart.supports(it.note) }
         return copy(
             noteSet = if (preset.editable) NoteSet.CUSTOM else noteSet,
             customNotes = if (preset.editable) notes.toSet() else customNotes,
@@ -301,12 +304,12 @@ class QuizViewModel(
     }
 
     private fun initialState(): QuizUiState {
-        val notes = config.chart.supportedNotes
+        val everyPitch = NoteSets.notesOf(NoteSet.CHROMATIC, config.chart, emptySet()).toSet()
         val state = QuizUiState(
-            availableNotes = notes,
+            availableNotes = NoteSets.choicesOf(config.chart),
             noteSet = NoteSet.BEGINNER,
-            customNotes = notes.toSet(),
-            activeNotes = NoteSets.notesOf(NoteSet.BEGINNER, config.chart, notes.toSet()),
+            customNotes = everyPitch,
+            activeNotes = NoteSets.notesOf(NoteSet.BEGINNER, config.chart, everyPitch),
             questionCount = config.defaultQuestionCount,
             questionCounts = config.questionCounts,
             successDelaySeconds = config.defaultSuccessDelaySeconds,

@@ -1,8 +1,8 @@
 package com.example.saxtrainer.feature.notetrainer
 
 import com.example.saxtrainer.core.exercise.NoteOrder
-import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.SpelledNote
 
 /**
  * A fully decided exercise: everything the setup screen would otherwise ask the player.
@@ -12,8 +12,11 @@ import com.example.saxtrainer.core.music.Beats
  * button all come through this same door - which is why nothing here mentions lessons.
  */
 data class NoteTrainerPreset(
-    /** Notes the exercise draws from. Anything the chart cannot show is dropped. */
-    val notes: List<Note>,
+    /**
+     * Notes the exercise draws from, each written as it is to be read - E flat and D sharp are
+     * different entries though they sound the same. Anything the chart cannot show is dropped.
+     */
+    val notes: List<SpelledNote>,
     val order: NoteOrder = NoteOrder.RANDOM,
     val rounds: Int = 1,
     /** Whether the fingering is offered while the note is being asked for. */

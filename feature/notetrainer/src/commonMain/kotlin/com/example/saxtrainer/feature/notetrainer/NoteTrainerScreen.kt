@@ -38,7 +38,7 @@ import com.example.saxtrainer.core.designsystem.component.StepSlider
 import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.component.StaffPrefix
 import com.example.saxtrainer.core.designsystem.component.fingeringHeightOf
-import com.example.saxtrainer.core.designsystem.component.reservedStepRange
+import com.example.saxtrainer.core.designsystem.component.reservedWrittenStepRange
 import com.example.saxtrainer.core.designsystem.component.staffStepRange
 import com.example.saxtrainer.core.designsystem.text.toFixed
 import com.example.saxtrainer.core.designsystem.theme.Dimens
@@ -48,6 +48,7 @@ import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.ToneSequence
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.NotatedDuration
@@ -69,7 +70,7 @@ fun NoteTrainerScreen(
     state: NoteTrainerUiState,
     onSelectNoteSet: (NoteSet) -> Unit,
     onEditCustomNotes: () -> Unit,
-    onToggleCustomNote: (Note) -> Unit,
+    onToggleCustomNote: (SpelledNote) -> Unit,
     onSelectAllCustomNotes: () -> Unit,
     onClearCustomNotes: () -> Unit,
     onApplyCustomNotes: () -> Unit,
@@ -115,6 +116,7 @@ fun NoteTrainerScreen(
                 }
             },
             showTrail = !state.isBusy,
+            keepScreenOn = state.isBusy,
             header = headerOf(state),
             subject = noteSubject,
             timing = timingOf(state),
@@ -545,7 +547,7 @@ private fun NoteTrainerSetupPreview() {
     SaxTrainerTheme {
         NoteTrainerScreen(
             state = NoteTrainerUiState(
-                activeNotes = listOf(Note(NoteName.C, 4), Note(NoteName.D, 4)),
+                activeNotes = listOf(Note(NoteName.C, 4), Note(NoteName.D, 4)).map { SpelledNote.of(it) },
                 holdOptions = listOf(0, 2, 4, 8).map(Beats::of),
             ),
             onSelectNoteSet = {},
@@ -649,7 +651,7 @@ private fun NoteSubject(state: NoteTrainerUiState) {
         closingBar = false,
         centerMusic = true,
         reserveAccidentals = true,
-        stepRange = reservedStepRange(state.activeNotes),
+        stepRange = reservedWrittenStepRange(state.activeNotes),
     )
 }
 

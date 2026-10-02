@@ -1,5 +1,6 @@
 package com.example.saxtrainer.core.exercise
 
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import kotlin.test.Test
@@ -124,7 +125,7 @@ class PracticeOrderTest {
 
     @Test
     fun `there is no next note in an empty pool`() {
-        assertFailsWith<IllegalArgumentException> { randomNoteAvoiding(emptyList(), null) }
+        assertFailsWith<IllegalArgumentException> { randomNoteAvoiding(emptyList<Note>(), null) }
     }
 
     @Test
@@ -142,13 +143,63 @@ class PracticeOrderTest {
 
     @Test
     fun `nothing selected is nothing to practise`() {
-        assertTrue(practiceOrder(emptyList(), NoteOrder.RANDOM, rounds = 3).isEmpty())
+        assertTrue(practiceOrder(emptyList<Note>(), NoteOrder.RANDOM, rounds = 3).isEmpty())
     }
 
     @Test
     fun `an exercise cannot have zero rounds`() {
         assertFailsWith<IllegalArgumentException> {
             practiceOrder(notes, NoteOrder.ORDERED, rounds = 0)
+        }
+    }
+
+    // --- written notes, judged by pitch -----------------------------------------------------------
+
+    private fun written(token: String) = SpelledNote.parse(token)!!
+
+    @Test
+    fun `two spellings of one pitch are never asked for back to back while anything else is left`() {
+        val pool = listOf("C4", "D#4", "Eb4", "F4", "Gb4", "F#4").map(::written)
+
+        repeat(100) { seed ->
+            val order = practiceOrder(pool, NoteOrder.RANDOM, rounds = 3, random = Random(seed)) { it.note }
+
+            assertEquals(pool.size * 3, order.size, "every written note, every round")
+            order.zipWithNext().forEach { (first, second) ->
+                assertNotEquals(first.note, second.note, "seed $seed played $first then $second: one key twice")
+            }
+        }
+    }
+
+    @Test
+    fun `nothing but one pitch in two spellings still ends`() {
+        val pool = listOf(written("D#4"), written("Eb4"))
+
+        val order = practiceOrder(pool, NoteOrder.RANDOM, rounds = 5, random = Random(3)) { it.note }
+
+        assertEquals(10, order.size, "nothing else to put between them, so they follow each other")
+        assertEquals(pool.toSet(), order.toSet())
+    }
+
+    @Test
+    fun `without shared pitches the shuffle is exactly the one it always was`() {
+        val pool = listOf(c4, d4, e4)
+
+        repeat(20) { seed ->
+            assertEquals(
+                practiceOrder(pool, NoteOrder.RANDOM, rounds = 4, random = Random(seed)),
+                practiceOrder(pool.map { SpelledNote.of(it) }, NoteOrder.RANDOM, rounds = 4, random = Random(seed)) { it.note }
+                    .map { it.note },
+            )
+        }
+    }
+
+    @Test
+    fun `the next note drawn is never the previous pitch respelled`() {
+        val pool = listOf(written("D#4"), written("Eb4"), written("F4"))
+
+        repeat(30) { seed ->
+            assertEquals(written("F4"), randomNoteAvoiding(pool, written("Eb4"), Random(seed)) { it.note })
         }
     }
 }

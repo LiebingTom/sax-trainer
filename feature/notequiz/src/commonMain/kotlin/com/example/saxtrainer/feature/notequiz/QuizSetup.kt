@@ -4,19 +4,22 @@ import com.example.saxtrainer.core.fingering.FingeringChart
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.fingering.SaxophoneFingerings
-import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.settings.ExerciseSetup
 import com.example.saxtrainer.core.settings.exerciseSetup
+import com.example.saxtrainer.core.settings.putWrittenNotes
+import com.example.saxtrainer.core.settings.writtenNotes
 
 /**
  * How this quiz's setup is written down and read back.
  *
  * Only what the setup screen asks for. Notes travel as MIDI numbers: the one way of writing a pitch
- * that no display setting, naming convention or transposition can change.
+ * that no display setting, naming convention or transposition can change - and, beside them, as the
+ * notes they are written as, since an E flat chosen to be read is not a D sharp. See
+ * [putWrittenNotes].
  */
 internal fun QuizUiState.toSetup(): ExerciseSetup = exerciseSetup {
     put(KEY_NOTE_SET, noteSet)
-    putInts(KEY_CUSTOM_NOTES, customNotes.map { it.midiNumber }.sorted())
+    putWrittenNotes(KEY_CUSTOM_NOTES, KEY_CUSTOM_WRITTEN_NOTES, customNotes)
     put(KEY_MODE, mode)
     put(KEY_QUESTION_COUNT, questionCount)
     put(KEY_SUCCESS_DELAY, successDelaySeconds)
@@ -31,9 +34,8 @@ internal fun QuizUiState.toSetup(): ExerciseSetup = exerciseSetup {
 internal fun QuizUiState.withSetup(setup: ExerciseSetup, chart: FingeringChart): QuizUiState {
     if (setup.isEmpty) return this
 
-    val remembered = setup.ints(KEY_CUSTOM_NOTES)
-        ?.map(Note::fromMidi)
-        ?.filter(chart::supports)
+    val remembered = setup.writtenNotes(KEY_CUSTOM_NOTES, KEY_CUSTOM_WRITTEN_NOTES)
+        ?.filter { chart.supports(it.note) }
         ?.toSet()
     val custom = remembered ?: customNotes
     val noteSet = setup.enum(KEY_NOTE_SET, NoteSet.entries, this.noteSet)
@@ -64,10 +66,9 @@ fun quizPresetOf(
     autoStart: Boolean = true,
     editable: Boolean = false,
 ): QuizPreset? {
-    val custom = setup.ints(KEY_CUSTOM_NOTES)
+    val custom = setup.writtenNotes(KEY_CUSTOM_NOTES, KEY_CUSTOM_WRITTEN_NOTES)
         .orEmpty()
-        .map(Note::fromMidi)
-        .filter(SaxophoneFingerings::supports)
+        .filter { SaxophoneFingerings.supports(it.note) }
         .toSet()
     // An absent note set is the one the setup screen itself starts on, not an empty custom set:
     // a practice nobody has narrowed down is the beginner's notes, and reading it as "no notes"
@@ -77,7 +78,7 @@ fun quizPresetOf(
         chart = SaxophoneFingerings,
         customNotes = custom,
     )
-    if (notes.size < QuizQuestionGenerator.MIN_OPTIONS) return null
+    if (QuizQuestionGenerator.pitchCountOf(notes) < QuizQuestionGenerator.MIN_OPTIONS) return null
 
     return QuizPreset(
         notes = notes,
@@ -96,6 +97,7 @@ private const val DEFAULT_SUCCESS_DELAY = 1.0
 
 private const val KEY_NOTE_SET = "note_set"
 private const val KEY_CUSTOM_NOTES = "custom_notes"
+private const val KEY_CUSTOM_WRITTEN_NOTES = "custom_written_notes"
 private const val KEY_MODE = "mode"
 private const val KEY_QUESTION_COUNT = "question_count"
 private const val KEY_SUCCESS_DELAY = "success_delay"

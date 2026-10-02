@@ -2,7 +2,7 @@ package com.example.saxtrainer.feature.notequiz
 
 import com.example.saxtrainer.core.exercise.randomNoteAvoiding
 import com.example.saxtrainer.core.fingering.FingeringChart
-import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.SpelledNote
 import kotlin.random.Random
 
 /**
@@ -17,6 +17,10 @@ import kotlin.random.Random
  * Distractors are drawn from the same pool by [distractorsFor]: near in pitch more often than not,
  * and of the same kind of note as the target where the pool has one. Near neighbours are what make
  * the question a test of recognition rather than of eyesight.
+ *
+ * The pool is written notes, and may hold one pitch twice - D sharp and E flat. The question is
+ * about one of them as written; no other spelling of its pitch is ever offered against it, and no
+ * two options share a pitch, so the rule above - distinct options, distinct diagrams - still holds.
  */
 object QuizQuestionGenerator {
 
@@ -36,19 +40,22 @@ object QuizQuestionGenerator {
      * another to ask.
      */
     fun generate(
-        pool: List<Note>,
+        pool: List<SpelledNote>,
         mode: QuizMode,
         chart: FingeringChart,
         random: Random = Random.Default,
-        previous: Note? = null,
+        previous: SpelledNote? = null,
     ): QuizQuestion {
-        val notes = pool.distinct().filter(chart::supports)
-        require(notes.size >= MIN_OPTIONS) { "a question needs at least $MIN_OPTIONS notes to choose between" }
+        val notes = pool.distinct().filter { chart.supports(it.note) }
+        require(pitchCountOf(notes) >= MIN_OPTIONS) {
+            "a question needs at least $MIN_OPTIONS pitches to choose between"
+        }
 
         val asked = askedAs(mode, random)
-        val target = randomNoteAvoiding(notes, previous, random)
+        // Never the previous pitch, in whatever spelling: E flat after D sharp is the same note again.
+        val target = randomNoteAvoiding(notes, previous, random) { it.note }
 
-        fun optionsFor(slot: Int): List<Note> =
+        fun optionsFor(slot: Int): List<SpelledNote> =
             candidatesFor(target, notes, asked.slots[slot].optionCount, random)
 
         return when (asked) {
@@ -59,7 +66,7 @@ object QuizQuestionGenerator {
                     note = target,
                     names = NameAnswers(names, names.indexOf(target)),
                     fingerings = FingeringAnswers(
-                        options = grips.map { chart.fingeringsFor(it)!!.standard },
+                        options = grips.map { chart.fingeringsFor(it.note)!!.standard },
                         correctIndex = grips.indexOf(target),
                     ),
                 )
@@ -68,7 +75,7 @@ object QuizQuestionGenerator {
             QuizMode.NOTE_TO_FINGERING -> optionsFor(0).let { answers ->
                 NoteToFingering(
                     note = target,
-                    options = answers.map { chart.fingeringsFor(it)!!.standard },
+                    options = answers.map { chart.fingeringsFor(it.note)!!.standard },
                     correctIndex = answers.indexOf(target),
                 )
             }
@@ -84,7 +91,7 @@ object QuizQuestionGenerator {
             else -> optionsFor(0).let { answers ->
                 FingeringToNote(
                     note = target,
-                    fingering = chart.fingeringsFor(target)!!.standard,
+                    fingering = chart.fingeringsFor(target.note)!!.standard,
                     options = answers,
                     correctIndex = answers.indexOf(target),
                 )
@@ -111,14 +118,17 @@ object QuizQuestionGenerator {
      * there are ten notes to draw them from, and fewer only when there are fewer.
      */
     private fun candidatesFor(
-        target: Note,
-        notes: List<Note>,
+        target: SpelledNote,
+        notes: List<SpelledNote>,
         wanted: Int,
         random: Random,
-    ): List<Note> {
-        val count = wanted.coerceIn(MIN_OPTIONS, notes.size)
+    ): List<SpelledNote> {
+        val count = wanted.coerceIn(MIN_OPTIONS, pitchCountOf(notes))
         return (listOf(target) + distractorsFor(target, notes, count - 1, random)).shuffled(random)
     }
+
+    /** How many different pitches [notes] holds - what a question can actually choose between. */
+    fun pitchCountOf(notes: Collection<SpelledNote>): Int = notes.map { it.note }.distinct().size
 
     const val MIN_OPTIONS = 2
 }

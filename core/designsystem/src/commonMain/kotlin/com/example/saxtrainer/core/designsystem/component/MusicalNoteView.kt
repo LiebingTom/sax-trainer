@@ -18,6 +18,7 @@ import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.AccidentalStyle
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.StaffPlacement
 import com.example.saxtrainer.core.music.TrebleStaff
 import com.example.saxtrainer.core.music.NoteNaming
@@ -55,9 +56,39 @@ fun MusicalNoteView(
     stepRange: IntRange? = null,
     reserveSecondaryWidth: Boolean = false,
     naming: NoteNaming = NoteNaming.INTERNATIONAL,
+) = MusicalNoteView(
+    written = SpelledNote.of(primaryNote, accidentalStyle),
+    modifier = modifier,
+    primaryColor = primaryColor,
+    secondaryWritten = secondaryNote?.let { SpelledNote.of(it, accidentalStyle) },
+    secondaryColor = secondaryColor,
+    staffColor = staffColor,
+    lineSpacing = lineSpacing,
+    stepRange = stepRange,
+    reserveSecondaryWidth = reserveSecondaryWidth,
+    naming = naming,
+)
+
+/**
+ * The same, for notes that say how they are written: each is drawn on its own letter with its own
+ * sign, so a D sharp and an E flat beside each other are two different drawings of one pitch. Give
+ * [stepRange] from [writtenStepRange] to keep the size fixed.
+ */
+@Composable
+fun MusicalNoteView(
+    written: SpelledNote,
+    modifier: Modifier = Modifier,
+    primaryColor: Color = LocalContentColor.current,
+    secondaryWritten: SpelledNote? = null,
+    secondaryColor: Color = primaryColor,
+    staffColor: Color = primaryColor,
+    lineSpacing: Dp = DefaultLineSpacing,
+    stepRange: IntRange? = null,
+    reserveSecondaryWidth: Boolean = false,
+    naming: NoteNaming = NoteNaming.INTERNATIONAL,
 ) {
-    val primary = TrebleStaff.placementOf(primaryNote, accidentalStyle)
-    val secondary = secondaryNote?.let { TrebleStaff.placementOf(it, accidentalStyle) }
+    val primary = TrebleStaff.placementOf(written)
+    val secondary = secondaryWritten?.let { TrebleStaff.placementOf(it) }
 
     val extent = stepRange ?: extentOf(listOfNotNull(primary, secondary))
     val singleNote = secondary == null && !reserveSecondaryWidth
@@ -66,9 +97,9 @@ fun MusicalNoteView(
     val width = staffWidthOf(lineSpacing, reserveSecondaryWidth = !singleNote)
 
     val description = buildString {
-        append("Treble staff showing ${naming.labelOf(primaryNote, accidentalStyle)}")
-        if (secondaryNote != null) {
-            append(" and ${naming.labelOf(secondaryNote, accidentalStyle)}")
+        append("Treble staff showing ${naming.labelOf(written)}")
+        if (secondaryWritten != null) {
+            append(" and ${naming.labelOf(secondaryWritten)}")
         }
     }
 

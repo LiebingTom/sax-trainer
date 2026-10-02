@@ -15,18 +15,22 @@ import com.example.saxtrainer.core.exercise.monotonicNanos
 import com.example.saxtrainer.core.exercise.pausedBy
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.core.music.ToneStep
+import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.core.music.ToneSequence
+import com.example.saxtrainer.core.music.spelledAs
 import com.example.saxtrainer.core.phrase.PatternCatalog
 import com.example.saxtrainer.core.phrase.PatternLibrary
 import com.example.saxtrainer.core.phrase.PhraseCatalog
 import com.example.saxtrainer.core.phrase.PhraseLibrary
 import com.example.saxtrainer.core.phrase.PhraseSourceType
 import com.example.saxtrainer.core.phrase.PracticeUnit
+import com.example.saxtrainer.core.phrase.repeated
 import com.example.saxtrainer.core.settings.Exercise
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
 import kotlin.concurrent.Volatile
+import kotlin.random.Random
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -63,6 +67,7 @@ class PhraseTrainerViewModel(
     private val patternCatalog: PatternCatalog = PatternLibrary,
     private val preset: PhraseTrainerPreset? = null,
     private val config: PhraseTrainerConfig = PhraseTrainerConfig(),
+    private val random: Random = Random.Default,
     private val processingDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val countInClock: BeatClock = MonotonicBeatClock(),
     /** Injectable so tests can measure timing on virtual time. */
@@ -121,6 +126,16 @@ class PhraseTrainerViewModel(
         state.copy(sourceType = PhraseSourceType.SCALE_PATTERN, patternId = id, patternPickerOpen = false)
     }
 
+    fun selectRepeats(times: Int) = updateSetup { it.copy(repeats = times.coerceIn(it.repeatRange)) }
+
+    /** Whether every repeat's units come from one shuffled pool instead of one pass at a time. */
+    fun setMixed(enabled: Boolean) = updateSetup { it.copy(mixed = enabled) }
+
+    /** How long a unit stays on screen before it is hidden and has to be played from memory. */
+    fun setShowSeconds(seconds: Double) = updateSetup {
+        it.copy(showSeconds = seconds.coerceIn(PhraseTrainerUiState.SHOW_SECONDS_RANGE))
+    }
+
     /** Whether note length is also checked while playing, not just which notes were played. */
     fun setCheckDuration(check: Boolean) = updateSetup { it.copy(checkDuration = check) }
 
@@ -144,9 +159,9 @@ class PhraseTrainerViewModel(
     fun start() {
         if (exerciseJob?.isActive == true) return
         val state = _uiState.value
-        val units = state.units
         val phrase = state.phrase
-        if (!state.canStart || audioCapture == null || units.isEmpty() || phrase == null) return
+        if (!state.canStart || audioCapture == null || state.units.isEmpty() || phrase == null) return
+        val units = state.units.repeated(state.repeats, state.mixed, random)
 
         rememberSetup(state)
         pause.resume()
@@ -216,8 +231,7 @@ class PhraseTrainerViewModel(
                 delay((_uiState.value.showSeconds * MILLIS_PER_SECOND).toLong())
 
                 _uiState.value = _uiState.value.copy(phase = PhraseTrainerPhase.Listening)
-                val steps = phrase.toneSequenceOf(unit).steps
-                attempts += playUnit(unitIndex, units.size, steps, heard)
+                attempts += playUnit(unitIndex, units.size, phrase.toneSequenceOf(unit), heard)
             }
 
             finish(attempts, units.size)
@@ -237,15 +251,23 @@ class PhraseTrainerViewModel(
     private suspend fun playUnit(
         unitIndex: Int,
         unitCount: Int,
-        steps: List<ToneStep>,
+        sequence: ToneSequence,
         heard: SharedFlow<Hearing>,
     ): UnitAttempt {
+        val steps = sequence.steps
         val attempts = steps.mapIndexed { stepIndex, step ->
-            val note = step.note
+            // Asked for as written: the phrase's own E flat, not whichever spelling its pitch has.
+            val note = sequence.writtenAt(stepIndex)
             if (note == null) {
                 StepAttempt(note = null, played = true)
             } else {
-                playStep(note, step.duration, unitIndex, unitCount, stepIndex, steps.size, heard)
+                // What is heard is a pitch. It is written as the note asked for when it is that
+                // pitch, as another note of the unit sounding the same, or else in the phrase's own
+                // style - never in a spelling the phrase would not use.
+                val spell = { heardNote: Note ->
+                    heardNote.spelledAs(listOf(note) + sequence.writtenNotes, sequence.accidentalStyle)
+                }
+                playStep(note, step.duration, unitIndex, unitCount, stepIndex, steps.size, heard, spell)
             }
         }
         return UnitAttempt(attempts)
@@ -258,16 +280,17 @@ class PhraseTrainerViewModel(
      * pause is picked up on the next frame rather than only when something is played.
      */
     private suspend fun playStep(
-        note: Note,
+        note: SpelledNote,
         duration: Beats,
         unitIndex: Int,
         unitCount: Int,
         stepIndex: Int,
         stepCount: Int,
         heard: SharedFlow<Hearing>,
+        spell: (Note) -> SpelledNote,
     ): StepAttempt {
         val state = _uiState.value
-        val expected = state.soundingNoteOf(note)
+        val expected = state.soundingNoteOf(note.note)
         // The duration check is a floor on top of the pitch comparison, never a change to it: a
         // note that is never right is never right regardless of how long it would have had to be
         // held. Turning the check off simply asks for less time on top of the same comparison.
@@ -279,13 +302,19 @@ class PhraseTrainerViewModel(
         skipRequested = false
 
         var correctSince: Double? = null
+        // One frame reporting something other than the right pitch - a reed squeak, a harmonic the
+        // detector snapped onto for an instant - is not the same as the note actually changing. Only
+        // a second one in a row, with no correct frame between, is trusted to mean that: see
+        // BAD_FRAME_TOLERANCE.
+        var consecutiveBadFrames = 0
         var played = false
 
-        publish(unitIndex, unitCount, stepIndex, stepCount, note, Listening.WAITING, null, false)
+        publish(unitIndex, unitCount, stepIndex, stepCount, note, Listening.WAITING, null, false, spell)
 
         heard.transformWhile { hearing ->
             if (pause.paused) {
                 correctSince = null
+                consecutiveBadFrames = 0
                 emit(Unit)
                 return@transformWhile true
             }
@@ -295,13 +324,19 @@ class PhraseTrainerViewModel(
             val correct = sounding != null && sounding == expected
 
             when {
-                correct -> if (correctSince == null) correctSince = now
+                correct -> {
+                    if (correctSince == null) correctSince = now
+                    consecutiveBadFrames = 0
+                }
 
                 // A sound with no pitch in it says nothing either way: never breaks a hold, unlike
                 // a wrong note actually being played.
                 hearing is Hearing.Unclear -> Unit
 
-                else -> correctSince = null
+                else -> {
+                    consecutiveBadFrames++
+                    if (consecutiveBadFrames >= BAD_FRAME_TOLERANCE) correctSince = null
+                }
             }
 
             val heldSeconds = correctSince?.let { now - it }
@@ -321,6 +356,7 @@ class PhraseTrainerViewModel(
                 },
                 detected = sounding,
                 landed = played,
+                spell = spell,
             )
 
             emit(Unit)
@@ -358,10 +394,11 @@ class PhraseTrainerViewModel(
         unitCount: Int,
         stepIndex: Int,
         stepCount: Int,
-        note: Note,
+        note: SpelledNote,
         listening: Listening,
         detected: Note?,
         landed: Boolean,
+        spell: (Note) -> SpelledNote,
     ) {
         val state = _uiState.value
         _uiState.value = state.copy(
@@ -372,7 +409,7 @@ class PhraseTrainerViewModel(
                 stepCount = stepCount,
                 currentNote = note,
                 listening = listening,
-                detectedNote = detected?.let(state::writtenNoteOf),
+                detectedNote = detected?.let(state::writtenNoteOf)?.let(spell),
                 landed = landed,
             ),
         )
@@ -436,5 +473,12 @@ class PhraseTrainerViewModel(
         const val HEARD_BUFFER = 4
         const val NANOS_PER_SECOND = 1_000_000_000.0
         const val MILLIS_PER_SECOND = 1_000
+
+        /**
+         * Consecutive wrong-or-silent frames needed before a hold in progress is thrown away. One
+         * is a glitch; a real change of note or a real silence still reads as one at the next frame,
+         * roughly 40 ms later, so this costs nothing when the note genuinely did change.
+         */
+        const val BAD_FRAME_TOLERANCE = 2
     }
 }

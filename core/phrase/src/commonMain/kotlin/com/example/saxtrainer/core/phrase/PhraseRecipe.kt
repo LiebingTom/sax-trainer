@@ -5,6 +5,7 @@ import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.Scale
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.TimeSignature
 import com.example.saxtrainer.core.music.ToneStep
 
@@ -102,12 +103,26 @@ data class PhraseRecipe(
         )
     }
 
-    private fun resolvedBars(scale: Scale, root: Note): List<PhraseBar> = bars.map { bar ->
-        PhraseBar(
-            bar.steps.map { step ->
-                val note = step.degree?.let { degree -> root.transposedBy(scale.semitoneOffset(degree)) }
-                ToneStep(note, step.duration)
-            },
-        )
+    /**
+     * Each degree as a pitch and, where the scale says how it is spelled, as the note it is written
+     * as: on the letter [Scale.letterStep] names, counted up from the root's. The fourth of F major
+     * is a B flat and the flat three of the C blues an E flat, whatever the phrase's fallback style
+     * says. A scale that does not say, and a degree only a double sharp or flat could spell, are left
+     * to the phrase's [Phrase.accidentalStyle], as every generated note used to be.
+     */
+    private fun resolvedBars(scale: Scale, root: Note): List<PhraseBar> {
+        val rootWritten = SpelledNote.of(root)
+        return bars.map { bar ->
+            PhraseBar(
+                bar.steps.map { step ->
+                    val degree = step.degree ?: return@map ToneStep(null, step.duration)
+                    val note = root.transposedBy(scale.semitoneOffset(degree))
+                    val written = scale.letterStep(degree)?.let { letters ->
+                        SpelledNote.onLetter(rootWritten.diatonicIndex + letters, note)
+                    }
+                    ToneStep(note, step.duration, written)
+                },
+            )
+        }
     }
 }

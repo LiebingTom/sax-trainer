@@ -28,6 +28,7 @@ import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.feature.learning.LearningRoute
 import com.example.saxtrainer.feature.longtones.LongToneRoute
 import com.example.saxtrainer.feature.metronome.MetronomeRoute
+import com.example.saxtrainer.feature.metronome.MetronomeSetupRoute
 import com.example.saxtrainer.feature.notequiz.QuizRoute
 import com.example.saxtrainer.feature.notetrainer.NoteTrainerRoute
 import com.example.saxtrainer.feature.phrasequiz.PhraseQuizRoute
@@ -177,13 +178,20 @@ fun SaxTrainerNavHost(
                 )
             }
         }
-        composable(SaxTrainerDestination.METRONOME) {
+        composable(SaxTrainerDestination.METRONOME_SETUP) {
             val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
-            MetronomeRoute(
-                newMetronome = container.newMetronome,
+            MetronomeSetupRoute(
                 exerciseSetups = container.exerciseSetups,
                 isFavorite = TrainerId.METRONOME.name in settings.favorites,
                 onToggleFavorite = { wanted -> container.star(TrainerId.METRONOME, wanted) },
+                onStart = { navController.navigate(SaxTrainerDestination.METRONOME) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(SaxTrainerDestination.METRONOME) {
+            MetronomeRoute(
+                newMetronome = container.newMetronome,
+                exerciseSetups = container.exerciseSetups,
                 onBack = { navController.popBackStack() },
             )
         }

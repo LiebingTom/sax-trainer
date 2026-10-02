@@ -1,7 +1,7 @@
 package com.example.saxtrainer.feature.notequiz
 
 import com.example.saxtrainer.core.fingering.Fingering
-import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.SpelledNote
 
 /** What kind of thing is being chosen in one slot of a question. */
 enum class AnswerKind { NAME, FINGERING, STAFF_NOTE }
@@ -72,7 +72,7 @@ sealed interface QuizAnswers {
 
 /** Names to choose between. Notes rather than strings: how a name is written is the screen's. */
 data class NameAnswers(
-    val options: List<Note>,
+    val options: List<SpelledNote>,
     override val correctIndex: Int,
 ) : QuizAnswers {
     override val optionCount: Int get() = options.size
@@ -88,7 +88,7 @@ data class FingeringAnswers(
 
 /** Notes drawn on a staff to choose between. */
 data class StaffNoteAnswers(
-    val options: List<Note>,
+    val options: List<SpelledNote>,
     override val correctIndex: Int,
 ) : QuizAnswers {
     override val optionCount: Int get() = options.size
@@ -101,7 +101,7 @@ data class StaffNoteAnswers(
  * chart is keyed by. [answers] holds one entry per slot, in the order they appear on screen.
  */
 sealed interface QuizQuestion {
-    val note: Note
+    val note: SpelledNote
     val answers: List<QuizAnswers>
 
     /** The question asked in words, for the screen reader and for the result. */
@@ -110,7 +110,7 @@ sealed interface QuizQuestion {
 
 /** A note on the staff; the options are fingerings. */
 data class NoteToFingering(
-    override val note: Note,
+    override val note: SpelledNote,
     val options: List<Fingering>,
     val correctIndex: Int,
 ) : QuizQuestion {
@@ -126,8 +126,8 @@ data class NoteToFingering(
  * name on screen is decided: the player's naming convention, applied when it is drawn.
  */
 data class NoteToName(
-    override val note: Note,
-    val options: List<Note>,
+    override val note: SpelledNote,
+    val options: List<SpelledNote>,
     val correctIndex: Int,
 ) : QuizQuestion {
     val optionCount: Int get() = options.size
@@ -137,9 +137,9 @@ data class NoteToName(
 
 /** A fingering diagram; the options are notes on the staff. */
 data class FingeringToNote(
-    override val note: Note,
+    override val note: SpelledNote,
     val fingering: Fingering,
-    val options: List<Note>,
+    val options: List<SpelledNote>,
     val correctIndex: Int,
 ) : QuizQuestion {
     val optionCount: Int get() = options.size
@@ -155,7 +155,7 @@ data class FingeringToNote(
  * asks whether the player has both.
  */
 data class NoteAndFingering(
-    override val note: Note,
+    override val note: SpelledNote,
     val names: NameAnswers,
     val fingerings: FingeringAnswers,
 ) : QuizQuestion {

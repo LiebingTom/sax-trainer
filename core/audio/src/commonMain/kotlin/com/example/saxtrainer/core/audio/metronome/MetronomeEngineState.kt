@@ -10,12 +10,17 @@ enum class MetronomeError {
 /**
  * What the engine reports to observers. [beatCounter] increases monotonically and exists so the UI
  * can react to every beat even when [beatInBar] repeats.
+ *
+ * [halfBeatActive] marks the instant halfway between [beatInBar] and the beat after it: true from
+ * the moment that midpoint is heard until the next beat replaces it, false the rest of the time -
+ * including while stopped.
  */
 data class MetronomeEngineState(
     val isRunning: Boolean = false,
     val bpm: Int = Metronome.DEFAULT_BPM,
     val beatsPerBar: Int = TimeSignature.FOUR_FOUR.beatsPerBar,
     val beatInBar: Int = 0,
+    val halfBeatActive: Boolean = false,
     val beatCounter: Long = 0,
     val error: MetronomeError? = null,
 )

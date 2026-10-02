@@ -75,6 +75,7 @@ fun SequenceScreen(
             }
         },
         showTrail = !state.isRunning,
+        keepScreenOn = state.isRunning,
         header = headerOf(state),
         timing = timingOf(state),
         actions = {

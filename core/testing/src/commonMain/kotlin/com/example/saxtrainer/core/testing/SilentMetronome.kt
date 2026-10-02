@@ -2,6 +2,7 @@ package com.example.saxtrainer.core.testing
 
 import com.example.saxtrainer.core.audio.metronome.Metronome
 import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
+import com.example.saxtrainer.core.music.TimeSignature
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +22,15 @@ class SilentMetronome : Metronome {
     override fun setBpm(bpm: Int) {
         _state.value = _state.value.copy(bpm = bpm)
     }
+
+    override fun setTimeSignature(signature: TimeSignature) {
+        _state.value = _state.value.copy(beatsPerBar = signature.beatsPerBar)
+    }
+
+    // No sound to accent either way, so there is nothing to keep.
+    override fun setAccentFirstBeat(enabled: Boolean) = Unit
+
+    override fun setHalfBeatSound(enabled: Boolean) = Unit
 
     override fun start() {
         _state.value = _state.value.copy(isRunning = true)

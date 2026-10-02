@@ -3,7 +3,7 @@ package com.example.saxtrainer.learning
 import com.example.saxtrainer.core.fingering.TenorSaxophoneFingerings
 import com.example.saxtrainer.core.learning.LessonProgressState
 import com.example.saxtrainer.core.learning.LessonStep
-import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
 import com.example.saxtrainer.learning.catalog.steps.sequencePresetOf
@@ -52,8 +52,8 @@ class CurriculumStructureTest {
         "sequence" to ::sequencePresetOf,
     )
 
-    /** The notes a step practises, whichever trainer it belongs to. */
-    private fun notesOf(step: LessonStep): List<Note> = listOfNotNull(
+    /** The written notes a step practises, whichever trainer it belongs to. */
+    private fun notesOf(step: LessonStep): List<SpelledNote> = listOfNotNull(
         noteQuizPresetOf(step)?.notes,
         noteTrainerPresetOf(step)?.notes,
     ).flatten()
@@ -101,8 +101,8 @@ class CurriculumStructureTest {
         steps.forEach { step ->
             notesOf(step).forEach { note ->
                 assertTrue(
-                    TenorSaxophoneFingerings.supports(note),
-                    "${step.trainerId} asks for ${note.label}, which has no fingering",
+                    TenorSaxophoneFingerings.supports(note.note),
+                    "${step.trainerId} asks for $note, which has no fingering",
                 )
             }
         }
@@ -111,9 +111,11 @@ class CurriculumStructureTest {
     @Test
     fun `a lesson never practises the same note twice in one selection`() {
         steps.forEach { step ->
-            val notes = notesOf(step)
-            if (notes.isNotEmpty()) {
-                assertEquals(notes.distinct().size, notes.size, "${step.trainerId} repeats a note")
+            // By pitch: a beginner's selection holding D sharp and E flat would be the same key
+            // twice, whatever a lesson that set out to teach both spellings might one day want.
+            val pitches = notesOf(step).map { it.note }
+            if (pitches.isNotEmpty()) {
+                assertEquals(pitches.distinct().size, pitches.size, "${step.trainerId} repeats a note")
             }
         }
     }

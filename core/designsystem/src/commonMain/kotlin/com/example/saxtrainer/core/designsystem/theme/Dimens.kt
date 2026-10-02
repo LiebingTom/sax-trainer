@@ -24,7 +24,7 @@ object Dimens {
     val tileMinSize = 96.dp
 
     val beatIndicatorSize = 20.dp
-    val beatIndicatorAccentSize = 26.dp
+    val halfBeatIndicatorSize = 10.dp
     val meterHeight = 12.dp
     val spectrumHeight = 160.dp
 }

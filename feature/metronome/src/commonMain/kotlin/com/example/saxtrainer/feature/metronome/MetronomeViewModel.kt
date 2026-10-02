@@ -22,8 +22,12 @@ data class MetronomeUiState(
     val isRunning: Boolean = false,
     val beatsPerBar: Int = TimeSignature.FOUR_FOUR.beatsPerBar,
     val currentBeat: Int = 0,
+    /** Whether the midpoint after [currentBeat] has just been heard. */
+    val halfBeatActive: Boolean = false,
     val beatCounter: Long = 0,
     val error: MetronomeError? = null,
+    /** Whether the midpoint between beats gets its own marker - the settings screen's choice. */
+    val visualizeHalfBeats: Boolean = true,
 ) {
     val minBpm: Int get() = Tempo.SUPPORTED_RANGE.first
     val maxBpm: Int get() = Tempo.SUPPORTED_RANGE.last
@@ -46,10 +50,19 @@ class MetronomeViewModel(
 
     init {
         // Before the state flow below reads the engine, so the screen opens on the remembered
-        // tempo rather than on the default and then a correction.
+        // tempo, time signature and accent rather than on the defaults and then a correction. The
+        // latter two are the settings screen's own choices; this only carries them into the click.
         val remembered = exerciseSetups.setupOf(Exercise.METRONOME)
         engine.setBpm(remembered.rememberedBpm(engine.state.value.bpm))
+        engine.setTimeSignature(remembered.rememberedTimeSignature(TimeSignature.FOUR_FOUR))
+        engine.setAccentFirstBeat(remembered.rememberedAccentFirstBeat())
+        engine.setHalfBeatSound(remembered.rememberedHalfBeatSound())
     }
+
+    // Display-only: the engine has no notion of how its beats are drawn, so this is read straight
+    // into the UI state rather than passed through a setter as the tempo and time signature are.
+    private val visualizeHalfBeats: Boolean =
+        exerciseSetups.setupOf(Exercise.METRONOME).rememberedVisualizeHalfBeats()
 
     val uiState: StateFlow<MetronomeUiState> = engine.state
         .map(::toUiState)
@@ -63,8 +76,20 @@ class MetronomeViewModel(
         if (engine.state.value.isRunning) {
             engine.stop()
         } else {
-            // The tempo it was started at becomes the tempo it opens at next time.
-            exerciseSetups.remember(Exercise.METRONOME, metronomeSetup(engine.state.value.bpm))
+            // The tempo it was started at becomes the tempo it opens at next time. The rest are
+            // read fresh rather than kept from init, so a choice made on the settings screen since
+            // this screen opened is not overwritten by a stale copy of it.
+            val setup = exerciseSetups.setupOf(Exercise.METRONOME)
+            exerciseSetups.remember(
+                Exercise.METRONOME,
+                metronomeSetup(
+                    bpm = engine.state.value.bpm,
+                    timeSignature = setup.rememberedTimeSignature(TimeSignature.FOUR_FOUR),
+                    accentFirstBeat = setup.rememberedAccentFirstBeat(),
+                    visualizeHalfBeats = setup.rememberedVisualizeHalfBeats(),
+                    halfBeatSound = setup.rememberedHalfBeatSound(),
+                ),
+            )
             engine.start()
         }
     }
@@ -96,8 +121,10 @@ class MetronomeViewModel(
         isRunning = state.isRunning,
         beatsPerBar = state.beatsPerBar,
         currentBeat = state.beatInBar,
+        halfBeatActive = state.halfBeatActive,
         beatCounter = state.beatCounter,
         error = state.error,
+        visualizeHalfBeats = visualizeHalfBeats,
     )
 
     private companion object {

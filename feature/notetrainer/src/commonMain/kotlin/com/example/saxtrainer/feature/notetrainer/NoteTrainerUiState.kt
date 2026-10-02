@@ -6,6 +6,7 @@ import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.Transposition
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.music.Beats
@@ -46,7 +47,7 @@ enum class Listening {
  * there is no honest reading for a note that was never played.
  */
 data class NoteAttempt(
-    val note: Note,
+    val note: SpelledNote,
     val reactionSeconds: Double?,
     val wrongTries: Int,
     val skipped: Boolean,
@@ -88,12 +89,17 @@ data class NoteTrainerResult(
 data class NoteTrainerProgress(
     val noteIndex: Int,
     val noteCount: Int,
-    val currentNote: Note,
+    /** As it is written: the exercise asks for E flat or for D sharp, not for a pitch. */
+    val currentNote: SpelledNote,
     /** Only when the hint is on; the fingering is the answer, not the question. */
     val fingering: Fingering? = null,
     val listening: Listening = Listening.WAITING,
-    /** What the microphone hears, as the player would write it; null when nothing is heard. */
-    val detectedNote: Note? = null,
+    /**
+     * What the microphone hears, as the player would write it; null when nothing is heard. Heard as
+     * a pitch, so its spelling is borrowed: the note asked for, another note of the exercise that
+     * sounds the same, or the usual one.
+     */
+    val detectedNote: SpelledNote? = null,
     val wrongTries: Int = 0,
     /** Filled while the note is being shown as played, so the screen can say how quick it was. */
     val lastReactionSeconds: Double? = null,
@@ -123,13 +129,15 @@ data class NoteTrainerProgress(
  */
 data class NoteTrainerUiState(
     val phase: NoteTrainerPhase = NoteTrainerPhase.Idle,
-    val availableNotes: List<Note> = emptyList(),
+    /** Every written note the player can choose from - each pitch once per way of writing it. */
+    val availableNotes: List<SpelledNote> = emptyList(),
     val noteSet: NoteSet = NoteSet.BEGINNER,
     val noteSets: List<NoteSet> = NoteSet.entries,
-    val customNotes: Set<Note> = emptySet(),
+    val customNotes: Set<SpelledNote> = emptySet(),
     /** Non-null while the note dialog is open; edits stay here until they are applied. */
-    val customNotesDraft: Set<Note>? = null,
-    val activeNotes: List<Note> = emptyList(),
+    val customNotesDraft: Set<SpelledNote>? = null,
+    /** What the next run asks for, each exactly as it is to be read. */
+    val activeNotes: List<SpelledNote> = emptyList(),
     val order: NoteOrder = NoteOrder.RANDOM,
     val rounds: Int = 1,
     val roundOptions: List<Int> = (1..5).toList(),
@@ -187,7 +195,8 @@ data class NoteTrainerUiState(
             ?.joinToString(" ") { nameOf(it) }
             ?: "No notes chosen yet"
 
-    fun nameOf(note: Note): String = noteNaming.labelOf(note)
+    /** The name of a written note, as written, under the chosen naming. */
+    fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note)
 
     /** The pitch a written note should sound as on the chosen instrument. */
     fun soundingNoteOf(writtenNote: Note): Note = transposition.concertFor(writtenNote)

@@ -14,6 +14,8 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.example.saxtrainer.core.audio.metronome.Metronome
 import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
+import com.example.saxtrainer.core.music.TimeSignature
+import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.testing.BROWSER_TIMEOUT_MS
 import com.example.saxtrainer.core.testing.ScreenHost
 import com.example.saxtrainer.core.testing.labels
@@ -103,6 +105,14 @@ private class FakeMetronome : Metronome {
         _state.value = _state.value.copy(bpm = bpm)
     }
 
+    override fun setTimeSignature(signature: TimeSignature) {
+        _state.value = _state.value.copy(beatsPerBar = signature.beatsPerBar)
+    }
+
+    override fun setAccentFirstBeat(enabled: Boolean) = Unit
+
+    override fun setHalfBeatSound(enabled: Boolean) = Unit
+
     override fun start() {
         _state.value = _state.value.copy(isRunning = true)
     }
@@ -132,7 +142,11 @@ private fun Metronome(host: ScreenHost, engine: Metronome) {
         LocalLifecycleOwner provides host,
     ) {
         SaxTrainerTheme(darkTheme = false) {
-            MetronomeRoute(newMetronome = { engine }, onBack = {})
+            MetronomeRoute(
+                newMetronome = { engine },
+                exerciseSetups = InMemoryExerciseSetupRepository(),
+                onBack = {},
+            )
         }
     }
 }

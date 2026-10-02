@@ -3,6 +3,9 @@ package com.example.saxtrainer.feature.notequiz
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,6 +21,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -48,8 +52,9 @@ class QuizViewModelTest {
         seed: Int = 1,
         preset: QuizPreset? = null,
         setups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
+        naming: NoteNaming = NoteNaming.INTERNATIONAL,
     ) = QuizViewModel(
-        settingsRepository = FakeSettingsRepository(),
+        settingsRepository = FakeSettingsRepository(AppSettings(countInBeats = 0, noteNaming = naming)),
         exerciseSetups = setups,
         preset = preset,
         config = config,
@@ -57,7 +62,11 @@ class QuizViewModelTest {
         processingDispatcher = dispatcher,
     )
 
-    private val c4 = Note(NoteName.C, 4)
+    private fun spelled(name: NoteName, octave: Int) = SpelledNote.of(Note(name, octave))
+
+    private fun written(token: String) = SpelledNote.parse(token)!!
+
+    private val c4 = spelled(NoteName.C, 4)
 
     private fun asking(viewModel: QuizViewModel): QuizPhase.Asking {
         val phase = viewModel.uiState.value.phase
@@ -371,7 +380,7 @@ class QuizViewModelTest {
             }
 
             asked.zipWithNext().forEach { (first, second) ->
-                assertTrue(first != second, "seed $seed asked ${first.label} twice running")
+                assertTrue(first.note != second.note, "seed $seed asked $first twice running")
             }
         }
     }
@@ -392,8 +401,8 @@ class QuizViewModelTest {
 
         val result = result(viewModel)
         assertEquals(
-            missed.distinct().sortedBy { it.midiNumber },
-            result.missedNotes.sortedBy { it.midiNumber },
+            missed.distinct().sortedWith(SpelledNote.PITCH_ORDER),
+            result.missedNotes.sortedWith(SpelledNote.PITCH_ORDER),
         )
     }
 
@@ -418,7 +427,7 @@ class QuizViewModelTest {
 
     @Test
     fun `a preset decides the whole quiz`() = runTest(dispatcher) {
-        val notes = listOf(c4, Note(NoteName.D, 4), Note(NoteName.E, 4))
+        val notes = listOf(c4, spelled(NoteName.D, 4), spelled(NoteName.E, 4))
         val state = viewModel(
             preset = QuizPreset(
                 notes = notes,
@@ -434,9 +443,76 @@ class QuizViewModelTest {
         assertTrue(state.canStart)
     }
 
+    // --- written spelling ------------------------------------------------------------------
+
+    @Test
+    fun `a preset is asked exactly as it is written, in either naming`() = runTest(dispatcher) {
+        val notes = listOf("C4", "D4", "Eb4", "F4", "G4", "Ab4", "Bb4").map(::written)
+        val preset = QuizPreset(notes = notes, autoStart = false)
+
+        val international = viewModel(preset = preset).uiState.value
+        val german = viewModel(preset = preset, naming = NoteNaming.GERMAN).uiState.value
+
+        assertEquals(notes, international.activeNotes)
+        assertEquals(listOf("C4", "D4", "E♭4", "F4", "G4", "A♭4", "B♭4"), notes.map(international::nameOf))
+        assertEquals(listOf("C4", "D4", "Es4", "F4", "G4", "As4", "B4"), notes.map(german::nameOf))
+    }
+
+    @Test
+    fun `one pitch in two spellings is read the same way everywhere a quiz is decided`() =
+        runTest(dispatcher) {
+            // Chosen by hand: kept as chosen, but not something a question can be asked about.
+            val setups = InMemoryExerciseSetupRepository()
+            val viewModel = viewModel(setups = setups)
+            viewModel.selectOnly(written("D#4"), written("Eb4"))
+
+            val state = viewModel.uiState.value
+            assertEquals(listOf(written("D#4"), written("Eb4")), state.activeNotes)
+            assertFalse(state.canStart, "the one cannot be a wrong answer for the other")
+            viewModel.start()
+            assertEquals(QuizPhase.Idle, viewModel.uiState.value.phase, "so Start does nothing")
+
+            // Saved, it is no quiz either: a lesson made of it is passed over rather than broken.
+            assertNull(quizPresetOf(setups.setupOf(Exercise.NOTE_QUIZ)))
+
+            // And a ready-made quiz cannot be built of it at all - the same rule, said by the type.
+            assertFailsWith<IllegalArgumentException> {
+                QuizPreset(notes = listOf(written("D#4"), written("Eb4")))
+            }
+            // One more pitch makes it a quiz, both spellings kept.
+            val three = QuizPreset(notes = listOf(written("D#4"), written("Eb4"), written("F4")))
+            assertTrue(viewModel(preset = three).uiState.value.canStart)
+        }
+
+    @Test
+    fun `a spelling chosen by hand survives saving and starting`() = runTest(dispatcher) {
+        val setups = InMemoryExerciseSetupRepository()
+        val chosen = listOf("C4", "Eb4", "E#4", "Fb4", "Ab4", "B#4", "Cb5").map(::written)
+        viewModel(setups = setups).selectOnly(*chosen.toTypedArray())
+
+        val reopened = viewModel(setups = setups).uiState.value
+        val started = assertNotNull(quizPresetOf(setups.setupOf(Exercise.NOTE_QUIZ)))
+
+        assertEquals(chosen.sortedWith(SpelledNote.PITCH_ORDER), reopened.activeNotes)
+        assertEquals(chosen.sortedWith(SpelledNote.PITCH_ORDER), started.notes)
+    }
+
+    @Test
+    fun `a setup saved before spellings were kept opens with the usual spellings`() =
+        runTest(dispatcher) {
+            val old = com.example.saxtrainer.core.settings.exerciseSetup {
+                put("note_set", "CUSTOM")
+                putInts("custom_notes", listOf(61, 63, 70))
+            }
+
+            val preset = assertNotNull(quizPresetOf(old))
+
+            assertEquals(listOf("C#4", "D#4", "Bb4"), preset.notes.map { it.token })
+        }
+
     @Test
     fun `a preset asks to start exactly once`() = runTest(dispatcher) {
-        val viewModel = viewModel(preset = QuizPreset(notes = listOf(c4, Note(NoteName.D, 4))))
+        val viewModel = viewModel(preset = QuizPreset(notes = listOf(c4, spelled(NoteName.D, 4))))
 
         assertTrue(viewModel.consumeAutoStart())
         assertFalse(viewModel.consumeAutoStart(), "rotation must not start it again")
@@ -445,7 +521,7 @@ class QuizViewModelTest {
     @Test
     fun `a preset that does not ask to start waits`() = runTest(dispatcher) {
         val viewModel = viewModel(
-            preset = QuizPreset(notes = listOf(c4, Note(NoteName.D, 4)), autoStart = false),
+            preset = QuizPreset(notes = listOf(c4, spelled(NoteName.D, 4)), autoStart = false),
         )
 
         assertFalse(viewModel.consumeAutoStart())
@@ -455,17 +531,17 @@ class QuizViewModelTest {
     @Test
     fun `a preset cannot ask for a note the chart does not know`() = runTest(dispatcher) {
         val state = viewModel(
-            preset = QuizPreset(notes = listOf(c4, Note(NoteName.D, 4), Note(NoteName.C, 2))),
+            preset = QuizPreset(notes = listOf(c4, spelled(NoteName.D, 4), spelled(NoteName.C, 2))),
         ).uiState.value
 
-        assertFalse(state.activeNotes.contains(Note(NoteName.C, 2)))
+        assertFalse(state.activeNotes.contains(spelled(NoteName.C, 2)))
         assertEquals(2, state.activeNotes.size)
     }
 
     // --- the round trip ---------------------------------------------------------------------
 
     /** Puts exactly these notes into the custom set and switches to it, as the dialog would. */
-    private fun QuizViewModel.selectOnly(vararg notes: Note) {
+    private fun QuizViewModel.selectOnly(vararg notes: SpelledNote) {
         editCustomNotes()
         clearCustomNotes()
         notes.forEach(::toggleCustomNote)
@@ -485,9 +561,9 @@ class QuizViewModelTest {
         val configured = viewModel()
         configured.selectOnly(
             c4,
-            Note(NoteName.D, 4),
-            Note(NoteName.E, 4),
-            Note(NoteName.F, 4),
+            spelled(NoteName.D, 4),
+            spelled(NoteName.E, 4),
+            spelled(NoteName.F, 4),
         )
         configured.selectMode(QuizMode.FINGERING_TO_NOTE)
         configured.selectQuestionCount(15)

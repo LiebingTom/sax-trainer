@@ -32,6 +32,12 @@ kotlin {
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
+        compilerOptions {
+            // KeepScreenOn.wasmJs.kt is the only JavaScript interop in this module; opting in once
+            // beats annotating every declaration. The marker does not exist on the Android target,
+            // so it is set on this one rather than on both - see :core:audio for the same choice.
+            optIn.add("kotlin.js.ExperimentalWasmJsInterop")
+        }
         browser {
             // Firefox rather than Karma's Chrome default: see :core:music for why. The
             // launcher, its fake microphone and the timeouts are in gradle/karma, shared by

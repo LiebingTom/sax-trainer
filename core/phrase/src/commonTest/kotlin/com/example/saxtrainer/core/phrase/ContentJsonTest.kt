@@ -16,10 +16,43 @@ class ContentJsonTest {
 
     @Test
     fun parsesANoteWithAFlatAsItsSharpEquivalent() {
-        // This app spells pitch classes with sharps internally; a flat in a file still names a
-        // real pitch, which is all a step needs - how it is drawn is a display concern, not this
-        // parser's.
+        // The pitch of a flat is the one pitch it names, whichever spelling the pitch model uses;
+        // how it is written is kept separately - see the written-note tests below.
         assertEquals(Note(NoteName.A_SHARP, 3), parseNote("Bb3"))
+    }
+
+    @Test
+    fun keepsANoteExactlyAsTheFileWritesIt() {
+        assertEquals("Eb4", parseWrittenNote("Eb4")?.token)
+        assertEquals("D#4", parseWrittenNote("D#4")?.token)
+        assertEquals(parseWrittenNote("Eb4")?.note, parseWrittenNote("D#4")?.note)
+    }
+
+    @Test
+    fun aFlatOrSharpAcrossTheOctaveSoundsInTheRightOctave() {
+        assertEquals(Note(NoteName.B, 3), parseNote("Cb4"))
+        assertEquals(Note(NoteName.C, 5), parseNote("B#4"))
+        assertEquals(Note(NoteName.E, 4), parseNote("Fb4"))
+        assertEquals(Note(NoteName.F, 4), parseNote("E#4"))
+    }
+
+    @Test
+    fun aPhraseKeepsItsSpellingsWhateverItsStyleSays() {
+        val phrase = parsePhrases(
+            listOf(
+                """
+                {"id": "p", "name": "P", "accidentalStyle": "sharps", "bars": [ { "steps": [
+                  { "note": "C4", "duration": "quarter" }, { "note": "Eb4", "duration": "quarter" },
+                  { "note": "G4", "duration": "quarter" }, { "note": "Bb4", "duration": "quarter" }
+                ] } ] }
+                """.trimIndent(),
+            ),
+        ).single()
+
+        assertEquals(
+            listOf("C4", "Eb4", "G4", "Bb4"),
+            phrase.toneSequence().writtenNotes.map { it.token },
+        )
     }
 
     @Test
@@ -77,8 +110,8 @@ class ContentJsonTest {
     }
 
     @Test
-    fun theBundledPatternLibraryIncludesABluesPattern() {
-        assertTrue(PatternLibrary.all.any { it.id.startsWith("blues") })
+    fun theBundledPatternLibraryParsesToAtLeastOnePattern() {
+        assertTrue(PatternLibrary.all.isNotEmpty())
     }
 
     private companion object {

@@ -1,6 +1,9 @@
 package com.example.saxtrainer.feature.phrasequiz
 
+import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.core.phrase.InMemoryPhraseCatalog
 import com.example.saxtrainer.core.phrase.PatternLibrary
+import com.example.saxtrainer.core.phrase.parsePhrases
 import com.example.saxtrainer.core.phrase.PhraseLibrary
 import com.example.saxtrainer.core.phrase.PhraseSource
 import com.example.saxtrainer.core.phrase.PhraseSourceType
@@ -31,7 +34,7 @@ import kotlinx.coroutines.test.setMain
 class PhraseQuizViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
-    private val config = PhraseQuizConfig(defaultShowSeconds = 1.0, revealSeconds = 1.0)
+    private val config = PhraseQuizConfig(defaultShowSeconds = 1.0)
 
     @BeforeTest
     fun setUp() {
@@ -47,9 +50,11 @@ class PhraseQuizViewModelTest {
         seed: Int = 1,
         preset: PhraseQuizPreset? = null,
         setups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
+        phrases: com.example.saxtrainer.core.phrase.PhraseCatalog = PhraseLibrary,
     ) = PhraseQuizViewModel(
         settingsRepository = FakeSettingsRepository(),
         exerciseSetups = setups,
+        phraseCatalog = phrases,
         preset = preset,
         config = config,
         random = Random(seed),
@@ -151,7 +156,7 @@ class PhraseQuizViewModelTest {
      */
     @Test
     fun `a stored pattern is resolved against the chosen scale and octave`() = runTest(dispatcher) {
-        val pattern = PatternLibrary.byId("one_two_three_five")!!
+        val pattern = PatternLibrary.byId("woche_1_walk")!!
 
         val dMajor = viewModel()
         dMajor.selectScaleChoice("d_major")
@@ -174,7 +179,7 @@ class PhraseQuizViewModelTest {
     fun `the octaves are their own setting`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectScaleChoice("c_major")
-        viewModel.selectPattern("triad_up")
+        viewModel.selectPattern("woche_1_walk")
         viewModel.toggleOctave(PhraseQuizUiState.DEFAULT_OCTAVE)
         viewModel.toggleOctave(5)
 
@@ -186,7 +191,7 @@ class PhraseQuizViewModelTest {
     fun `several octaves generate one phrase out of each octave's own bars, lowest first`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectScaleChoice("c_major")
-        viewModel.selectPattern("triad_up")
+        viewModel.selectPattern("woche_1_walk")
         viewModel.toggleOctave(5) // default octave 4 is already on
 
         val phrase = assertNotNull(viewModel.uiState.value.phrase, "expected a resolved phrase")
@@ -199,11 +204,32 @@ class PhraseQuizViewModelTest {
     fun `turning off every octave leaves a scale pattern with nothing to resolve`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectScaleChoice("c_major")
-        viewModel.selectPattern("triad_up")
+        viewModel.selectPattern("woche_1_walk")
         viewModel.toggleOctave(PhraseQuizUiState.DEFAULT_OCTAVE)
 
         assertTrue(viewModel.uiState.value.octaves.isEmpty())
         assertFalse(viewModel.uiState.value.canStart)
+    }
+
+    @Test
+    fun `an out-of-range preview time is clamped to the largest timed step, not to infinite`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        val largestTimed = PhraseQuizUiState.SHOW_SECONDS_OPTIONS[PhraseQuizUiState.SHOW_SECONDS_OPTIONS.lastIndex - 1]
+
+        viewModel.setShowSeconds(100.0)
+        assertEquals(largestTimed, viewModel.uiState.value.showSeconds)
+
+        viewModel.setShowSeconds(-1.0)
+        assertEquals(PhraseQuizUiState.SHOW_SECONDS_OPTIONS.first(), viewModel.uiState.value.showSeconds)
+    }
+
+    @Test
+    fun `infinite preview time is only reached by asking for it exactly`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.setShowSeconds(Double.POSITIVE_INFINITY)
+
+        assertEquals(Double.POSITIVE_INFINITY, viewModel.uiState.value.showSeconds)
     }
 
     @Test
@@ -231,6 +257,41 @@ class PhraseQuizViewModelTest {
     }
 
     @Test
+    fun `revealNow cuts a timed preview short`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.start()
+        assertTrue(viewModel.uiState.value.phase is PhraseQuizPhase.Showing)
+
+        viewModel.revealNow()
+
+        // No advanceUntilIdle: the point is that this needed no time to pass at all.
+        assertTrue(viewModel.uiState.value.phase is PhraseQuizPhase.Asking)
+    }
+
+    @Test
+    fun `an infinite preview waits for revealNow rather than a timer`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.setShowSeconds(Double.POSITIVE_INFINITY)
+
+        viewModel.start()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.phase is PhraseQuizPhase.Showing, "nothing times it out on its own")
+
+        viewModel.revealNow()
+
+        assertTrue(viewModel.uiState.value.phase is PhraseQuizPhase.Asking)
+    }
+
+    @Test
+    fun `revealNow does nothing outside the showing phase`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.revealNow()
+
+        assertEquals(PhraseQuizPhase.Idle, viewModel.uiState.value.phase)
+    }
+
+    @Test
     fun `a right order is kept and the next unit comes up`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.start()
@@ -241,6 +302,9 @@ class PhraseQuizViewModelTest {
         val answered = viewModel.uiState.value.phase as PhraseQuizPhase.Answered
         assertTrue(answered.correctOrder)
 
+        // Nothing moves on by itself - the player has to say so.
+        assertTrue(viewModel.uiState.value.phase is PhraseQuizPhase.Answered)
+        viewModel.continueToNextUnit()
         advanceUntilIdle()
 
         assertTrue(
@@ -259,6 +323,34 @@ class PhraseQuizViewModelTest {
         viewModel.choose(0)
 
         assertEquals(listOf(0), asking(viewModel).chosen)
+    }
+
+    @Test
+    fun `undo frees the last note placed, not the whole order`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.start()
+        advanceUntilIdle()
+
+        viewModel.choose(0)
+        viewModel.choose(1)
+        viewModel.undoLast()
+
+        assertEquals(listOf(0), asking(viewModel).chosen, "only the last tile placed comes back")
+
+        // A freed tile is a tile with nowhere it counts as "used": it can be chosen again.
+        viewModel.choose(1)
+        assertEquals(listOf(0, 1), asking(viewModel).chosen)
+    }
+
+    @Test
+    fun `undo does nothing before anything has been placed`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.start()
+        advanceUntilIdle()
+
+        viewModel.undoLast()
+
+        assertTrue(asking(viewModel).chosen.isEmpty())
     }
 
     @Test
@@ -320,6 +412,7 @@ class PhraseQuizViewModelTest {
         repeat(unitCount) {
             advanceUntilIdle()
             answerCorrectly(viewModel)
+            viewModel.continueToNextUnit()
         }
         advanceUntilIdle()
 
@@ -327,6 +420,59 @@ class PhraseQuizViewModelTest {
         assertTrue(finished.completed)
         assertEquals(unitCount, finished.attempted.size)
         assertEquals(unitCount, finished.correctCount)
+    }
+
+    @Test
+    fun `repeats walk the whole phrase more than once`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        val unitCount = viewModel.uiState.value.units.size
+        viewModel.selectRepeats(3)
+        assertEquals(unitCount * 3, viewModel.uiState.value.plannedUnitCount)
+
+        viewModel.start()
+        repeat(unitCount * 3) {
+            advanceUntilIdle()
+            answerCorrectly(viewModel)
+            viewModel.continueToNextUnit()
+        }
+        advanceUntilIdle()
+
+        val finished = result(viewModel)
+        assertTrue(finished.completed)
+        assertEquals(unitCount * 3, finished.attempted.size)
+    }
+
+    @Test
+    fun `mixed order draws every repeat from one shuffled pool`() = runTest(dispatcher) {
+        val viewModel = viewModel(seed = 7)
+        viewModel.selectScaleChoice("c_major")
+        viewModel.selectPattern("woche_1_walk") // eight units, so a run of three repeats has twenty-four
+        val phrase = assertNotNull(viewModel.uiState.value.phrase)
+        val unitCount = phrase.units.size
+        viewModel.selectRepeats(3)
+        viewModel.setMixed(true)
+
+        viewModel.start()
+        val order = mutableListOf<List<com.example.saxtrainer.core.music.Note?>>()
+        repeat(unitCount * 3) {
+            advanceUntilIdle()
+            order += asking(viewModel).correct.map { it.note }
+            answerCorrectly(viewModel)
+            viewModel.continueToNextUnit()
+        }
+        advanceUntilIdle()
+
+        // Every unit appears exactly [repeats] times in the pool, whatever order they came in - two
+        // of Woche 1's own bars happen to read the same, so counted by notes rather than by
+        // position, that one reading is expected twice as often as any other.
+        assertEquals(unitCount * 3, order.size)
+        val expectedCounts = phrase.units
+            .map { unit -> phrase.toneSequenceOf(unit).steps.map { it.note } }
+            .groupingBy { it }
+            .eachCount()
+            .mapValues { (_, occurrences) -> occurrences * 3 }
+        assertEquals(expectedCounts, order.groupingBy { it }.eachCount())
+        assertTrue(result(viewModel).completed)
     }
 
     @Test
@@ -374,6 +520,9 @@ class PhraseQuizViewModelTest {
         val configured = viewModel()
         configured.selectScaleChoice(ScaleChoice.defaults[2].id)
         configured.selectPattern(PatternLibrary.all.last().id)
+        configured.selectRepeats(4)
+        configured.setMixed(true)
+        configured.setShowSeconds(4.0)
         val written = configured.uiState.value.toSetup()
 
         val preset = assertNotNull(phraseQuizPresetOf(written, editable = true))
@@ -389,5 +538,51 @@ class PhraseQuizViewModelTest {
         viewModel(setups = setups).rememberSetupNow()
 
         assertFalse(setups.setupOf(Exercise.PHRASE_QUIZ).isEmpty)
+    }
+
+    // --- written spelling ---------------------------------------------------------------------
+
+    /**
+     * One bar written with flats in a phrase whose own fallback style is sharps: what the file
+     * writes has to win, note by note.
+     */
+    private val flatPhrase = InMemoryPhraseCatalog(
+        parsePhrases(
+            listOf(
+                """
+                {"id": "flats", "name": "Flats", "accidentalStyle": "sharps", "bars": [ { "steps": [
+                  { "note": "C4", "duration": "quarter" }, { "note": "Eb4", "duration": "quarter" },
+                  { "note": "G4", "duration": "quarter" }, { "note": "Bb4", "duration": "quarter" }
+                ] } ] }
+                """.trimIndent(),
+            ),
+        ),
+    )
+
+    @Test
+    fun `a phrase's notes are shown, offered and put back exactly as written`() = runTest(dispatcher) {
+        val viewModel = viewModel(phrases = flatPhrase)
+        viewModel.start()
+        val shown = viewModel.uiState.value.phase as PhraseQuizPhase.Showing
+        assertEquals(listOf("C4", "Eb4", "G4", "Bb4"), shown.correct.map { it.written?.token })
+
+        viewModel.revealNow()
+        val asking = asking(viewModel)
+        val correctPitches = asking.correct.mapNotNull { it.note }
+        val decoys = asking.options.filterNot { option -> asking.correct.any { it.written == option.written } }
+        assertTrue(
+            decoys.none { it.note in correctPitches },
+            "a decoy respells a note of the phrase: ${decoys.map { it.written }}",
+        )
+        assertTrue(asking.options.all { it.written != null }, "every tile knows how it is written")
+
+        answerCorrectly(viewModel)
+        val answered = viewModel.uiState.value.phase as PhraseQuizPhase.Answered
+        assertTrue(answered.correctOrder)
+        assertEquals(
+            listOf("C4", "Eb4", "G4", "Bb4"),
+            answered.builtNotes.map { it?.token },
+            "built back as written, not as D sharp and A sharp",
+        )
     }
 }

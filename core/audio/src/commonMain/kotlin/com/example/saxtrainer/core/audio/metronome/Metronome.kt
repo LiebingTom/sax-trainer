@@ -1,5 +1,6 @@
 package com.example.saxtrainer.core.audio.metronome
 
+import com.example.saxtrainer.core.music.TimeSignature
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -16,6 +17,19 @@ interface Metronome {
 
     /** Clamped to [com.example.saxtrainer.core.music.Tempo.SUPPORTED_RANGE]. */
     fun setBpm(bpm: Int)
+
+    /** Takes effect from the bar that has not started yet, the same way a tempo change does. */
+    fun setTimeSignature(signature: TimeSignature)
+
+    /** Whether beat one of the bar gets the accent click rather than the normal one. On by default. */
+    fun setAccentFirstBeat(enabled: Boolean)
+
+    /**
+     * Whether the midpoint between one beat and the next is sounded with its own, softer click.
+     * On by default. The midpoint is tracked either way - see [MetronomeEngineState.halfBeatActive]
+     * - this only says whether it is heard.
+     */
+    fun setHalfBeatSound(enabled: Boolean)
 
     fun start()
 

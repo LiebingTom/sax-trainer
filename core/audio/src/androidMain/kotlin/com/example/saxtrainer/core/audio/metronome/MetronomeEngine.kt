@@ -24,8 +24,12 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class MetronomeEngine(
     private val audioConfig: AudioConfig = AudioConfig(),
-    private val timeSignature: TimeSignature = TimeSignature.FOUR_FOUR,
+    timeSignature: TimeSignature = TimeSignature.FOUR_FOUR,
 ) : Metronome {
+    // Read fresh every bar by the render thread while it is written from the caller's thread, the
+    // same way targetBpm is - a signature change takes effect from the next bar, not mid-bar.
+    @Volatile
+    private var timeSignature: TimeSignature = timeSignature
     private val _state = MutableStateFlow(
         MetronomeEngineState(beatsPerBar = timeSignature.beatsPerBar),
     )
@@ -37,6 +41,12 @@ class MetronomeEngine(
     @Volatile
     private var targetBpm = Metronome.DEFAULT_BPM
 
+    @Volatile
+    private var accentFirstBeat = true
+
+    @Volatile
+    private var halfBeatSound = true
+
     private var renderThread: Thread? = null
 
     override fun setBpm(bpm: Int) {
@@ -45,12 +55,26 @@ class MetronomeEngine(
         _state.value = _state.value.copy(bpm = clamped)
     }
 
+    override fun setTimeSignature(signature: TimeSignature) {
+        timeSignature = signature
+        _state.value = _state.value.copy(beatsPerBar = signature.beatsPerBar)
+    }
+
+    override fun setAccentFirstBeat(enabled: Boolean) {
+        accentFirstBeat = enabled
+    }
+
+    override fun setHalfBeatSound(enabled: Boolean) {
+        halfBeatSound = enabled
+    }
+
     override fun start() {
         if (running) return
         running = true
         _state.value = _state.value.copy(
             isRunning = true,
             beatInBar = 0,
+            halfBeatActive = false,
             error = null,
         )
         renderThread = Thread(::renderLoop, "MetronomeEngine").also { it.start() }
@@ -60,7 +84,7 @@ class MetronomeEngine(
         running = false
         renderThread?.join(JOIN_TIMEOUT_MS)
         renderThread = null
-        _state.value = _state.value.copy(isRunning = false, beatInBar = 0)
+        _state.value = _state.value.copy(isRunning = false, beatInBar = 0, halfBeatActive = false)
     }
 
     /** Releases the render thread. The engine can be started again afterwards. */
@@ -85,14 +109,30 @@ class MetronomeEngine(
 
         val clicks = ClickSynth(sampleRate)
         val buffer = ShortArray(RENDER_FRAMES)
-        val pendingBeatFrames = LongArray(MAX_PENDING_BEATS)
+        val pendingFrames = LongArray(MAX_PENDING_BEATS)
         val pendingBeatInBar = IntArray(MAX_PENDING_BEATS)
+        val pendingIsHalf = BooleanArray(MAX_PENDING_BEATS)
         var pendingHead = 0
         var pendingSize = 0
 
+        fun enqueue(frame: Long, beat: Int, isHalf: Boolean) {
+            if (pendingSize < MAX_PENDING_BEATS) {
+                val slot = (pendingHead + pendingSize) % MAX_PENDING_BEATS
+                pendingFrames[slot] = frame
+                pendingBeatInBar[slot] = beat
+                pendingIsHalf[slot] = isHalf
+                pendingSize++
+            }
+        }
+
         var framesWritten = 0L
-        var framesToNextBeat = 0.0
+        var framesToNextEvent = 0.0
         var beatInBar = 0
+        // Which beat the half-click about to play sits after - captured when its full beat is
+        // scheduled, since [beatInBar] has already moved on to the next one by then.
+        var lastBeat = 0
+        // 0: the next event is a full beat. 1: the next event is the half beat after it.
+        var subPhase = 0
         var beatCounter = _state.value.beatCounter
         var activeClick: ShortArray? = null
         var clickPosition = 0
@@ -104,20 +144,28 @@ class MetronomeEngine(
         try {
             output.play()
             while (running) {
-                val samplesPerBeat = sampleRate * SECONDS_PER_MINUTE / targetBpm
+                val samplesPerHalfBeat = sampleRate * SECONDS_PER_MINUTE / targetBpm / 2.0
 
                 for (i in 0 until RENDER_FRAMES) {
-                    if (framesToNextBeat <= 0.0) {
-                        activeClick = if (beatInBar == 0) clicks.accentClick else clicks.normalClick
-                        clickPosition = 0
-                        if (pendingSize < MAX_PENDING_BEATS) {
-                            val slot = (pendingHead + pendingSize) % MAX_PENDING_BEATS
-                            pendingBeatFrames[slot] = framesWritten + i
-                            pendingBeatInBar[slot] = beatInBar
-                            pendingSize++
+                    if (framesToNextEvent <= 0.0) {
+                        if (subPhase == 0) {
+                            val beat = beatInBar
+                            activeClick = if (beat == 0 && accentFirstBeat) {
+                                clicks.accentClick
+                            } else {
+                                clicks.normalClick
+                            }
+                            enqueue(framesWritten + i, beat, isHalf = false)
+                            lastBeat = beat
+                            beatInBar = (beat + 1) % timeSignature.beatsPerBar
+                            subPhase = 1
+                        } else {
+                            activeClick = if (halfBeatSound) clicks.halfClick else null
+                            enqueue(framesWritten + i, lastBeat, isHalf = true)
+                            subPhase = 0
                         }
-                        beatInBar = (beatInBar + 1) % timeSignature.beatsPerBar
-                        framesToNextBeat += samplesPerBeat
+                        clickPosition = 0
+                        framesToNextEvent += samplesPerHalfBeat
                     }
 
                     val click = activeClick
@@ -126,7 +174,7 @@ class MetronomeEngine(
                     } else {
                         0
                     }
-                    framesToNextBeat -= 1.0
+                    framesToNextEvent -= 1.0
                 }
 
                 val written = output.write(buffer, RENDER_FRAMES)
@@ -145,10 +193,15 @@ class MetronomeEngine(
                 previousHead = rawHead
                 val playedFrames = headWrapOffset + rawHead
 
-                while (pendingSize > 0 && pendingBeatFrames[pendingHead] < playedFrames) {
-                    beatCounter++
+                while (pendingSize > 0 && pendingFrames[pendingHead] < playedFrames) {
+                    // Only a full beat advances beatCounter: clickCountIn and anything else that
+                    // counts on it depends on exactly one increment per beat, half beats included
+                    // or not would silently double every count it drives.
+                    val isHalf = pendingIsHalf[pendingHead]
+                    if (!isHalf) beatCounter++
                     _state.value = _state.value.copy(
                         beatInBar = pendingBeatInBar[pendingHead],
+                        halfBeatActive = isHalf,
                         beatCounter = beatCounter,
                     )
                     pendingHead = (pendingHead + 1) % MAX_PENDING_BEATS

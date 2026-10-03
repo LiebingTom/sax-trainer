@@ -27,6 +27,7 @@ import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.feature.learning.LearningRoute
 import com.example.saxtrainer.feature.longtones.LongToneRoute
+import com.example.saxtrainer.feature.lexicon.LexiconRoute
 import com.example.saxtrainer.feature.metronome.MetronomeRoute
 import com.example.saxtrainer.feature.metronome.MetronomeSetupRoute
 import com.example.saxtrainer.feature.notequiz.QuizRoute
@@ -185,6 +186,15 @@ fun SaxTrainerNavHost(
                 isFavorite = TrainerId.METRONOME.name in settings.favorites,
                 onToggleFavorite = { wanted -> container.star(TrainerId.METRONOME, wanted) },
                 onStart = { navController.navigate(SaxTrainerDestination.METRONOME) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(SaxTrainerDestination.FINGERING_LEXICON) {
+            val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
+            LexiconRoute(
+                settingsRepository = container.settingsRepository,
+                isFavorite = TrainerId.FINGERING_LEXICON.name in settings.favorites,
+                onToggleFavorite = { wanted -> container.star(TrainerId.FINGERING_LEXICON, wanted) },
                 onBack = { navController.popBackStack() },
             )
         }
@@ -577,5 +587,6 @@ private fun routeForStep(lesson: Lesson, stepIndex: Int, edit: Boolean = false):
         // A metronome has nothing to configure and nothing to report, so it is the one step that
         // is simply opened.
         TrainerId.METRONOME -> SaxTrainerDestination.METRONOME
+        TrainerId.FINGERING_LEXICON -> SaxTrainerDestination.FINGERING_LEXICON
         null -> null
     }

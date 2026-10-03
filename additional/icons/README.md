@@ -164,7 +164,7 @@ source. Replace them in any order; each one is independent.
 | `Practice`                | Practice card on Home                                         | ✅  | `custom_practices.svg` (Inkscape)         |
 | `MyLessons`               | My Lessons card on Home                                       | ✅  | `book_ribbon_fill.svg` (Material `book_ribbon`) |
 | `AddToLessons`            | A practice's title bar: keep its setup in My Lessons          | ✅  | `custom_my_lesson_add.svg` (Inkscape)     |
-| `Fingering`               | "B flat and F sharp" unit                                     | ✏️  | Inkscape                                  |
+| `Fingering`               | Fingering Lexicon card and title bar                          | ✏️  | `custom_fingering_lexicon.svg` (Inkscape), still to rework: a copy of the G♯4 chart diagram - strokes to paths, then add to `tools/icons.map` |
 
 Keep this table up to date when you replace an icon.
 

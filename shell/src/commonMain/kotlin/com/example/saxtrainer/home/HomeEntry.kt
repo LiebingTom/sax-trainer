@@ -3,6 +3,7 @@ package com.example.saxtrainer.home
 import com.example.saxtrainer.core.designsystem.component.IconSource
 import com.example.saxtrainer.core.designsystem.icon.Assignment
 import com.example.saxtrainer.core.designsystem.icon.ChooseNotes
+import com.example.saxtrainer.core.designsystem.icon.Fingering
 import com.example.saxtrainer.core.designsystem.icon.Learning
 import com.example.saxtrainer.core.designsystem.icon.LongTone
 import com.example.saxtrainer.core.designsystem.icon.Metronome
@@ -127,6 +128,16 @@ private val metronome = HomeEntry(
     trainerId = TrainerId.METRONOME,
 )
 
+private val fingeringLexicon = HomeEntry(
+    id = "lexicon",
+    title = "Fingering Lexicon",
+    description = "How to finger any note, alternates included.",
+    // A stand-in until the reworked fingering icon is drawn - see additional/icons/README.md.
+    icon = IconSource.Vector(SaxTrainerIcons.Fingering),
+    route = SaxTrainerDestination.FINGERING_LEXICON,
+    trainerId = TrainerId.FINGERING_LEXICON,
+)
+
 /**
  * The practice tools, grouped by the skill they train.
  *
@@ -135,7 +146,7 @@ private val metronome = HomeEntry(
  * headings are what make that visible without anybody reading a description.
  */
 val practiceGroups: List<HomeGroup> = listOf(
-    HomeGroup("Know your notes", listOf(noteQuiz)),
+    HomeGroup("Know your notes", listOf(noteQuiz, fingeringLexicon)),
     HomeGroup("Play your notes", listOf(noteTrainer, longTones)),
     HomeGroup("Play in time", listOf(sequence, metronome)),
     HomeGroup("Play a phrase", listOf(phraseTrainer, phraseQuiz)),
@@ -170,7 +181,7 @@ val appEntries: List<HomeEntry> = listOf(
     HomeEntry(
         id = "practice",
         title = "Practice",
-        description = "All five practice tools, grouped by what they train.",
+        description = "Every practice tool, grouped by what it trains.",
         icon = IconSource.Vector(SaxTrainerIcons.Practice),
         route = SaxTrainerDestination.PRACTICE,
     ),

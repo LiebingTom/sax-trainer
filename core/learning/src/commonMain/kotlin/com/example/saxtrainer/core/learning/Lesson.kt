@@ -16,6 +16,7 @@ enum class TrainerId {
     METRONOME,
     PHRASE_TRAINER,
     PHRASE_QUIZ,
+    FINGERING_LEXICON,
 }
 
 /** Identifies a lesson everywhere: in the catalog, in a navigation route, in stored progress. */

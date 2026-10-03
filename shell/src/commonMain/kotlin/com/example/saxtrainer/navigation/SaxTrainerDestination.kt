@@ -18,6 +18,9 @@ object SaxTrainerDestination {
     const val SEQUENCE = "sequence"
     const val SETTINGS = "settings"
 
+    /** Every note's grips, looked up rather than practised. */
+    const val FINGERING_LEXICON = "lexicon"
+
     /** The whole catalogue of practice tools, and the only place a tool can be starred. */
     const val PRACTICE = "practice"
 

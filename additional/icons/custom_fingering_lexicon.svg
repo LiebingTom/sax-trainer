@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120.0" height="324.0" viewBox="0 0 120.0 324.0">
+  <line x1="60.00" y1="9.72" x2="60.00" y2="314.28" stroke="#d0d0d0" stroke-width="1.44"/>
+  <line x1="9.60" y1="150.89" x2="110.40" y2="150.89" stroke="#d0d0d0" stroke-width="1.44" stroke-dasharray="4.80"/>
+  <circle cx="15.60" cy="30.00" r="9.03" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>Octave</title></circle>
+  <rect x="60.00" y="1.05" width="15.60" height="13.14" rx="6.57" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>Front-F</title></rect>
+  <circle cx="60.00" cy="40.50" r="15.60" fill="#111111" stroke="#111111" stroke-width="3.74"><title>L1</title></circle>
+  <circle cx="78.60" cy="61.56" r="6.57" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>Bis</title></circle>
+  <circle cx="60.00" cy="82.49" r="15.60" fill="#111111" stroke="#111111" stroke-width="3.74"><title>L2</title></circle>
+  <circle cx="60.00" cy="124.51" r="15.60" fill="#111111" stroke="#111111" stroke-width="3.74"><title>L3</title></circle>
+  <rect x="90.08" y="26.43" width="12.32" height="24.63" rx="6.16" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>Palm-Eb</title></rect>
+  <rect x="90.08" y="55.92" width="12.32" height="24.63" rx="6.16" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>Palm-F</title></rect>
+  <rect x="107.30" y="41.18" width="12.32" height="24.63" rx="6.16" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>Palm-D</title></rect>
+  <rect x="86.36" y="105.92" width="31.04" height="13.14" rx="6.57" fill="#111111" stroke="#111111" stroke-width="3.74"><title>LH-G#</title></rect>
+  <rect x="86.35" y="123.94" width="13.05" height="13.14" rx="6.53" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>LH-C#</title></rect>
+  <rect x="104.35" y="123.94" width="13.05" height="13.14" rx="6.53" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>LH-B</title></rect>
+  <rect x="86.36" y="141.92" width="31.04" height="13.14" rx="6.57" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>LH-Bb</title></rect>
+  <rect x="3.30" y="157.69" width="12.32" height="24.63" rx="6.16" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>Side-E</title></rect>
+  <rect x="3.30" y="187.17" width="12.32" height="24.63" rx="6.16" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>Side-C</title></rect>
+  <rect x="3.30" y="216.69" width="12.32" height="24.63" rx="6.16" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>Side-Bb</title></rect>
+  <rect x="20.89" y="216.69" width="12.32" height="31.04" rx="6.16" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>High-F#</title></rect>
+  <rect x="20.89" y="252.62" width="12.32" height="24.63" rx="6.16" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>Side-F#</title></rect>
+  <circle cx="60.00" cy="177.29" r="15.60" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>R1</title></circle>
+  <circle cx="60.00" cy="219.32" r="15.60" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>R2</title></circle>
+  <circle cx="60.00" cy="261.31" r="15.60" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>R3</title></circle>
+  <rect x="44.40" y="287.69" width="15.60" height="13.14" rx="6.57" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>RH-Eb</title></rect>
+  <rect x="44.40" y="305.67" width="15.60" height="13.14" rx="6.57" fill="none" stroke="#9e9e9e" stroke-width="3.74"><title>RH-C</title></rect>
+</svg>

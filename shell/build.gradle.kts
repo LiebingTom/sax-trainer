@@ -67,6 +67,7 @@ kotlin {
             implementation(project(":core:phrase"))
             implementation(project(":feature:learning"))
             implementation(project(":feature:metronome"))
+            implementation(project(":feature:lexicon"))
             implementation(project(":feature:settings"))
 
             implementation(libs.compose.runtime)

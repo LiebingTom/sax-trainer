@@ -77,7 +77,14 @@ private fun noteGroupUnit(
     id = id,
     title = title,
     description = description,
-    lessons = listOf(
+    lessons = noteLessons(id, notes),
+)
+
+/**
+ * The three ways a set of notes is learned, in order: name and grip them, play them, hold them.
+ * Every unit built on a set of notes starts with these, the blues units included.
+ */
+internal fun noteLessons(id: String, notes: List<SpelledNote>): List<Lesson> = listOf(
         Lesson(
             id = LessonId("$id-quiz"),
             title = "Name and grip them",
@@ -121,5 +128,4 @@ private fun noteGroupUnit(
                 ),
             ),
         ),
-    ),
 )

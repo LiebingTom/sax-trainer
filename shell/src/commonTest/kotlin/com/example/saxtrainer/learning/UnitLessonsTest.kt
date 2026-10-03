@@ -40,8 +40,8 @@ class UnitLessonsTest {
     private fun tokensOf(id: String) = quizOf(id).notes.map { it.token }
 
     @Test
-    fun `the four groups are the whole curriculum, in teaching order`() {
-        assertEquals(unitIds, SaxTrainerCurriculum.units.map { it.id })
+    fun `the four groups open the curriculum, in teaching order`() {
+        assertEquals(unitIds, SaxTrainerCurriculum.units.take(unitIds.size).map { it.id })
     }
 
     @Test
@@ -114,7 +114,7 @@ class UnitLessonsTest {
     fun `the groups are called by their number`() {
         assertEquals(
             listOf("Basics 1", "Basics 2", "Basics 3", "Basics 4"),
-            SaxTrainerCurriculum.units.map { it.title },
+            unitIds.map { unitOf(it).title },
         )
     }
 

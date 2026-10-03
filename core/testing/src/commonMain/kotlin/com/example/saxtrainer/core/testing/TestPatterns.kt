@@ -1,7 +1,29 @@
+package com.example.saxtrainer.core.testing
+
+import com.example.saxtrainer.core.phrase.InMemoryPatternCatalog
+import com.example.saxtrainer.core.phrase.PatternCatalog
+import com.example.saxtrainer.core.phrase.PhraseRecipe
+import com.example.saxtrainer.core.phrase.parsePatterns
+
+/**
+ * A scale pattern for tests, so they do not depend on what the bundled library happens to hold.
+ *
+ * The eight-bar walk that used to ship as "Woche 1 walk": in D major, octave 4, it reads
+ * D E F♯ A | B A F♯ E | D E F♯ A | E E F♯ E | ...
+ */
+object TestPatterns {
+    const val WALK_ID = "test_walk"
+
+    val walk: PhraseRecipe = parsePatterns(listOf(WALK_JSON)).single()
+
+    val catalog: PatternCatalog = InMemoryPatternCatalog(listOf(walk))
+}
+
+private val WALK_JSON = """
 {
-  "id": "woche_1_walk",
-  "name": "Woche 1 walk",
-  "description": "The eight-bar melody from the Woche 1 exercise. Pick D Major and octave 4 or 5 to play it where it sits on the sheet.",
+  "id": "test_walk",
+  "name": "Test walk",
+  "description": "An eight-bar walk on degrees 1 to 6, for tests only.",
   "trainingBars": 1,
   "bars": [
     {
@@ -68,3 +90,4 @@
     }
   ]
 }
+""".trimIndent()

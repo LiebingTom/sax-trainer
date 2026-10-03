@@ -110,8 +110,10 @@ class ContentJsonTest {
     }
 
     @Test
-    fun theBundledPatternLibraryParsesToAtLeastOnePattern() {
-        assertTrue(PatternLibrary.all.isNotEmpty())
+    fun theBundledPatternLibraryParsesWithEveryIdOnce() {
+        // Empty is allowed: the library starts clean and patterns are added one by one.
+        val ids = PatternLibrary.all.map { it.id }
+        assertEquals(ids.distinct(), ids)
     }
 
     private companion object {

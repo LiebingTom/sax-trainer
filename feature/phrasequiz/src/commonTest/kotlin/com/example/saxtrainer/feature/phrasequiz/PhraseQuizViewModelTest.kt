@@ -2,7 +2,6 @@ package com.example.saxtrainer.feature.phrasequiz
 
 import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.phrase.InMemoryPhraseCatalog
-import com.example.saxtrainer.core.phrase.PatternLibrary
 import com.example.saxtrainer.core.phrase.parsePhrases
 import com.example.saxtrainer.core.phrase.PhraseLibrary
 import com.example.saxtrainer.core.phrase.PhraseSource
@@ -11,6 +10,7 @@ import com.example.saxtrainer.core.phrase.ScaleChoice
 import com.example.saxtrainer.core.settings.Exercise
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
+import com.example.saxtrainer.core.testing.TestPatterns
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
 import kotlin.random.Random
 import kotlin.test.AfterTest
@@ -55,6 +55,7 @@ class PhraseQuizViewModelTest {
         settingsRepository = FakeSettingsRepository(),
         exerciseSetups = setups,
         phraseCatalog = phrases,
+        patternCatalog = TestPatterns.catalog,
         preset = preset,
         config = config,
         random = Random(seed),
@@ -128,7 +129,7 @@ class PhraseQuizViewModelTest {
         val viewModel = viewModel()
         viewModel.openPatternPicker()
 
-        viewModel.selectPattern(PatternLibrary.all.first().id)
+        viewModel.selectPattern(TestPatterns.catalog.all.first().id)
 
         val state = viewModel.uiState.value
         assertEquals(PhraseSourceType.SCALE_PATTERN, state.sourceType)
@@ -139,7 +140,7 @@ class PhraseQuizViewModelTest {
     fun `picking a library phrase selects it and closes the window`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectScaleChoice(ScaleChoice.defaults[1].id) // start from scale pattern
-        viewModel.selectPattern(PatternLibrary.all.first().id)
+        viewModel.selectPattern(TestPatterns.catalog.all.first().id)
         viewModel.openLibraryPicker()
 
         viewModel.selectLibraryPhrase(PhraseLibrary.all.first().id)
@@ -156,7 +157,7 @@ class PhraseQuizViewModelTest {
      */
     @Test
     fun `a stored pattern is resolved against the chosen scale and octave`() = runTest(dispatcher) {
-        val pattern = PatternLibrary.byId("woche_1_walk")!!
+        val pattern = TestPatterns.walk
 
         val dMajor = viewModel()
         dMajor.selectScaleChoice("d_major")
@@ -179,7 +180,7 @@ class PhraseQuizViewModelTest {
     fun `the octaves are their own setting`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectScaleChoice("c_major")
-        viewModel.selectPattern("woche_1_walk")
+        viewModel.selectPattern(TestPatterns.WALK_ID)
         viewModel.toggleOctave(PhraseQuizUiState.DEFAULT_OCTAVE)
         viewModel.toggleOctave(5)
 
@@ -191,7 +192,7 @@ class PhraseQuizViewModelTest {
     fun `several octaves generate one phrase out of each octave's own bars, lowest first`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectScaleChoice("c_major")
-        viewModel.selectPattern("woche_1_walk")
+        viewModel.selectPattern(TestPatterns.WALK_ID)
         viewModel.toggleOctave(5) // default octave 4 is already on
 
         val phrase = assertNotNull(viewModel.uiState.value.phrase, "expected a resolved phrase")
@@ -204,7 +205,7 @@ class PhraseQuizViewModelTest {
     fun `turning off every octave leaves a scale pattern with nothing to resolve`() = runTest(dispatcher) {
         val viewModel = viewModel()
         viewModel.selectScaleChoice("c_major")
-        viewModel.selectPattern("woche_1_walk")
+        viewModel.selectPattern(TestPatterns.WALK_ID)
         viewModel.toggleOctave(PhraseQuizUiState.DEFAULT_OCTAVE)
 
         assertTrue(viewModel.uiState.value.octaves.isEmpty())
@@ -446,7 +447,7 @@ class PhraseQuizViewModelTest {
     fun `mixed order draws every repeat from one shuffled pool`() = runTest(dispatcher) {
         val viewModel = viewModel(seed = 7)
         viewModel.selectScaleChoice("c_major")
-        viewModel.selectPattern("woche_1_walk") // eight units, so a run of three repeats has twenty-four
+        viewModel.selectPattern(TestPatterns.WALK_ID) // eight units, so a run of three repeats has twenty-four
         val phrase = assertNotNull(viewModel.uiState.value.phrase)
         val unitCount = phrase.units.size
         viewModel.selectRepeats(3)
@@ -463,7 +464,7 @@ class PhraseQuizViewModelTest {
         advanceUntilIdle()
 
         // Every unit appears exactly [repeats] times in the pool, whatever order they came in - two
-        // of Woche 1's own bars happen to read the same, so counted by notes rather than by
+        // of the walk's own bars happen to read the same, so counted by notes rather than by
         // position, that one reading is expected twice as often as any other.
         assertEquals(unitCount * 3, order.size)
         val expectedCounts = phrase.units
@@ -519,13 +520,13 @@ class PhraseQuizViewModelTest {
     fun `every choice survives being written down and started again`() = runTest(dispatcher) {
         val configured = viewModel()
         configured.selectScaleChoice(ScaleChoice.defaults[2].id)
-        configured.selectPattern(PatternLibrary.all.last().id)
+        configured.selectPattern(TestPatterns.catalog.all.last().id)
         configured.selectRepeats(4)
         configured.setMixed(true)
         configured.setShowSeconds(4.0)
         val written = configured.uiState.value.toSetup()
 
-        val preset = assertNotNull(phraseQuizPresetOf(written, editable = true))
+        val preset = assertNotNull(phraseQuizPresetOf(written, patterns = TestPatterns.catalog, editable = true))
         val started = viewModel(preset = preset)
 
         assertEquals(written, started.uiState.value.toSetup())

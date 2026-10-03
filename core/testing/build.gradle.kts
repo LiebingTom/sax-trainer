@@ -38,6 +38,7 @@ kotlin {
             // classpath too.
             api(project(":core:audio"))
             api(project(":core:settings"))
+            api(project(":core:phrase"))
             implementation(libs.kotlinx.coroutines.core)
         }
         wasmJsMain.dependencies {

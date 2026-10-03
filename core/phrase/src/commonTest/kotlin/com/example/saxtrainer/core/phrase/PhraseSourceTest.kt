@@ -1,5 +1,7 @@
 package com.example.saxtrainer.core.phrase
 
+import com.example.saxtrainer.core.testing.TestPatterns
+
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.Scales
@@ -13,26 +15,26 @@ class PhraseSourceTest {
     fun libraryResolvesAKnownPhraseFromTheCatalog() {
         val source = PhraseSource.Library("six_bar_walk")
 
-        assertEquals(PhraseLibrary.byId("six_bar_walk"), source.resolve(PhraseLibrary, PatternLibrary))
+        assertEquals(PhraseLibrary.byId("six_bar_walk"), source.resolve(PhraseLibrary, TestPatterns.catalog))
     }
 
     @Test
     fun libraryResolvesToNullForAnUnknownId() {
         val source = PhraseSource.Library("does_not_exist")
 
-        assertNull(source.resolve(PhraseLibrary, PatternLibrary))
+        assertNull(source.resolve(PhraseLibrary, TestPatterns.catalog))
     }
 
     @Test
     fun scalePatternResolvesAStoredRecipeAgainstTheChosenScaleAndRoot() {
         val source = PhraseSource.ScalePattern(
-            patternId = "woche_1_walk",
+            patternId = TestPatterns.WALK_ID,
             scale = Scales.MAJOR,
             root = NoteName.D,
             octaves = setOf(4),
         )
 
-        val phrase = source.resolve(PhraseLibrary, PatternLibrary)
+        val phrase = source.resolve(PhraseLibrary, TestPatterns.catalog)
 
         // The pattern's own first bar - degrees 1, 2, 3, 5.
         assertEquals(
@@ -44,13 +46,13 @@ class PhraseSourceTest {
     @Test
     fun scalePatternWithSeveralOctavesConcatenatesEachOctavesBarsInOrder() {
         val source = PhraseSource.ScalePattern(
-            patternId = "woche_1_walk",
+            patternId = TestPatterns.WALK_ID,
             scale = Scales.MAJOR,
             root = NoteName.D,
             octaves = setOf(5, 4), // unsorted on purpose: resolution sorts them
         )
 
-        val phrase = source.resolve(PhraseLibrary, PatternLibrary)
+        val phrase = source.resolve(PhraseLibrary, TestPatterns.catalog)
         val notes = phrase?.toneSequence()?.notes
 
         val octave4FirstBar = listOf(Note(NoteName.D, 4), Note(NoteName.E, 4), Note(NoteName.F_SHARP, 4), Note(NoteName.A, 4))
@@ -68,6 +70,6 @@ class PhraseSourceTest {
             octaves = setOf(4),
         )
 
-        assertNull(source.resolve(PhraseLibrary, PatternLibrary))
+        assertNull(source.resolve(PhraseLibrary, TestPatterns.catalog))
     }
 }

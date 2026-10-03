@@ -6,7 +6,6 @@ import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.phrase.InMemoryPhraseCatalog
-import com.example.saxtrainer.core.phrase.PatternLibrary
 import com.example.saxtrainer.core.phrase.PhraseCatalog
 import com.example.saxtrainer.core.phrase.parsePhrases
 import com.example.saxtrainer.core.phrase.PhraseLibrary
@@ -18,6 +17,7 @@ import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.SettingsRepository
+import com.example.saxtrainer.core.testing.TestPatterns
 import com.example.saxtrainer.core.testing.FakeMicrophone
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
 import kotlin.random.Random
@@ -81,6 +81,7 @@ class PhraseTrainerViewModelTest {
         exerciseSetups = setups,
         audioCapture = microphone,
         phraseCatalog = phrases,
+        patternCatalog = TestPatterns.catalog,
         preset = preset,
         config = config,
         random = random,
@@ -111,7 +112,7 @@ class PhraseTrainerViewModelTest {
         val viewModel = viewModel()
         viewModel.openPatternPicker()
 
-        viewModel.selectPattern(PatternLibrary.all.first().id)
+        viewModel.selectPattern(TestPatterns.catalog.all.first().id)
 
         val state = viewModel.uiState.value
         assertTrue(state.canStart)
@@ -127,7 +128,7 @@ class PhraseTrainerViewModelTest {
     fun `a stored pattern is resolved against the chosen scale and octave`() = trainerTest {
         val dMajor = viewModel()
         dMajor.selectScaleChoice("d_major")
-        dMajor.selectPattern("woche_1_walk")
+        dMajor.selectPattern(TestPatterns.WALK_ID)
         // The pattern's own first bar - degrees 1, 2, 3, 5.
         assertEquals(
             listOf(
@@ -141,7 +142,7 @@ class PhraseTrainerViewModelTest {
 
         val cMajor = viewModel()
         cMajor.selectScaleChoice("c_major")
-        cMajor.selectPattern("woche_1_walk")
+        cMajor.selectPattern(TestPatterns.WALK_ID)
         assertEquals(
             listOf(Note(NoteName.C, 4), Note(NoteName.D, 4), Note(NoteName.E, 4), Note(NoteName.G, 4)),
             cMajor.uiState.value.phrase?.toneSequence()?.notes?.take(4),
@@ -152,7 +153,7 @@ class PhraseTrainerViewModelTest {
     fun `the octaves are their own setting`() = trainerTest {
         val viewModel = viewModel()
         viewModel.selectScaleChoice("c_major")
-        viewModel.selectPattern("woche_1_walk")
+        viewModel.selectPattern(TestPatterns.WALK_ID)
         viewModel.toggleOctave(PhraseTrainerUiState.DEFAULT_OCTAVE)
         viewModel.toggleOctave(5)
 
@@ -270,7 +271,7 @@ class PhraseTrainerViewModelTest {
         val microphone = FakeMicrophone(FRAME_DURATION_MS)
         val viewModel = viewModel(microphone = microphone)
         viewModel.selectScaleChoice("c_major")
-        viewModel.selectPattern("woche_1_walk") // eight bars, one unit each
+        viewModel.selectPattern(TestPatterns.WALK_ID) // eight bars, one unit each
         viewModel.selectRepeats(2)
 
         val root = assertNotNull(viewModel.uiState.value.scaleChoice)
@@ -344,14 +345,14 @@ class PhraseTrainerViewModelTest {
     fun `every choice survives being written down and started again`() = trainerTest {
         val configured = viewModel()
         configured.selectScaleChoice(ScaleChoice.defaults[1].id)
-        configured.selectPattern(PatternLibrary.all.last().id)
+        configured.selectPattern(TestPatterns.catalog.all.last().id)
         configured.setCheckDuration(true)
         configured.selectRepeats(3)
         configured.setMixed(true)
         configured.setShowSeconds(4.0)
         val written = configured.uiState.value.toSetup()
 
-        val preset = assertNotNull(phraseTrainerPresetOf(written, editable = true))
+        val preset = assertNotNull(phraseTrainerPresetOf(written, patterns = TestPatterns.catalog, editable = true))
         val started = viewModel(preset = preset)
 
         assertEquals(written, started.uiState.value.toSetup())

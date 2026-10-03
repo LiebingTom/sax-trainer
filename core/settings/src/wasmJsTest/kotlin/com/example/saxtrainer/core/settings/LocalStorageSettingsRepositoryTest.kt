@@ -1,6 +1,7 @@
 package com.example.saxtrainer.core.settings
 
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import kotlinx.browser.localStorage
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -41,6 +42,13 @@ class LocalStorageSettingsRepositoryTest {
         reloaded().setNoteNaming(NoteNaming.GERMAN)
 
         assertEquals(NoteNaming.GERMAN, reloaded().settings.value.noteNaming)
+    }
+
+    @Test
+    fun the_octave_numbering_survives_a_reload() {
+        reloaded().setOctaveNumbering(OctaveNumbering.SAXOPHONE)
+
+        assertEquals(OctaveNumbering.SAXOPHONE, reloaded().settings.value.octaveNumbering)
     }
 
     @Test

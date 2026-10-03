@@ -5,6 +5,7 @@ import com.example.saxtrainer.core.exercise.ExercisePattern
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.Transposition
 import com.example.saxtrainer.core.settings.NoteDisplay
@@ -183,6 +184,7 @@ data class LongToneUiState(
     val instrumentName: String,
     /** What the note letters are called; a display convention, nothing else. */
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
+    val octaveNumbering: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
     val noteDisplay: NoteDisplay = NoteDisplay.STAFF,
     val noteDisplayOptions: List<NoteDisplay> = NoteDisplay.entries,
     /**
@@ -216,10 +218,11 @@ data class LongToneUiState(
     val isBusy: Boolean get() = phase is LongTonePhase.Running || phase is LongTonePhase.Countdown
 
     /** Note name as the player reads it on their instrument, under the chosen naming. */
-    fun writtenLabel(note: Note): String = noteNaming.labelOf(transposition.writtenFor(note))
+    fun writtenLabel(note: Note): String =
+        noteNaming.labelOf(transposition.writtenFor(note), octaves = octaveNumbering)
 
     /** A sounding pitch, named the same way. */
-    fun soundingLabel(note: Note): String = noteNaming.labelOf(note)
+    fun soundingLabel(note: Note): String = noteNaming.labelOf(note, octaves = octaveNumbering)
 
     /** The note the player should be sounding right now, or the first one before the start. */
     val currentNote: Note get() = progress?.currentNote ?: selection.notes.first()

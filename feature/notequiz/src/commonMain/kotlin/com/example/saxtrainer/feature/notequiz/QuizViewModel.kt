@@ -54,7 +54,10 @@ class QuizViewModel(
     init {
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
-                _uiState.value = _uiState.value.copy(noteNaming = settings.noteNaming)
+                _uiState.value = _uiState.value.copy(
+                    noteNaming = settings.noteNaming,
+                    octaveNumbering = settings.octaveNumbering,
+                )
             }
         }
     }
@@ -319,6 +322,7 @@ class QuizViewModel(
             successDelaySeconds = config.defaultSuccessDelaySeconds,
             successDelayOptions = config.successDelayOptions,
             noteNaming = settingsRepository.settings.value.noteNaming,
+            octaveNumbering = settingsRepository.settings.value.octaveNumbering,
         )
         // A preset decides everything the setup screen would have asked, so a remembered setup has
         // nothing left to say about it.

@@ -4,6 +4,7 @@ import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.testing.FakeSettingsRepository
@@ -457,6 +458,28 @@ class QuizViewModelTest {
         assertEquals(listOf("C4", "D4", "E♭4", "F4", "G4", "A♭4", "B♭4"), notes.map(international::nameOf))
         assertEquals(listOf("C4", "D4", "Es4", "F4", "G4", "As4", "B4"), notes.map(german::nameOf))
     }
+
+    @Test
+    fun `the octave is numbered as the settings ask, and follows a change made while open`() =
+        runTest(dispatcher) {
+            val settings = FakeSettingsRepository(AppSettings(countInBeats = 0))
+            val viewModel = QuizViewModel(
+                settingsRepository = settings,
+                exerciseSetups = InMemoryExerciseSetupRepository(),
+                preset = null,
+                config = config,
+                random = Random(1),
+                processingDispatcher = dispatcher,
+            )
+            val notes = listOf("Bb3", "C4", "C5", "C6").map(::written)
+
+            assertEquals(listOf("B♭3", "C4", "C5", "C6"), notes.map(viewModel.uiState.value::nameOf))
+
+            settings.setOctaveNumbering(OctaveNumbering.SAXOPHONE)
+            advanceUntilIdle()
+
+            assertEquals(listOf("B♭0", "C1", "C2", "C3"), notes.map(viewModel.uiState.value::nameOf))
+        }
 
     @Test
     fun `one pitch in two spellings is read the same way everywhere a quiz is decided`() =

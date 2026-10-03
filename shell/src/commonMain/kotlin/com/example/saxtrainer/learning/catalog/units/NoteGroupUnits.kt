@@ -35,29 +35,29 @@ internal val TRAINER_HOLD = Beats.of(2)
 
 val cMajorTwoOctavesUnit = noteGroupUnit(
     id = C_MAJOR_TWO_OCTAVES_UNIT_ID,
-    title = "C major, two octaves",
-    description = "C to C to C, no sharps or flats.",
+    title = "Group 1",
+    description = "C major over two octaves, C to C to C, no sharps or flats.",
     notes = C_MAJOR_TWO_OCTAVES,
 )
 
 val dMajorNotesUnit = noteGroupUnit(
     id = D_MAJOR_NOTES_UNIT_ID,
-    title = "Adding F sharp and C sharp",
+    title = "Group 2",
     description = "The same two octaves with F♯ and C♯: everything D major needs.",
     notes = D_MAJOR_NOTES,
 )
 
 val chromaticSharpsUnit = noteGroupUnit(
     id = CHROMATIC_SHARPS_UNIT_ID,
-    title = "Chromatic, with sharps",
-    description = "Every note from C up to the high D, the black keys written as sharps.",
+    title = "Group 3",
+    description = "Chromatic from C to C, plus the high D, the black keys written as sharps.",
     notes = CHROMATIC_SHARPS,
 )
 
 val chromaticSharpsAndFlatsUnit = noteGroupUnit(
     id = CHROMATIC_SHARPS_AND_FLATS_UNIT_ID,
-    title = "Chromatic, sharps and flats",
-    description = "The same notes, every black key both as a sharp and as a flat.",
+    title = "Group 4",
+    description = "The same notes as group 3, every black key both as a sharp and as a flat.",
     notes = CHROMATIC_SHARPS_AND_FLATS,
 )
 

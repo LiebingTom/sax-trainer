@@ -10,6 +10,7 @@ import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.Transposition
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.music.Tempo
 
 /** Where the exercise is. */
@@ -167,6 +168,7 @@ data class NoteTrainerUiState(
     val transposition: Transposition = Transposition.CONCERT,
     val instrumentName: String = "",
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
+    val octaveNumbering: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
     val progress: NoteTrainerProgress? = null,
     val isPreconfigured: Boolean = false,
 ) {
@@ -196,7 +198,7 @@ data class NoteTrainerUiState(
             ?: "No notes chosen yet"
 
     /** The name of a written note, as written, under the chosen naming. */
-    fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note)
+    fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note, octaveNumbering)
 
     /** The pitch a written note should sound as on the chosen instrument. */
     fun soundingNoteOf(writtenNote: Note): Note = transposition.concertFor(writtenNote)

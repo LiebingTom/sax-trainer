@@ -1,6 +1,7 @@
 package com.example.saxtrainer.core.settings
 
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 
 /**
  * What a stored setting is called and how a stored string becomes a setting again.
@@ -20,6 +21,7 @@ internal object StoredSettings {
 
     const val KEY_INSTRUMENT = "instrument"
     const val KEY_NOTE_NAMING = "note_naming"
+    const val KEY_OCTAVE_NUMBERING = "octave_numbering"
     const val KEY_NOTE_DISPLAY = "note_display"
     const val KEY_COUNT_IN_BEATS = "count_in_beats"
     const val KEY_COUNT_IN_CLICK = "count_in_click"
@@ -38,6 +40,9 @@ internal object StoredSettings {
 
     fun noteNamingOf(stored: String?): NoteNaming =
         NoteNaming.entries.firstOrNull { it.name == stored } ?: AppSettings().noteNaming
+
+    fun octaveNumberingOf(stored: String?): OctaveNumbering =
+        OctaveNumbering.entries.firstOrNull { it.name == stored } ?: AppSettings().octaveNumbering
 
     fun noteDisplayOf(stored: String?): NoteDisplay =
         noteDisplayOverrideOf(stored) ?: AppSettings().noteDisplay

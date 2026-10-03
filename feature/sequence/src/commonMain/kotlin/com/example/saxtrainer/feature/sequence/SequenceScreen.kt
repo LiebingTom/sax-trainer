@@ -240,6 +240,7 @@ private fun ReadyPanel(state: SequenceUiState) {
             sequence = state.sequence,
             modifier = Modifier.fillMaxWidth(),
             naming = state.noteNaming,
+            octaves = state.octaveNumbering,
             // Nothing is being played yet, so there is no note to turn the page to: all of it is
             // shown, and the screen scrolls if the piece is a long one.
             systemsPerPage = Int.MAX_VALUE,
@@ -269,6 +270,7 @@ private fun CountInPanel(state: SequenceUiState, phase: SequencePhase.CountIn) {
             sequence = state.sequence,
             modifier = Modifier.fillMaxWidth(),
             naming = state.noteNaming,
+            octaves = state.octaveNumbering,
         )
     }
 }
@@ -286,6 +288,7 @@ private fun RunningPanel(state: SequenceUiState) {
             sequence = state.sequence,
             modifier = Modifier.fillMaxWidth(),
             naming = state.noteNaming,
+            octaves = state.octaveNumbering,
             highlightIndex = progress.noteIndex,
             noteColor = { index ->
                 when {
@@ -360,6 +363,7 @@ private fun ResultPanel(state: SequenceUiState, result: SequenceResult) {
             sequence = state.sequence,
             modifier = Modifier.fillMaxWidth(),
             naming = state.noteNaming,
+            octaves = state.octaveNumbering,
             // The whole piece, so the player can look over everything they just played.
             systemsPerPage = Int.MAX_VALUE,
             noteColor = { index ->

@@ -1,6 +1,7 @@
 package com.example.saxtrainer.core.settings
 
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -14,6 +15,9 @@ interface SettingsRepository {
 
     /** Chooses what the note letters are called, everywhere a note name is shown. */
     fun setNoteNaming(noteNaming: NoteNaming)
+
+    /** Chooses which number a note's octave is shown with, everywhere a note name is shown. */
+    fun setOctaveNumbering(octaveNumbering: OctaveNumbering)
 
     /** Sets the default every tool follows unless it has been given its own preference. */
     fun setNoteDisplay(noteDisplay: NoteDisplay)

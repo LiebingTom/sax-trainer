@@ -37,6 +37,7 @@ import com.example.saxtrainer.core.music.ToneSequence
 import com.example.saxtrainer.core.music.ToneStep
 import com.example.saxtrainer.core.music.TrebleStaff
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 
 /**
  * Draws a whole [ToneSequence] as a line of music.
@@ -75,6 +76,8 @@ fun MusicalStaffView(
     lineSpacing: Dp = DefaultSequenceLineSpacing,
     autoScrollToHighlight: Boolean = true,
     naming: NoteNaming = NoteNaming.INTERNATIONAL,
+    /** Which number each octave is shown with, wherever a note is named. */
+    octaves: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
     prefix: StaffPrefix = StaffPrefix.None,
     noteStyle: (index: Int) -> StaffNoteStyle = { StaffNoteStyle.HEAD },
     labelStyle: TextStyle = MaterialTheme.typography.labelLarge,
@@ -134,11 +137,19 @@ fun MusicalStaffView(
     val styles = sequence.steps.indices.map(noteStyle)
     // Every written name is given the room of the widest name in the sequence, not its own, so the
     // line does not reflow when one note's presentation changes. The same rule [NoteSlot] follows.
-    val labelWidthSpaces = remember(sequence, styles, labelStyle, lineSpacing, naming, density) {
+    val labelWidthSpaces = remember(
+        sequence,
+        styles,
+        labelStyle,
+        lineSpacing,
+        naming,
+        octaves,
+        density,
+    ) {
         if (styles.none { it == StaffNoteStyle.NAME } || sequence.notes.isEmpty()) {
             0f
         } else {
-            widestLabelSpaces(sequence, measurer, labelStyle, naming, lineSpacing, density)
+            widestLabelSpaces(sequence, measurer, labelStyle, naming, octaves, lineSpacing, density)
         }
     }
 
@@ -163,7 +174,7 @@ fun MusicalStaffView(
     }
 
     val description = sequence.steps.indices.joinToString(" ") { index ->
-        sequence.writtenAt(index)?.let { naming.labelOf(it) } ?: "rest"
+        sequence.writtenAt(index)?.let { naming.labelOf(it, octaves) } ?: "rest"
     }
 
     // Outside the scroll on purpose: inside it the width offered is infinite and says nothing.
@@ -242,7 +253,7 @@ fun MusicalStaffView(
                                 // A rest is never written as a name - the layout draws it as a
                                 // rest - so there is always a pitch here to name.
                                 text = sequence.writtenAt(note.index)
-                                    ?.let { naming.labelOf(it) }
+                                    ?.let { naming.labelOf(it, octaves) }
                                     .orEmpty(),
                                 style = labelStyle,
                                 color = paint,
@@ -303,11 +314,12 @@ private fun widestLabelSpaces(
     measurer: TextMeasurer,
     labelStyle: TextStyle,
     naming: NoteNaming,
+    octaves: OctaveNumbering,
     lineSpacing: Dp,
     density: Density,
 ): Float {
     val widestPx = sequence.writtenNotes.maxOf {
-        val label = naming.labelOf(it)
+        val label = naming.labelOf(it, octaves)
         measurer.measure(AnnotatedString(label), labelStyle).size.width
     }
     val spacingPx = with(density) { lineSpacing.toPx() }

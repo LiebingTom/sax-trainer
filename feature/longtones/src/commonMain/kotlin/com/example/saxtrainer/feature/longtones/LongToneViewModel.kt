@@ -109,6 +109,7 @@ class LongToneViewModel(
                     transposition = settings.instrument.transposition,
                     instrumentName = settings.instrument.displayName,
                     noteNaming = settings.noteNaming,
+                    octaveNumbering = settings.octaveNumbering,
                     noteDisplay = settings.noteDisplayFor(TrainingTool.LONG_TONES),
                     countInClick = settings.countInClick,
                 )

@@ -3,6 +3,7 @@ package com.example.saxtrainer.core.settings
 import android.content.Context
 import androidx.core.content.edit
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +33,7 @@ class SharedPreferencesSettingsRepository(
         _settings.value = AppSettings(
             instrument = StoredSettings.instrumentOf(read(StoredSettings.KEY_INSTRUMENT)),
             noteNaming = StoredSettings.noteNamingOf(read(StoredSettings.KEY_NOTE_NAMING)),
+            octaveNumbering = StoredSettings.octaveNumberingOf(read(StoredSettings.KEY_OCTAVE_NUMBERING)),
             noteDisplay = StoredSettings.noteDisplayOf(read(StoredSettings.KEY_NOTE_DISPLAY)),
             noteDisplayOverrides = readNoteDisplayOverrides(),
             countInBeats = StoredSettings.countInBeatsOf(readCountInBeats()),
@@ -52,6 +54,12 @@ class SharedPreferencesSettingsRepository(
         if (_settings.value.noteNaming == noteNaming) return
         _settings.value = _settings.value.copy(noteNaming = noteNaming)
         preferences.edit { putString(StoredSettings.KEY_NOTE_NAMING, noteNaming.name) }
+    }
+
+    override fun setOctaveNumbering(octaveNumbering: OctaveNumbering) {
+        if (_settings.value.octaveNumbering == octaveNumbering) return
+        _settings.value = _settings.value.copy(octaveNumbering = octaveNumbering)
+        preferences.edit { putString(StoredSettings.KEY_OCTAVE_NUMBERING, octaveNumbering.name) }
     }
 
     override fun setNoteDisplay(noteDisplay: NoteDisplay) {

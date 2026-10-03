@@ -20,6 +20,7 @@ import com.example.saxtrainer.core.designsystem.component.ThemeSwatch
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.ThemeColor
@@ -35,6 +36,7 @@ fun SettingsScreen(
     onInstrumentSelected: (Instrument) -> Unit,
     onNoteDisplaySelected: (NoteDisplay) -> Unit,
     onNoteNamingSelected: (NoteNaming) -> Unit,
+    onOctaveNumberingSelected: (OctaveNumbering) -> Unit,
     onCountInSelected: (Int) -> Unit,
     onCountInClickChanged: (Boolean) -> Unit,
     onThemeModeSelected: (ThemeMode) -> Unit,
@@ -91,6 +93,33 @@ fun SettingsScreen(
                         supportingText = naming.description,
                         selected = naming == state.settings.noteNaming,
                         onClick = { onNoteNamingSelected(naming) },
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(Dimens.spaceLg))
+
+        SectionHeader("Octave numbers")
+        Text(
+            text = "Which number follows the note letter, wherever a note name is shown. The " +
+                "notes themselves do not change.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(Dimens.spaceSm))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+        ) {
+            Column(modifier = Modifier.padding(Dimens.cardPadding)) {
+                state.octaveNumberings.forEach { numbering ->
+                    SelectableRow(
+                        title = numbering.displayName,
+                        supportingText = numbering.description,
+                        selected = numbering == state.settings.octaveNumbering,
+                        onClick = { onOctaveNumberingSelected(numbering) },
                     )
                 }
             }
@@ -226,6 +255,7 @@ private fun SettingsScreenPreview() {
             onInstrumentSelected = {},
             onNoteDisplaySelected = {},
             onNoteNamingSelected = {},
+            onOctaveNumberingSelected = {},
             onCountInSelected = {},
             onCountInClickChanged = {},
             onThemeModeSelected = {},

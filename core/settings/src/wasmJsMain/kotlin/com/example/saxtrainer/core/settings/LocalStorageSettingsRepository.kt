@@ -1,6 +1,7 @@
 package com.example.saxtrainer.core.settings
 
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import kotlinx.browser.localStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,7 @@ class LocalStorageSettingsRepository(
         _settings.value = AppSettings(
             instrument = StoredSettings.instrumentOf(storage[StoredSettings.KEY_INSTRUMENT]),
             noteNaming = StoredSettings.noteNamingOf(storage[StoredSettings.KEY_NOTE_NAMING]),
+            octaveNumbering = StoredSettings.octaveNumberingOf(storage[StoredSettings.KEY_OCTAVE_NUMBERING]),
             noteDisplay = StoredSettings.noteDisplayOf(storage[StoredSettings.KEY_NOTE_DISPLAY]),
             noteDisplayOverrides = readNoteDisplayOverrides(),
             countInBeats = StoredSettings.countInBeatsOf(
@@ -56,6 +58,12 @@ class LocalStorageSettingsRepository(
         if (_settings.value.noteNaming == noteNaming) return
         _settings.value = _settings.value.copy(noteNaming = noteNaming)
         storage.setItem(StoredSettings.KEY_NOTE_NAMING, noteNaming.name)
+    }
+
+    override fun setOctaveNumbering(octaveNumbering: OctaveNumbering) {
+        if (_settings.value.octaveNumbering == octaveNumbering) return
+        _settings.value = _settings.value.copy(octaveNumbering = octaveNumbering)
+        storage.setItem(StoredSettings.KEY_OCTAVE_NUMBERING, octaveNumbering.name)
     }
 
     override fun setNoteDisplay(noteDisplay: NoteDisplay) {

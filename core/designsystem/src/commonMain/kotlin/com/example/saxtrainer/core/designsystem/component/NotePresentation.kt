@@ -27,6 +27,7 @@ import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.music.AccidentalStyle
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.music.conventionalStyle
 
 /**
@@ -63,6 +64,8 @@ fun rememberNoteSlot(
     reserveSecondaryNote: Boolean = false,
     /** What the letters are called, because "Fis" is wider than "F sharp" is tall. */
     naming: NoteNaming = NoteNaming.INTERNATIONAL,
+    /** Which number each octave is shown with: "C-1" is wider than "C4". */
+    octaves: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
     /** How each note is spelled, which decides both its name and the line it sits on. */
     styleOf: (Note) -> AccidentalStyle = Note::conventionalStyle,
     /** Extra staff steps either side - see [reservedStepRange]. Zero fits the notes exactly. */
@@ -80,6 +83,7 @@ fun rememberNoteSlot(
         mayShowBothAtOnce,
         reserveSecondaryNote,
         naming,
+        octaves,
         density,
         stepMargin,
     ) {
@@ -88,7 +92,7 @@ fun rememberNoteSlot(
         val staffHeight = staffHeightOf(stepRange, staffLineSpacing)
 
         val measured = notes.map {
-            measurer.measure(AnnotatedString(naming.labelOf(it, styleOf(it))), nameStyle).size
+            measurer.measure(AnnotatedString(naming.labelOf(it, styleOf(it), octaves)), nameStyle).size
         }
         val nameWidth = with(density) { measured.maxOf { it.width }.toDp() }
         val nameHeight = with(density) { measured.maxOf { it.height }.toDp() }

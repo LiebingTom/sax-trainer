@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.settings.ThemeColor
@@ -19,6 +20,7 @@ data class SettingsUiState(
     val instruments: List<Instrument> = Instrument.entries,
     val noteDisplays: List<NoteDisplay> = NoteDisplay.entries,
     val noteNamings: List<NoteNaming> = NoteNaming.entries,
+    val octaveNumberings: List<OctaveNumbering> = OctaveNumbering.entries,
     val countInChoices: List<Int> = AppSettings.COUNT_IN_CHOICES,
     val themeModes: List<ThemeMode> = ThemeMode.entries,
     val themeColors: List<ThemeColor> = ThemeColor.entries,
@@ -46,6 +48,10 @@ class SettingsViewModel(
 
     fun selectNoteNaming(noteNaming: NoteNaming) {
         settingsRepository.setNoteNaming(noteNaming)
+    }
+
+    fun selectOctaveNumbering(octaveNumbering: OctaveNumbering) {
+        settingsRepository.setOctaveNumbering(octaveNumbering)
     }
 
     fun selectCountInBeats(beats: Int) {

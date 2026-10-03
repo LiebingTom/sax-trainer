@@ -3,6 +3,7 @@ package com.example.saxtrainer.feature.notequiz
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.music.SpelledNote
 
 /** Where the quiz is. */
@@ -95,6 +96,7 @@ data class QuizUiState(
     val successDelaySeconds: Double = 1.0,
     val successDelayOptions: List<Double> = emptyList(),
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
+    val octaveNumbering: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
     /** True when a lesson handed the quiz a ready-made run, so there is no setup to show. */
     val isPreconfigured: Boolean = false,
 ) {
@@ -117,5 +119,5 @@ data class QuizUiState(
             ?: "No notes chosen yet"
 
     /** The name of a written note, as written, under the chosen naming. */
-    fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note)
+    fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note, octaveNumbering)
 }

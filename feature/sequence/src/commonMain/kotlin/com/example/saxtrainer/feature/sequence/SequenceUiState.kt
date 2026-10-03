@@ -5,6 +5,7 @@ import com.example.saxtrainer.core.exercise.SequenceDefinition
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.ToneSequence
 import com.example.saxtrainer.core.music.Transposition
@@ -131,6 +132,7 @@ data class SequenceUiState(
     val instrumentName: String = "",
     /** What the note letters are called; a display convention, nothing else. */
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
+    val octaveNumbering: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
     /** True when the exercise was handed over ready-made, so there is no setup to show. */
     val isPreconfigured: Boolean = false,
     val progress: SequenceProgress? = null,
@@ -148,7 +150,7 @@ data class SequenceUiState(
      * How a note reads on screen: named as the player has chosen and spelled as the music asks, so
      * F major shows a B flat - "B♭" or, in German, "B" - and never an A sharp.
      */
-    fun nameOf(note: Note): String = noteNaming.labelOf(note, sequence.accidentalStyle)
+    fun nameOf(note: Note): String = noteNaming.labelOf(note, sequence.accidentalStyle, octaveNumbering)
 
     /** The pitch a written note should sound as on the chosen instrument. */
     fun soundingNoteOf(writtenNote: Note): Note = transposition.concertFor(writtenNote)

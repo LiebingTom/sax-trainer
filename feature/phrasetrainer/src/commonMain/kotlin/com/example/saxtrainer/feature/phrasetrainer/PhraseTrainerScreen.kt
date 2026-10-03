@@ -559,6 +559,7 @@ private fun ShowingSubject(state: PhraseTrainerUiState, phase: PhraseTrainerPhas
         sequence = phrase.toneSequenceOf(unit),
         modifier = Modifier.fillMaxWidth(),
         naming = state.noteNaming,
+        octaves = state.octaveNumbering,
         color = MaterialTheme.colorScheme.primary,
         staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
     )

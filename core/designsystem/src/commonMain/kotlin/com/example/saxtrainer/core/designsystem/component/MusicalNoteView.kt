@@ -22,6 +22,7 @@ import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.StaffPlacement
 import com.example.saxtrainer.core.music.TrebleStaff
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 
 /**
  * Draws one note - optionally two - in treble staff notation.
@@ -56,6 +57,8 @@ fun MusicalNoteView(
     stepRange: IntRange? = null,
     reserveSecondaryWidth: Boolean = false,
     naming: NoteNaming = NoteNaming.INTERNATIONAL,
+    /** Which number each octave is shown with, wherever a note is named. */
+    octaves: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
 ) = MusicalNoteView(
     written = SpelledNote.of(primaryNote, accidentalStyle),
     modifier = modifier,
@@ -67,6 +70,7 @@ fun MusicalNoteView(
     stepRange = stepRange,
     reserveSecondaryWidth = reserveSecondaryWidth,
     naming = naming,
+    octaves = octaves,
 )
 
 /**
@@ -86,6 +90,8 @@ fun MusicalNoteView(
     stepRange: IntRange? = null,
     reserveSecondaryWidth: Boolean = false,
     naming: NoteNaming = NoteNaming.INTERNATIONAL,
+    /** Which number each octave is shown with, wherever a note is named. */
+    octaves: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
 ) {
     val primary = TrebleStaff.placementOf(written)
     val secondary = secondaryWritten?.let { TrebleStaff.placementOf(it) }
@@ -97,9 +103,9 @@ fun MusicalNoteView(
     val width = staffWidthOf(lineSpacing, reserveSecondaryWidth = !singleNote)
 
     val description = buildString {
-        append("Treble staff showing ${naming.labelOf(written)}")
+        append("Treble staff showing ${naming.labelOf(written, octaves)}")
         if (secondaryWritten != null) {
-            append(" and ${naming.labelOf(secondaryWritten)}")
+            append(" and ${naming.labelOf(secondaryWritten, octaves)}")
         }
     }
 

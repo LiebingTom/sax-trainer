@@ -15,6 +15,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.SettingsRepository
 import com.example.saxtrainer.core.testing.BROWSER_TIMEOUT_MS
@@ -40,6 +41,7 @@ class SettingsOnWasmTest {
         onNodeWithText("Settings").assertIsDisplayed()
         onNodeWithText("Instrument").assertIsDisplayed()
         onNodeWithText("Note naming").performScrollTo().assertIsDisplayed()
+        onNodeWithText("Octave numbers").performScrollTo().assertIsDisplayed()
         onNodeWithText("Count-in").performScrollTo().assertIsDisplayed()
         onNodeWithText("Note display").performScrollTo().assertIsDisplayed()
     }
@@ -66,6 +68,20 @@ class SettingsOnWasmTest {
             settings.settings.value.noteNaming,
             "the naming survived the second change",
         )
+    }
+
+    @Test
+    fun choosing_an_octave_numbering_is_written_through() = runScreenTest { host ->
+        val settings = FakeSettingsRepository()
+        setContent { Settings(host, settings) }
+
+        onNodeWithText(OctaveNumbering.SAXOPHONE.displayName).performScrollTo().performClick()
+
+        waitUntil("the stored octave numbering", BROWSER_TIMEOUT_MS) {
+            settings.settings.value.octaveNumbering == OctaveNumbering.SAXOPHONE
+        }
+        onNodeWithText(OctaveNumbering.SAXOPHONE.displayName).assertIsSelected()
+        onNodeWithText(OctaveNumbering.SCIENTIFIC.displayName).assertIsNotSelected()
     }
 
     @Test

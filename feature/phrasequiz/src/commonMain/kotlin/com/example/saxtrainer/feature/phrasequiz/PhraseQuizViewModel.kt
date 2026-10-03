@@ -67,7 +67,10 @@ class PhraseQuizViewModel(
     init {
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
-                _uiState.value = _uiState.value.copy(noteNaming = settings.noteNaming)
+                _uiState.value = _uiState.value.copy(
+                    noteNaming = settings.noteNaming,
+                    octaveNumbering = settings.octaveNumbering,
+                )
             }
         }
     }

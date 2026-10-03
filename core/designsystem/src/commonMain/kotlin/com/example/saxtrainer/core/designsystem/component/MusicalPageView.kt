@@ -22,6 +22,7 @@ import com.example.saxtrainer.core.music.NotatedDuration
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.music.NoteValue
 import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.ToneSequence
@@ -133,6 +134,8 @@ fun MusicalPageView(
     highlightIndex: Int? = null,
     noteColor: (index: Int) -> Color? = { null },
     naming: NoteNaming = NoteNaming.INTERNATIONAL,
+    /** Which number each octave is shown with, wherever a note is named. */
+    octaves: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
     color: Color = LocalContentColor.current,
     staffColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     highlightColor: Color = MaterialTheme.colorScheme.primary,
@@ -209,6 +212,7 @@ fun MusicalPageView(
                     // Nothing scrolls on a page: the whole row is already on the screen.
                     autoScrollToHighlight = false,
                     naming = naming,
+                    octaves = octaves,
                     prefix = if (system.firstStep == 0) firstPrefix else laterPrefix,
                     fillWidth = true,
                     // Only the last row of the last page ends the piece; the others are carried on.
@@ -262,6 +266,8 @@ fun BoundedMusicalPage(
     highlightIndex: Int? = null,
     noteColor: (index: Int) -> Color? = { null },
     naming: NoteNaming = NoteNaming.INTERNATIONAL,
+    /** Which number each octave is shown with, wherever a note is named. */
+    octaves: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
     color: Color = LocalContentColor.current,
     staffColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     highlightColor: Color = MaterialTheme.colorScheme.primary,
@@ -284,6 +290,7 @@ fun BoundedMusicalPage(
             highlightIndex = highlightIndex,
             noteColor = noteColor,
             naming = naming,
+            octaves = octaves,
             color = color,
             staffColor = staffColor,
             highlightColor = highlightColor,

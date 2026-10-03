@@ -646,6 +646,7 @@ private fun NoteSubject(state: NoteTrainerUiState) {
         staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
         lineSpacing = NoteStaffSpacing,
         naming = state.noteNaming,
+        octaves = state.octaveNumbering,
         prefix = StaffPrefix.Treble,
         fillWidth = true,
         closingBar = false,

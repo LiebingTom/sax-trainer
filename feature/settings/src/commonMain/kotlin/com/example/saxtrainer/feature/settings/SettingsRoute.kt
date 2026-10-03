@@ -22,6 +22,7 @@ fun SettingsRoute(
         onInstrumentSelected = viewModel::selectInstrument,
         onNoteDisplaySelected = viewModel::selectNoteDisplay,
         onNoteNamingSelected = viewModel::selectNoteNaming,
+        onOctaveNumberingSelected = viewModel::selectOctaveNumbering,
         onCountInSelected = viewModel::selectCountInBeats,
         onCountInClickChanged = viewModel::setCountInClick,
         onThemeModeSelected = viewModel::selectThemeMode,

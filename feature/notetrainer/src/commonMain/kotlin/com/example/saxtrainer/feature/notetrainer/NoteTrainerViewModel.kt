@@ -108,6 +108,7 @@ class NoteTrainerViewModel(
                     transposition = settings.instrument.transposition,
                     instrumentName = settings.instrument.displayName,
                     noteNaming = settings.noteNaming,
+                    octaveNumbering = settings.octaveNumbering,
                     countInBeats = settings.countInBeats,
                     countInClick = settings.countInClick,
                 )
@@ -601,6 +602,7 @@ class NoteTrainerViewModel(
             transposition = settings.instrument.transposition,
             instrumentName = settings.instrument.displayName,
             noteNaming = settings.noteNaming,
+            octaveNumbering = settings.octaveNumbering,
             countInBeats = settings.countInBeats,
             countInClick = settings.countInClick,
         )

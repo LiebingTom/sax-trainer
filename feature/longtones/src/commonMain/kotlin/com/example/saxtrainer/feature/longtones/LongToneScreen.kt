@@ -231,6 +231,7 @@ private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
             staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
             lineSpacing = CurrentNoteStaffSpacing,
             naming = state.noteNaming,
+            octaves = state.octaveNumbering,
             prefix = StaffPrefix.Treble,
             // The name-or-notation setting arrives as a per-note choice, which is the only shape
             // the design system understands - it never learns what a setting is.

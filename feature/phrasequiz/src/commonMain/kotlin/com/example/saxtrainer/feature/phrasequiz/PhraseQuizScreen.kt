@@ -656,6 +656,7 @@ private fun ShowingSubject(state: PhraseQuizUiState, phase: PhraseQuizPhase.Show
         sequence = ToneSequence(phase.correct, phrase.timeSignature, phrase.accidentalStyle),
         modifier = Modifier.fillMaxWidth(),
         naming = state.noteNaming,
+        octaves = state.octaveNumbering,
         color = MaterialTheme.colorScheme.primary,
         staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -670,6 +671,7 @@ private fun AskingSubject(state: PhraseQuizUiState, phase: PhraseQuizPhase.Askin
         sequence = ToneSequence(builtSteps(phase.correct, built), phrase.timeSignature, phrase.accidentalStyle),
         modifier = Modifier.fillMaxWidth(),
         naming = state.noteNaming,
+        octaves = state.octaveNumbering,
         color = MaterialTheme.colorScheme.primary,
         staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -690,6 +692,7 @@ private fun AnsweredSubject(state: PhraseQuizUiState, phase: PhraseQuizPhase.Ans
         sequence = ToneSequence(builtSteps(phase.correct, phase.builtNotes), phrase.timeSignature, phrase.accidentalStyle),
         modifier = Modifier.fillMaxWidth(),
         naming = state.noteNaming,
+        octaves = state.octaveNumbering,
         color = MaterialTheme.colorScheme.primary,
         staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
         noteColor = { index ->

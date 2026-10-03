@@ -1,6 +1,7 @@
 package com.example.saxtrainer.core.testing
 
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.settings.AppSettings
 import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.NoteDisplay
@@ -30,6 +31,10 @@ class FakeSettingsRepository(
 
     override fun setNoteNaming(noteNaming: NoteNaming) {
         state.value = state.value.copy(noteNaming = noteNaming)
+    }
+
+    override fun setOctaveNumbering(octaveNumbering: OctaveNumbering) {
+        state.value = state.value.copy(octaveNumbering = octaveNumbering)
     }
 
     override fun setNoteDisplay(noteDisplay: NoteDisplay) {

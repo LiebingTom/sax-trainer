@@ -3,6 +3,7 @@ package com.example.saxtrainer.feature.phrasetrainer
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.Transposition
 import com.example.saxtrainer.core.phrase.Phrase
@@ -124,6 +125,7 @@ data class PhraseTrainerUiState(
     val transposition: Transposition = Transposition.CONCERT,
     val instrumentName: String = "",
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
+    val octaveNumbering: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
     val progress: PhraseTrainerProgress? = null,
     /** Set only by a preset that is not being edited: the phrase to run, bypassing setup entirely. */
     val presetPhrase: Phrase? = null,
@@ -168,7 +170,7 @@ data class PhraseTrainerUiState(
     val canStart: Boolean get() = phrase != null && !microphoneUnavailable
 
     /** The name of a written note, as written, under the chosen naming. */
-    fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note)
+    fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note, octaveNumbering)
 
     /** The pitch a written note should sound as on the chosen instrument. */
     fun soundingNoteOf(writtenNote: Note): Note = transposition.concertFor(writtenNote)

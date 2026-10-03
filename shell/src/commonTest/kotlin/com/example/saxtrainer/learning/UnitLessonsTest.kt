@@ -95,13 +95,21 @@ class UnitLessonsTest {
     }
 
     @Test
-    fun `the third is every note from C4 to D6, written with sharps`() {
+    fun `the groups are called by their number`() {
+        assertEquals(
+            listOf("Group 1", "Group 2", "Group 3", "Group 4"),
+            SaxTrainerCurriculum.units.map { it.title },
+        )
+    }
+
+    @Test
+    fun `the third is every note from C4 to C6 and the high D, written with sharps`() {
         val tokens = tokensOf(CHROMATIC_SHARPS_UNIT_ID)
         val pitches = quizOf(CHROMATIC_SHARPS_UNIT_ID).notes.map { it.note }
 
-        assertEquals(27, tokens.size, "C4 up to D6, every semitone")
+        assertEquals(26, tokens.size, "C4 up to C6, every semitone, then D6")
         assertEquals("C4", tokens.first())
-        assertEquals("D6", tokens.last())
+        assertEquals(listOf("C6", "D6"), tokens.takeLast(2), "no C sharp between C6 and D6")
         assertEquals(tokens.size, pitches.distinct().size, "each pitch once")
         assertTrue(tokens.none { 'b' in it }, "no flats: $tokens")
         assertTrue("A#4" in tokens, "A sharp, not B flat")
@@ -114,10 +122,11 @@ class UnitLessonsTest {
         val tokens = both.map { it.token }
 
         assertEquals(sharps.map { it.note }.toSet(), both.map { it.note }.toSet())
-        assertEquals(38, both.size, "27 pitches, 11 of them black keys written twice")
-        listOf("C#4", "Db4", "D#4", "Eb4", "A#5", "Bb5", "C#6", "Db6").forEach {
+        assertEquals(36, both.size, "26 pitches, 10 of them black keys written twice")
+        listOf("C#4", "Db4", "D#4", "Eb4", "A#5", "Bb5").forEach {
             assertTrue(it in tokens, "$it is missing from $tokens")
         }
+        assertTrue(tokens.none { it in setOf("C#6", "Db6") }, "no high C sharp: $tokens")
         assertTrue(
             tokens.none { it.take(2) in setOf("E#", "B#", "Fb", "Cb") },
             "white keys are written plain: $tokens",

@@ -2,6 +2,7 @@ package com.example.saxtrainer.feature.phrasequiz
 
 import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.music.ToneStep
 import com.example.saxtrainer.core.phrase.Phrase
 import com.example.saxtrainer.core.phrase.PhraseRecipe
@@ -109,6 +110,7 @@ data class PhraseQuizUiState(
     /** True when a lesson handed the quiz a ready-made run, so there is no setup to show. */
     val isPreconfigured: Boolean = false,
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
+    val octaveNumbering: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
 ) {
     val isRunning: Boolean
         get() = phase is PhraseQuizPhase.Showing || phase is PhraseQuizPhase.Asking ||

@@ -76,6 +76,7 @@ class SequenceViewModel(
                     transposition = settings.instrument.transposition,
                     instrumentName = settings.instrument.displayName,
                     noteNaming = settings.noteNaming,
+                    octaveNumbering = settings.octaveNumbering,
                 )
             }
         }
@@ -429,6 +430,7 @@ class SequenceViewModel(
             transposition = settings.instrument.transposition,
             instrumentName = settings.instrument.displayName,
             noteNaming = settings.noteNaming,
+            octaveNumbering = settings.octaveNumbering,
         )
         // A preset decides everything the setup screen would have asked, so a remembered setup has
         // nothing left to say about it.

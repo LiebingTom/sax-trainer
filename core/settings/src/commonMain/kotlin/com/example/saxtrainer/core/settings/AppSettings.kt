@@ -1,6 +1,7 @@
 package com.example.saxtrainer.core.settings
 
 import com.example.saxtrainer.core.music.NoteNaming
+import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.music.Transposition
 
 /** Instruments the app can be set to. Adding one is a single entry here. */
@@ -73,6 +74,11 @@ data class AppSettings(
      * with it, only what is written on screen.
      */
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
+    /**
+     * Which number a note's octave is shown with. A display convention like [noteNaming]: what is
+     * stored keeps the scientific octave, only the number on screen changes.
+     */
+    val octaveNumbering: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
     /** Used by any tool that has not been given a preference of its own. */
     val noteDisplay: NoteDisplay = NoteDisplay.STAFF,
     /** Per-tool choices; a missing entry means the tool follows [noteDisplay]. */

@@ -9,7 +9,8 @@ import com.example.saxtrainer.core.music.SpelledNote
  * The written notes each group works on.
  *
  * Every one is a written note: a lesson practises reading it, so how it is spelled is part of the
- * content. Written C4 to C6 is two octaves; the chromatic groups go on to D6. Each group contains
+ * content. Written C4 to C6 is two octaves; the chromatic groups add D6, but not the C sharp below
+ * it. Each group contains
  * every pitch of the one before it - a test holds them to that.
  */
 
@@ -34,15 +35,21 @@ internal val D_MAJOR_NOTES: List<SpelledNote> =
     (C_MAJOR_TWO_OCTAVES + listOf("C#4", "F#4", "C#5", "F#5").map(::written))
         .sortedWith(SpelledNote.PITCH_ORDER)
 
-/** Every pitch from C4 up to D6, the black keys written as sharps. */
-internal val CHROMATIC_SHARPS: List<SpelledNote> = Note.range(LOW_C, TOP_D)
+/**
+ * Every pitch from C4 up to C6, and the D above it: the chromatic groups' range. The C sharp between
+ * C6 and D6 is left out.
+ */
+private val CHROMATIC_RANGE: List<Note> = Note.range(LOW_C, TOP_C) + TOP_D
+
+/** Every pitch of the chromatic range, the black keys written as sharps. */
+internal val CHROMATIC_SHARPS: List<SpelledNote> = CHROMATIC_RANGE
     .map { SpelledNote.of(it, AccidentalStyle.SHARPS) }
 
 /**
  * The same pitches, every black key written both ways - C sharp and D flat, D sharp and E flat - as
  * two notes to read. White keys are written plain, never as E sharp or C flat.
  */
-internal val CHROMATIC_SHARPS_AND_FLATS: List<SpelledNote> = Note.range(LOW_C, TOP_D)
+internal val CHROMATIC_SHARPS_AND_FLATS: List<SpelledNote> = CHROMATIC_RANGE
     .flatMap { pitch ->
         listOf(SpelledNote.of(pitch, AccidentalStyle.SHARPS), SpelledNote.of(pitch, AccidentalStyle.FLATS)).distinct()
     }

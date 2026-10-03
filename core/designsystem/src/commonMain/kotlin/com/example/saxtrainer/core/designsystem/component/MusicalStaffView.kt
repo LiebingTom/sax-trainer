@@ -92,6 +92,17 @@ fun MusicalStaffView(
      */
     closingBar: Boolean = true,
     /**
+     * Stretches the music to the full width, as a row of a printed page is: the notes spread out
+     * and the last bar ends at the right edge, rather than the lines running on past it empty.
+     * Needs [fillWidth]; a line wider than the space it has is left as it is.
+     */
+    justify: Boolean = false,
+    /**
+     * A plain bar line where the music ends, for a row of a page that is not the last: the bar is
+     * complete and the piece goes on on the next row. Ignored where [closingBar] closes it anyway.
+     */
+    endBarLine: Boolean = false,
+    /**
      * The vertical room to keep, whatever this sequence needs.
      *
      * A screen that shows one note after another passes [reservedStepRange] over every note it can
@@ -153,20 +164,20 @@ fun MusicalStaffView(
         }
     }
 
-    val layout = remember(sequence, prefix, styles, labelWidthSpaces, reserveAccidentals) {
+    val naturalLayout = remember(sequence, prefix, styles, labelWidthSpaces, reserveAccidentals) {
         StaffLayoutBuilder.of(sequence, prefix, styles, labelWidthSpaces, reserveAccidentals)
     }
     val scrollState = rememberScrollState()
 
-    val extent = (stepRange ?: layout.stepRange).including(prefix.stepRange)
-    val musicWidth = lineSpacing * layout.widthSpaces
+    val extent = (stepRange ?: naturalLayout.stepRange).including(prefix.stepRange)
+    val musicWidth = lineSpacing * naturalLayout.widthSpaces
     val height = staffHeightOf(extent, lineSpacing)
 
     // Keep the note being played in view without the caller having to measure anything.
     LaunchedEffect(highlightIndex, autoScrollToHighlight) {
         if (!autoScrollToHighlight) return@LaunchedEffect
         // By step, not by position: the first head of the note being played is what to scroll to.
-        val note = highlightIndex?.let { index -> layout.notes.firstOrNull { it.index == index } }
+        val note = highlightIndex?.let { index -> naturalLayout.notes.firstOrNull { it.index == index } }
             ?: return@LaunchedEffect
         val headPx = with(density) { (lineSpacing * note.headXSpaces).toPx() }
         val target = (headPx - scrollState.viewportSize / 2f).toInt().coerceAtLeast(0)
@@ -183,7 +194,18 @@ fun MusicalStaffView(
     ) {
         // A parent that offers unbounded width - a Row without a weight, say - has no edge to run
         // to, and asking for one would size the canvas at infinity.
-        val width = if (fillWidth && maxWidth.isFinite) maxOf(musicWidth, maxWidth) else musicWidth
+        val justified = justify && fillWidth && maxWidth.isFinite
+        val width = when {
+            // A justified row is drawn to the width it has, squeezed a little if it must be.
+            justified && musicWidth * TIGHTEST_JUSTIFICATION <= maxWidth -> maxWidth
+            fillWidth && maxWidth.isFinite -> maxOf(musicWidth, maxWidth)
+            else -> musicWidth
+        }
+        val layout = if (justified) {
+            naturalLayout.justifiedTo(maxWidth / lineSpacing)
+        } else {
+            naturalLayout
+        }
 
         Box(modifier = Modifier.horizontalScroll(scrollState)) {
             Canvas(modifier = Modifier.size(width = width, height = height)) {
@@ -226,6 +248,8 @@ fun MusicalStaffView(
                             x = (layout.widthSpaces - 0.5f) * space,
                             style = BarLineStyle.FINAL,
                         )
+                    } else if (endBarLine) {
+                        drawBarLine(geometry, staffColor, (layout.widthSpaces - END_BAR_INSET_SPACES) * space)
                     }
 
                     val stemming = stemmingOf(layout, geometry)
@@ -542,3 +566,6 @@ private fun MusicalStaffViewNamesPreview() {
         )
     }
 }
+
+/** How far in from the edge a row's closing bar line stands, so its stroke is not cut in half. */
+private const val END_BAR_INSET_SPACES = 0.1f

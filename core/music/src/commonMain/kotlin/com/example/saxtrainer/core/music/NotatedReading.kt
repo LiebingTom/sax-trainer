@@ -40,7 +40,10 @@ data class NotatedNote(
  *
  * Rests are read the same way as notes: cut at a bar line, written with the values that exist, and
  * told apart only by having no pitch. What they do not get is a tie, since a silence is not held
- * over anything.
+ * over anything. A rest is also cut where the beat is: one that starts between beats first fills
+ * up to the next beat, and in a bar of an even number of beats no rest but a whole bar's runs over
+ * its middle - so a beat and a half of rest after the "and" of three is an eighth rest and a
+ * quarter rest, not a dotted quarter that hides where four begins.
  *
  * 1. **A note is cut at every bar line it crosses.** A bar line is a fact about the metre, not a
  *    thing that appears only when it is convenient, so a five-beat tone becomes four beats and one
@@ -69,7 +72,7 @@ fun ToneSequence.notatedReading(): List<NotatedNote> {
         while (left > TOLERANCE) {
             // The bar line the note runs into next, and how much of the bar is left before it.
             val barEnd = (floor(at / beatsPerBar + TOLERANCE) + 1) * beatsPerBar
-            val inThisBar = minOf(left, barEnd - at)
+            val inThisBar = minOf(left, barEnd - at, if (step.isRest) restRoom(at, barEnd) else left)
             for (length in writtenAs(inThisBar, values)) {
                 lengths += at to length
                 at += length
@@ -92,6 +95,21 @@ fun ToneSequence.notatedReading(): List<NotatedNote> {
     }
 
     return reading
+}
+
+/**
+ * How much of a rest starting at [at] can be written before the beat says to cut it: to the next
+ * beat when it starts between beats, to the middle of an even bar when it starts in its first half
+ * - unless it fills the whole bar - and otherwise to [barEnd].
+ */
+private fun ToneSequence.restRoom(at: Double, barEnd: Double): Double {
+    val beatsPerBar = timeSignature.beatsPerBar.toDouble()
+    val barStart = barEnd - beatsPerBar
+    val offBeat = at - floor(at + TOLERANCE)
+    if (offBeat > TOLERANCE) return 1.0 - offBeat
+    val middle = barStart + beatsPerBar / 2
+    val evenBar = timeSignature.beatsPerBar % 2 == 0 && timeSignature.beatsPerBar > 2
+    return if (evenBar && at > barStart + TOLERANCE && at < middle - TOLERANCE) middle - at else barEnd - at
 }
 
 /** Every written value, longest first, in the beats of a bar counted in [beatUnit]. */

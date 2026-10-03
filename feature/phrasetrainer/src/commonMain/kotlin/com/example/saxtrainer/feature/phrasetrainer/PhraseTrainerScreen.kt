@@ -72,6 +72,11 @@ fun PhraseTrainerScreen(
 ) {
     val subject: (@Composable ColumnScope.() -> Unit)? = when (val phase = state.phase) {
         is PhraseTrainerPhase.Showing -> { { ShowingSubject(state, phase) } }
+        is PhraseTrainerPhase.Listening -> if (state.showsThroughout) {
+            { PlayingSubject(state) }
+        } else {
+            null
+        }
         else -> null
     }
 
@@ -211,10 +216,14 @@ private fun Setup(
     )
     StepSlider(
         title = "Preview time",
-        supportingText = "How long a unit stays on screen before it disappears",
+        supportingText = if (state.showsThroughout) {
+            "The unit stays on screen while you play it"
+        } else {
+            "How long a unit stays on screen before it disappears"
+        },
         value = state.showSeconds,
         options = PhraseTrainerUiState.SHOW_SECONDS_OPTIONS,
-        valueLabel = { "${it.toFixed(1)} s" },
+        valueLabel = { if (it.isInfinite()) "Always" else "${it.toFixed(1)} s" },
         onValueChange = onShowSecondsChange,
     )
 
@@ -312,7 +321,25 @@ private fun ShowingSubject(state: PhraseTrainerUiState, phase: PhraseTrainerPhas
     )
 }
 
-/** What is being listened for right now, in words and colour rather than notation - it is hidden. */
+/**
+ * The unit being played, left on screen because it is shown throughout. Plain notation, the same as
+ * when it was shown: nothing is highlighted, the player reads it as they would a page.
+ */
+@Composable
+private fun PlayingSubject(state: PhraseTrainerUiState) {
+    val phrase = state.phrase ?: return
+    val unit = state.progress?.let { state.units.getOrNull(it.unitIndex) } ?: return
+    BoundedMusicalPage(
+        sequence = phrase.toneSequenceOf(unit),
+        modifier = Modifier.fillMaxWidth(),
+        naming = state.noteNaming,
+        octaves = state.octaveNumbering,
+        color = MaterialTheme.colorScheme.primary,
+        staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** What is being listened for right now, in words and colour - below the notes, or instead of them. */
 @Composable
 private fun ListeningPanel(state: PhraseTrainerUiState) {
     val progress = state.progress
@@ -462,7 +489,9 @@ private fun Actions(
 private fun headerOf(state: PhraseTrainerUiState): ScreenHeader = when (state.phase) {
     is PhraseTrainerPhase.CountIn -> ScreenHeader.Question("Get ready")
     is PhraseTrainerPhase.Showing -> ScreenHeader.Question("Listen and watch")
-    is PhraseTrainerPhase.Listening -> ScreenHeader.Question("Play it back from memory")
+    is PhraseTrainerPhase.Listening -> ScreenHeader.Question(
+        if (state.showsThroughout) "Play what you see" else "Play it back from memory",
+    )
     is PhraseTrainerPhase.Finished -> ScreenHeader.Question("How did that go?")
     PhraseTrainerPhase.Idle -> ScreenHeader.Description(
         "See a phrase, then play it back from memory once it disappears. A microphone is needed.",

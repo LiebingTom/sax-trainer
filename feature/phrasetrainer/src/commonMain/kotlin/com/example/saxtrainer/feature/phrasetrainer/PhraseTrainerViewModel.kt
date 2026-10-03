@@ -134,7 +134,13 @@ class PhraseTrainerViewModel(
 
     /** How long a unit stays on screen before it is hidden and has to be played from memory. */
     fun setShowSeconds(seconds: Double) = updateSetup {
-        it.copy(showSeconds = seconds.coerceIn(PhraseTrainerUiState.SHOW_SECONDS_RANGE))
+        it.copy(
+            showSeconds = if (seconds.isInfinite()) {
+                PhraseTrainerUiState.SHOW_THROUGHOUT
+            } else {
+                seconds.coerceIn(PhraseTrainerUiState.SHOW_SECONDS_RANGE)
+            },
+        )
     }
 
     /** Whether note length is also checked while playing, not just which notes were played. */
@@ -228,8 +234,12 @@ class PhraseTrainerViewModel(
             }
 
             units.forEachIndexed { unitIndex, unit ->
-                _uiState.value = _uiState.value.copy(phase = PhraseTrainerPhase.Showing(unitIndex))
-                delay((_uiState.value.showSeconds * MILLIS_PER_SECOND).toLong())
+                // Shown for a while and then taken away - unless it is shown throughout, when it
+                // goes straight to being played and stays on screen while it is.
+                if (!_uiState.value.showsThroughout) {
+                    _uiState.value = _uiState.value.copy(phase = PhraseTrainerPhase.Showing(unitIndex))
+                    delay((_uiState.value.showSeconds * MILLIS_PER_SECOND).toLong())
+                }
 
                 _uiState.value = _uiState.value.copy(phase = PhraseTrainerPhase.Listening)
                 attempts += playUnit(unitIndex, units.size, phrase.toneSequenceOf(unit), heard)
@@ -256,7 +266,10 @@ class PhraseTrainerViewModel(
         heard: SharedFlow<Hearing>,
     ): UnitAttempt {
         val steps = sequence.steps
+        // The counter on screen counts what is played, so a rest moves it on by nothing.
+        val noteCount = steps.count { !it.isRest }
         val attempts = steps.mapIndexed { stepIndex, step ->
+            val noteIndex = steps.take(stepIndex).count { !it.isRest }
             // Asked for as written: the phrase's own E flat, not whichever spelling its pitch has.
             val note = sequence.writtenAt(stepIndex)
             if (note == null) {
@@ -268,7 +281,7 @@ class PhraseTrainerViewModel(
                 val spell = { heardNote: Note ->
                     heardNote.spelledAs(listOf(note) + sequence.writtenNotes, sequence.accidentalStyle)
                 }
-                playStep(note, step.duration, unitIndex, unitCount, stepIndex, steps.size, heard, spell)
+                playStep(note, step.duration, unitIndex, unitCount, noteIndex, noteCount, heard, spell)
             }
         }
         return UnitAttempt(attempts)

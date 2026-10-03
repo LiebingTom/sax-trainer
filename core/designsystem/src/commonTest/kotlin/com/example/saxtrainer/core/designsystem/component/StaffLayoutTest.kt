@@ -465,4 +465,38 @@ class StaffLayoutTest {
 
         assertTrue(cFlat.stepRange.last > b.stepRange.last)
     }
+
+    // --- justification ---------------------------------------------------------------------------
+
+    private fun fourQuarters() = sequence(
+        note(NoteName.C) to quarter,
+        note(NoteName.D) to quarter,
+        note(NoteName.E) to quarter,
+        note(NoteName.G) to quarter,
+    )
+
+    @Test
+    fun `a justified row spreads its music to the width and leaves the clef where it is`() {
+        val natural = StaffLayoutBuilder.of(fourQuarters(), StaffPrefix.Treble)
+        val target = natural.widthSpaces * 1.5f
+
+        val justified = natural.justifiedTo(target)
+
+        assertEquals(target, justified.widthSpaces)
+        assertEquals(natural.prefixWidthSpaces, justified.prefixWidthSpaces)
+        val gaps = { layout: StaffLayout -> layout.notes.zipWithNext { a, b -> b.headXSpaces - a.headXSpaces } }
+        gaps(natural).zip(gaps(justified)).forEach { (before, after) -> assertTrue(after > before) }
+    }
+
+    @Test
+    fun `a row may close up a little to fit, but no further`() {
+        val natural = StaffLayoutBuilder.of(fourQuarters(), StaffPrefix.Treble)
+        val music = natural.widthSpaces - natural.prefixWidthSpaces
+
+        val closer = natural.justifiedTo(natural.prefixWidthSpaces + music * 0.9f)
+        assertTrue(closer.widthSpaces < natural.widthSpaces)
+
+        val tooTight = natural.justifiedTo(natural.prefixWidthSpaces + music * 0.5f)
+        assertEquals(natural, tooTight, "squeezed past the tightest spacing it is left alone")
+    }
 }

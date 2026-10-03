@@ -91,7 +91,10 @@ fun systemsOf(
     return systems
 }
 
-/** How wide [count] bars from [first] come out, with [prefix] in front of them. */
+/**
+ * How wide [count] bars from [first] can be drawn, with [prefix] in front of them: at their tightest,
+ * since every row of a page is justified to its width and may close up to [TIGHTEST_JUSTIFICATION].
+ */
 private fun spacesOf(
     sequence: ToneSequence,
     bars: List<IntRange>,
@@ -101,7 +104,8 @@ private fun spacesOf(
 ): Float {
     val steps = bars[first].first..bars[first + count - 1].last
     val row = sequence.copy(steps = sequence.steps.slice(steps))
-    return StaffLayoutBuilder.of(row, prefix).widthSpaces
+    val natural = StaffLayoutBuilder.of(row, prefix).widthSpaces
+    return prefix.widthSpaces + (natural - prefix.widthSpaces) * TIGHTEST_JUSTIFICATION
 }
 
 /**
@@ -217,6 +221,10 @@ fun MusicalPageView(
                     fillWidth = true,
                     // Only the last row of the last page ends the piece; the others are carried on.
                     closingBar = system.firstStep == systems.last().firstStep,
+                    // Every row runs to the right edge, as a printed page does, and a row that is
+                    // not the last ends on its own bar line.
+                    justify = true,
+                    endBarLine = true,
                     stepRange = stepRange,
                     secondaryNote = { index -> secondaryNote(system.firstStep + index) },
                     secondaryColor = secondaryColor,
@@ -234,6 +242,10 @@ fun MusicalPageView(
  * is the only way "about two bars to a row" can hold on a phone and on a tablet at once. The bars
  * measured are the real ones at the start of this piece, so a piece of long notes is given the same
  * treatment as a piece of short ones without either being special-cased.
+ *
+ * Where that many bars only fit below [minLineSpacing], a row takes one bar fewer and the staff is
+ * sized for that instead - so a busy bar of eighths gets a row of its own at a size that fills it,
+ * rather than half a row at the size two such bars would have needed.
  */
 private fun spacingFor(
     sequence: ToneSequence,
@@ -244,9 +256,16 @@ private fun spacingFor(
     prefix: StaffPrefix,
 ): Dp {
     val bars = sequence.bars()
-    val wanted = spacesOf(sequence, bars, 0, minOf(barsPerSystem, bars.size), prefix)
-    if (wanted <= 0f) return lineSpacing
-    return (width / wanted).coerceIn(minOf(minLineSpacing, lineSpacing), lineSpacing)
+    val smallest = minOf(minLineSpacing, lineSpacing)
+    var count = minOf(barsPerSystem, bars.size)
+    while (count >= 1) {
+        val wanted = spacesOf(sequence, bars, 0, count, prefix)
+        if (wanted <= 0f) return lineSpacing
+        val fitting = width / wanted
+        if (fitting >= smallest || count == 1) return fitting.coerceIn(smallest, lineSpacing)
+        count--
+    }
+    return lineSpacing
 }
 
 /**
@@ -271,9 +290,11 @@ fun BoundedMusicalPage(
     color: Color = LocalContentColor.current,
     staffColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     highlightColor: Color = MaterialTheme.colorScheme.primary,
-    lineSpacing: Dp = DefaultPageLineSpacing,
+    /** Larger than a page's: a unit is shown to be memorised, and one bar to a row leaves the room. */
+    lineSpacing: Dp = BoundedPageLineSpacing,
     minLineSpacing: Dp = MinPageLineSpacing,
-    barsPerSystem: Int = DefaultBarsPerSystem,
+    /** One bar to a row: a unit is read in one look, and a bar of eighths needs the whole width. */
+    barsPerSystem: Int = 1,
     maxHeight: Dp = DefaultBoundedPageMaxHeight,
     /** A second note shown beside the one at that index - see [MusicalStaffView]'s own parameter. */
     secondaryNote: (index: Int) -> Note? = { null },
@@ -305,8 +326,11 @@ fun BoundedMusicalPage(
     }
 }
 
-/** Room for about four rows before a very long unit starts scrolling instead of growing. */
-private val DefaultBoundedPageMaxHeight = 320.dp
+/** Room for four large rows - a four-bar unit whole - before a longer one starts scrolling. */
+private val DefaultBoundedPageMaxHeight = 560.dp
+
+/** As large as a bar of eighths still fits across a phone, so a unit can be read at a glance. */
+private val BoundedPageLineSpacing = 18.dp
 
 /** Big enough to read from where a saxophone puts the player, small enough for two bars of it. */
 private val DefaultPageLineSpacing = 13.dp

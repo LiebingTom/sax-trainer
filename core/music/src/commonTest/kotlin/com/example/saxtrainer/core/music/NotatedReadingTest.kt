@@ -60,4 +60,44 @@ class NotatedReadingTest {
         assertTrue(held[1].continuesPrevious)
         assertFalse(held[1].tiedToNext)
     }
+
+    // --- rests and the beat ---------------------------------------------------------------------
+
+    private val eighth = Beats(0.5)
+
+    private fun restsOf(sequence: ToneSequence) = sequence.notatedReading().filter { it.note == null }
+
+    @Test
+    fun `a rest after the and of three is an eighth rest and a quarter rest`() {
+        // Five eighths and a beat and a half of silence: the end of the scale run on the blues.
+        val rests = restsOf(ToneSequence(steps = List(5) { ToneStep(note(it), eighth) } + ToneStep.rest(Beats(1.5))))
+
+        assertEquals(listOf(NoteValue.EIGHTH, NoteValue.QUARTER), rests.map { it.notated?.value })
+        assertEquals(listOf(0, 0), rests.map { it.notated?.dots })
+        assertEquals(listOf(2.5, 3.0), rests.map { it.startBeat.value })
+    }
+
+    @Test
+    fun `a rest from beat two over the middle of the bar is two quarter rests`() {
+        val rests = restsOf(
+            ToneSequence(steps = listOf(ToneStep(note(0), quarter), ToneStep.rest(Beats(2.0)), ToneStep(note(1), quarter))),
+        )
+
+        assertEquals(listOf(NoteValue.QUARTER, NoteValue.QUARTER), rests.map { it.notated?.value })
+    }
+
+    @Test
+    fun `a rest from the middle of the bar to its end stays one half rest`() {
+        val rests = restsOf(ToneSequence(steps = List(2) { ToneStep(note(it), quarter) } + ToneStep.rest(Beats(2.0))))
+
+        assertEquals(listOf(NoteValue.HALF), rests.map { it.notated?.value })
+    }
+
+    @Test
+    fun `a whole bar of rest stays one rest`() {
+        val rests = restsOf(ToneSequence(steps = listOf(ToneStep.rest(Beats(4.0)))))
+
+        assertEquals(1, rests.size)
+        assertEquals(NoteValue.WHOLE, rests.single().notated?.value)
+    }
 }

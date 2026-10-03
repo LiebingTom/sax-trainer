@@ -89,6 +89,12 @@ data class StaffPrefix(
     }
 }
 
+/**
+ * How much closer together than its natural spacing a justified row may be drawn - the same give an
+ * engraver allows a full row before moving its last bar to the next one.
+ */
+const val TIGHTEST_JUSTIFICATION = 0.8f
+
 /** The range that holds both, where the second one is a range at all. */
 internal fun IntRange.including(other: IntRange?): IntRange =
     if (other == null) this else minOf(first, other.first)..maxOf(last, other.last)
@@ -151,6 +157,27 @@ data class StaffLayout(
      * as several heads, so the two numberings part company as soon as a note crosses a bar line.
      */
     fun beamGroupOf(position: Int): IntRange? = beamGroups.firstOrNull { position in it }
+
+    /**
+     * The same line spread out to [targetWidthSpaces], the way an engraver justifies a row of a
+     * page: the music after the header block is stretched so the last bar ends at the right edge.
+     *
+     * Only the gaps change - a head, an accidental or a rest stays its own size. A line a little
+     * wider than the target is drawn closer together instead, but never tighter than
+     * [TIGHTEST_JUSTIFICATION] of its natural spacing: past that it is returned as it is.
+     */
+    fun justifiedTo(targetWidthSpaces: Float): StaffLayout {
+        val music = widthSpaces - prefixWidthSpaces
+        if (music <= 0f) return this
+        val stretch = (targetWidthSpaces - prefixWidthSpaces) / music
+        if (stretch < TIGHTEST_JUSTIFICATION || stretch == 1f) return this
+        fun moved(x: Float) = prefixWidthSpaces + (x - prefixWidthSpaces) * stretch
+        return copy(
+            notes = notes.map { it.copy(headXSpaces = moved(it.headXSpaces)) },
+            barLineXSpaces = barLineXSpaces.map(::moved),
+            widthSpaces = targetWidthSpaces,
+        )
+    }
 }
 
 /**

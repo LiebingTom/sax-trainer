@@ -306,8 +306,9 @@ class PhraseTrainerViewModelTest {
     fun `the preview time is clamped to the offered range`() = trainerTest {
         val viewModel = viewModel()
 
+        // A long time is still a time: only the far end of the slider means "throughout".
         viewModel.setShowSeconds(100.0)
-        assertEquals(PhraseTrainerUiState.SHOW_SECONDS_OPTIONS.last(), viewModel.uiState.value.showSeconds)
+        assertEquals(PhraseTrainerUiState.SHOW_SECONDS_RANGE.endInclusive, viewModel.uiState.value.showSeconds)
 
         viewModel.setShowSeconds(-1.0)
         assertEquals(PhraseTrainerUiState.SHOW_SECONDS_OPTIONS.first(), viewModel.uiState.value.showSeconds)
@@ -414,6 +415,73 @@ class PhraseTrainerViewModelTest {
 
             viewModel.stop()
         }
+
+    // --- what the counter counts, and a unit shown throughout ---------------------------------
+
+    /** One bar with a rest in it: three notes to play, four steps. */
+    private val withRest = InMemoryPhraseCatalog(
+        parsePhrases(
+            listOf(
+                """
+                {"id": "rest", "name": "Rest", "bars": [ { "steps": [
+                  { "note": "C4", "duration": "quarter" }, { "duration": "quarter" },
+                  { "note": "E4", "duration": "quarter" }, { "note": "G4", "duration": "quarter" }
+                ] } ] }
+                """.trimIndent(),
+            ),
+        ),
+    )
+
+    @Test
+    fun `the counter counts the notes to play, not the rests`() = trainerTest {
+        val microphone = FakeMicrophone(FRAME_DURATION_MS)
+        val viewModel = viewModel(microphone = microphone, phrases = withRest)
+        viewModel.start()
+        advanceTimeBy(5_000)
+
+        val first = viewModel.uiState.value.progress
+        microphone.frequencyHz = soundingFrequencyOf(Note(NoteName.C, 4))
+        advanceTimeBy(700)
+        val second = viewModel.uiState.value.progress
+        viewModel.stop()
+
+        assertEquals(3, first?.stepCount)
+        assertEquals(0, first?.stepIndex)
+        // Past the C and over the rest: the E is the second note, not the third step.
+        assertEquals(written("E4"), second?.currentNote)
+        assertEquals(1, second?.stepIndex)
+    }
+
+    @Test
+    fun `shown throughout, a unit is never taken away - it goes straight to being played`() = trainerTest {
+        val viewModel = viewModel()
+        viewModel.setShowSeconds(PhraseTrainerUiState.SHOW_THROUGHOUT)
+        assertTrue(viewModel.uiState.value.showsThroughout)
+
+        viewModel.start()
+        val phases = mutableListOf<PhraseTrainerPhase>()
+        repeat(40) {
+            advanceTimeBy(50)
+            phases += viewModel.uiState.value.phase
+        }
+        viewModel.stop()
+
+        assertTrue(phases.none { it is PhraseTrainerPhase.Showing }, "phases were $phases")
+        assertTrue(phases.any { it is PhraseTrainerPhase.Listening }, "phases were $phases")
+    }
+
+    @Test
+    fun `the far end of the slider is written down and read back as throughout`() = trainerTest {
+        val configured = viewModel()
+        configured.setShowSeconds(PhraseTrainerUiState.SHOW_THROUGHOUT)
+        val written = configured.uiState.value.toSetup()
+
+        val preset = assertNotNull(phraseTrainerPresetOf(written, patterns = TestPatterns.catalog, editable = true))
+        assertTrue(preset.showSeconds.isInfinite())
+        assertTrue(viewModel(preset = preset).uiState.value.showsThroughout)
+        assertTrue(viewModel().uiState.value.withSetup(written, PhraseLibrary, TestPatterns.catalog).showsThroughout)
+    }
+
 }
 
 private val DEADLINE = 15.seconds

@@ -61,7 +61,9 @@ data class PhraseTrainerResult(val attempts: List<UnitAttempt>, val plannedCount
 data class PhraseTrainerProgress(
     val unitIndex: Int,
     val unitCount: Int,
+    /** Which note of the unit is asked for, counting notes only: a rest is not played. */
     val stepIndex: Int,
+    /** How many notes the unit has to play, its rests left out. */
     val stepCount: Int,
     /** Null while the current step is a rest: nothing to play, nothing to listen for. */
     /** As the phrase writes it. */
@@ -137,6 +139,9 @@ data class PhraseTrainerUiState(
     /** Running or about to be: either way the setup is no longer the player's to change. */
     val isBusy: Boolean get() = isRunning || phase is PhraseTrainerPhase.CountIn
 
+    /** Whether the unit stays on screen while it is played rather than being taken away. */
+    val showsThroughout: Boolean get() = showSeconds.isInfinite()
+
     val scaleChoice: ScaleChoice? get() = scaleChoices.firstOrNull { it.id == scaleChoiceId }
     val pattern: PhraseRecipe? get() = patterns.firstOrNull { it.id == patternId }
 
@@ -189,9 +194,20 @@ data class PhraseTrainerUiState(
         val OCTAVE_RANGE: IntRange = 4..6
         val DEFAULT_OCTAVE: Int = 4
 
-        /** How long a unit may be shown before it disappears: half-second steps up to five seconds. */
-        val SHOW_SECONDS_OPTIONS: List<Double> = (1..10).map { it * 0.5 }
+        /**
+         * The last step of the show time: the unit never disappears, it stays up while it is
+         * played. Infinite rather than a flag of its own, so it is simply the far end of the same
+         * slider and is written down like any other show time.
+         */
+        const val SHOW_THROUGHOUT: Double = Double.POSITIVE_INFINITY
+
+        /**
+         * How long a unit may be shown before it disappears: half-second steps up to five seconds,
+         * then [SHOW_THROUGHOUT].
+         */
+        val SHOW_SECONDS_OPTIONS: List<Double> = (1..10).map { it * 0.5 } + SHOW_THROUGHOUT
+        /** The timed steps' range; [SHOW_THROUGHOUT] stands apart from it. */
         val SHOW_SECONDS_RANGE: ClosedFloatingPointRange<Double> =
-            SHOW_SECONDS_OPTIONS.first()..SHOW_SECONDS_OPTIONS.last()
+            SHOW_SECONDS_OPTIONS.first()..SHOW_SECONDS_OPTIONS.last { it.isFinite() }
     }
 }

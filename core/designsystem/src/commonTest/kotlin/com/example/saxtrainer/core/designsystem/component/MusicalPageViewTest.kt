@@ -48,8 +48,8 @@ class MusicalPageViewTest {
     private fun rowsOf(sequence: ToneSequence, widthSpaces: Float) =
         systemsOf(sequence, widthSpaces, firstPrefix, laterPrefix)
 
-    /** How much room one row of [count] bars needs, asked of the layout rather than guessed. */
-    private fun spacesFor(sequence: ToneSequence, count: Int): Float {
+    /** How much room one row of [count] bars takes at its natural spacing, asked of the layout. */
+    private fun naturalSpacesFor(sequence: ToneSequence, count: Int): Float {
         val bars = sequence.bars()
         val steps = bars.first().first..bars[count - 1].last
         return StaffLayoutBuilder.of(
@@ -57,6 +57,13 @@ class MusicalPageViewTest {
             firstPrefix,
         ).widthSpaces
     }
+
+    /**
+     * The least room one row of [count] bars needs: a row of a page is justified, and may close up
+     * to [TIGHTEST_JUSTIFICATION] of its natural spacing.
+     */
+    private fun spacesFor(sequence: ToneSequence, count: Int): Float =
+        firstPrefix.widthSpaces + (naturalSpacesFor(sequence, count) - firstPrefix.widthSpaces) * TIGHTEST_JUSTIFICATION
 
     @Test
     fun `a page wide enough for two bars puts two bars on a row`() {
@@ -138,5 +145,17 @@ class MusicalPageViewTest {
 
         assertEquals(listOf(0, 4), rows.map { it.firstStep })
         assertEquals(2, rows.last().sequence.steps.count { it.isRest })
+    }
+
+    @Test
+    fun `a row may close up a little to keep its bars together`() {
+        val piece = quarterBars(2)
+        val natural = naturalSpacesFor(piece, 2)
+        val music = natural - firstPrefix.widthSpaces
+
+        // Narrower than two bars at their natural spacing, but within what a justified row allows.
+        val rows = rowsOf(piece, firstPrefix.widthSpaces + music * 0.9f)
+
+        assertEquals(1, rows.size, "both bars still on one row")
     }
 }

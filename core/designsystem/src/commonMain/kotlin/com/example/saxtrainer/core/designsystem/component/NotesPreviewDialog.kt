@@ -23,11 +23,10 @@ fun NotesPreviewDialog(title: String, sequence: ToneSequence, onDismiss: () -> U
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            MusicalStaffView(
+            // A page, one bar to a row, rather than one long line to scroll sideways through.
+            BoundedMusicalPage(
                 sequence = sequence,
                 modifier = Modifier.fillMaxWidth(),
-                prefix = StaffPrefix.Treble,
-                fillWidth = true,
                 staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },

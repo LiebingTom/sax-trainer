@@ -221,8 +221,12 @@ data class LongToneUiState(
     fun writtenLabel(note: Note): String =
         noteNaming.labelOf(transposition.writtenFor(note), octaves = octaveNumbering)
 
-    /** A sounding pitch, named the same way. */
-    fun soundingLabel(note: Note): String = noteNaming.labelOf(note, octaves = octaveNumbering)
+    /**
+     * A sounding pitch, named the same way - but always numbered scientifically. Counting from the
+     * saxophone's low C describes what is written for it; a concert pitch is the piano's and the
+     * tuner's, and numbered as they number it.
+     */
+    fun soundingLabel(note: Note): String = noteNaming.labelOf(note)
 
     /** The note the player should be sounding right now, or the first one before the start. */
     val currentNote: Note get() = progress?.currentNote ?: selection.notes.first()

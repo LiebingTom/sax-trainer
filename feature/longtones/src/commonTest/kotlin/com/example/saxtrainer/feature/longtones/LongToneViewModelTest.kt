@@ -11,6 +11,9 @@ import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.OctaveNumbering
+import com.example.saxtrainer.core.settings.AppSettings
+import com.example.saxtrainer.core.settings.Instrument
 import com.example.saxtrainer.core.settings.Exercise
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
@@ -617,6 +620,25 @@ class LongToneViewModelTest {
      * they have to agree. Where they do not, the difference shows only in an exercise somebody
      * saved, and only once it is started, which is the worst place to find it.
      */
+    @Test
+    fun `the sax's octave count numbers what is written, never what sounds`() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository(
+            AppSettings(
+                countInBeats = 0,
+                instrument = Instrument.TENOR_SAX,
+                octaveNumbering = OctaveNumbering.SAXOPHONE,
+            ),
+        )
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs), settings = settings)
+        advanceUntilIdle()
+        val state = viewModel.uiState.value
+        // A tenor's written C5 sounds as the concert B flat a ninth below it.
+        val concertBFlat = Note(NoteName.A_SHARP, 3)
+
+        assertEquals("C2", state.writtenLabel(concertBFlat))
+        assertEquals("B♭3", state.soundingLabel(concertBFlat))
+    }
+
     @Test
     fun `every choice survives being written down and started again`() = runTest(dispatcher) {
         val configured = viewModel(FakeAudioCapture(frameDurationMs))

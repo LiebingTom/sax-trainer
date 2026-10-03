@@ -3,6 +3,7 @@ package com.example.saxtrainer.learning
 import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.feature.notequiz.QuizMode
+import com.example.saxtrainer.learning.catalog.steps.longTonePresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
 import com.example.saxtrainer.learning.catalog.units.CHROMATIC_SHARPS_AND_FLATS_UNIT_ID
@@ -33,6 +34,9 @@ class UnitLessonsTest {
     private fun trainerOf(id: String) =
         unitOf(id).lessons.flatMap { it.steps }.firstNotNullOf(::noteTrainerPresetOf)
 
+    private fun longTonesOf(id: String) =
+        unitOf(id).lessons.flatMap { it.steps }.firstNotNullOf(::longTonePresetOf)
+
     private fun tokensOf(id: String) = quizOf(id).notes.map { it.token }
 
     @Test
@@ -41,13 +45,13 @@ class UnitLessonsTest {
     }
 
     @Test
-    fun `each group is a note quiz and a note trainer, and nothing more`() {
+    fun `each group is a note quiz, a note trainer and long tones, and nothing more`() {
         unitIds.forEach { id ->
             val unit = unitOf(id)
-            assertEquals(2, unit.lessons.size, id)
+            assertEquals(3, unit.lessons.size, id)
             unit.lessons.forEach { assertEquals(1, it.stepCount, "${it.title} runs more than one practice") }
             assertEquals(
-                listOf(TrainerId.NOTE_QUIZ, TrainerId.NOTE_TRAINER),
+                listOf(TrainerId.NOTE_QUIZ, TrainerId.NOTE_TRAINER, TrainerId.LONG_TONES),
                 unit.lessons.map { it.firstStep.trainerId },
                 id,
             )
@@ -74,8 +78,20 @@ class UnitLessonsTest {
     }
 
     @Test
-    fun `a group's quiz and trainer practise the same notes`() {
-        unitIds.forEach { id -> assertEquals(quizOf(id).notes, trainerOf(id).notes, id) }
+    fun `every long tone is held for eight beats, one round from the lowest note up`() {
+        unitIds.forEach { id ->
+            val longTones = longTonesOf(id)
+            assertEquals(Beats.of(8), longTones.beatsPerNote, id)
+            assertEquals(longTones.notes.sortedBy { it.note.midiNumber }, longTones.notes, id)
+        }
+    }
+
+    @Test
+    fun `a group's quiz, trainer and long tones practise the same notes`() {
+        unitIds.forEach { id ->
+            assertEquals(quizOf(id).notes, trainerOf(id).notes, id)
+            assertEquals(quizOf(id).notes, longTonesOf(id).notes, id)
+        }
     }
 
     @Test
@@ -97,7 +113,7 @@ class UnitLessonsTest {
     @Test
     fun `the groups are called by their number`() {
         assertEquals(
-            listOf("Group 1", "Group 2", "Group 3", "Group 4"),
+            listOf("Basics 1", "Basics 2", "Basics 3", "Basics 4"),
             SaxTrainerCurriculum.units.map { it.title },
         )
     }

@@ -66,13 +66,13 @@ class ShellOnWasmTest {
         onNodeWithContentDescription("Back").performClick()
 
         scrolledTo("Lessons").performClick()
-        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("Group 1") }
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("Basics 1") }
         listOf(
             // Every learning unit, each with every lesson it was written with.
-            "Group 1",
-            "Group 2",
-            "Group 3",
-            "Group 4",
+            "Basics 1",
+            "Basics 2",
+            "Basics 3",
+            "Basics 4",
         ).forEach { scrolledTo(it).assertIsDisplayed() }
     }
 
@@ -84,7 +84,7 @@ class ShellOnWasmTest {
         // titles are also the text of the card that leads to them.
         openAndReturn(card = "Settings", shownThere = "Note naming")
         openAndReturn(card = "Practice", shownThere = "Know your notes")
-        openAndReturn(card = "Lessons", shownThere = "Group 1")
+        openAndReturn(card = "Lessons", shownThere = "Basics 1")
         openAndReturn(
             card = "My Lessons",
             shownThere = "Tap to practise. Edit opens the setup it was saved with.",
@@ -111,8 +111,8 @@ class ShellOnWasmTest {
         onNodeWithContentDescription("Back").performClick()
 
         scrolledTo("Lessons").performClick()
-        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("Group 1") }
-        openAndReturn(card = "Group 1", shownThere = "Name and grip them")
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("Basics 1") }
+        openAndReturn(card = "Basics 1", shownThere = "Name and grip them")
     }
 
     @Test
@@ -143,8 +143,8 @@ class ShellOnWasmTest {
         setContent { App(host) }
 
         scrolledTo("Lessons").performClick()
-        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("Group 1") }
-        scrolledTo("Group 1").performClick()
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("Basics 1") }
+        scrolledTo("Basics 1").performClick()
         waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Name and grip them") }
 
         onNodeWithText("Name and grip them").performClick()
@@ -159,8 +159,8 @@ class ShellOnWasmTest {
         setContent { App(host) }
 
         scrolledTo("Lessons").performClick()
-        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("Group 1") }
-        scrolledTo("Group 1").performClick()
+        waitUntil("the curriculum", BROWSER_TIMEOUT_MS) { shows("Basics 1") }
+        scrolledTo("Basics 1").performClick()
         waitUntil("the lesson list", BROWSER_TIMEOUT_MS) { shows("Play them") }
 
         onNodeWithText("Play them").performClick()

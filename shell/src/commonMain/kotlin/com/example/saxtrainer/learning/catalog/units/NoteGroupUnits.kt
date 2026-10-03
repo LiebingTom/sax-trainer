@@ -6,15 +6,18 @@ import com.example.saxtrainer.core.learning.Lesson
 import com.example.saxtrainer.core.learning.LessonId
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.feature.longtones.LongTonePreset
 import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.feature.notequiz.QuizPreset
 import com.example.saxtrainer.feature.notetrainer.NoteTrainerPreset
+import com.example.saxtrainer.learning.catalog.steps.longToneStep
 import com.example.saxtrainer.learning.catalog.steps.noteQuizStep
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerStep
 
 /**
- * Four groups of notes, each a step on from the last, each practised the same two ways: a quiz that
- * asks for the name and the grip, and the trainer that asks for the note to be played.
+ * Four groups of notes, each a step on from the last, each practised the same three ways: a quiz
+ * that asks for the name and the grip, the trainer that asks for the note to be played, and long
+ * tones that hold each one.
  *
  * `requires` is left null throughout, so every lesson can be opened while the catalog is still
  * being written; turning progression on later is a change to this data and to nothing else.
@@ -33,35 +36,38 @@ internal const val TRAINER_ROUNDS = 3
 /** How long a right note has to be held before the trainer moves on. */
 internal val TRAINER_HOLD = Beats.of(2)
 
+/** How long every long tone is held: one round through the group, lowest note first. */
+internal val LONG_TONE_BEATS = Beats.of(8)
+
 val cMajorTwoOctavesUnit = noteGroupUnit(
     id = C_MAJOR_TWO_OCTAVES_UNIT_ID,
-    title = "Group 1",
+    title = "Basics 1",
     description = "C major over two octaves, C to C to C, no sharps or flats.",
     notes = C_MAJOR_TWO_OCTAVES,
 )
 
 val dMajorNotesUnit = noteGroupUnit(
     id = D_MAJOR_NOTES_UNIT_ID,
-    title = "Group 2",
+    title = "Basics 2",
     description = "The same two octaves with F♯ and C♯: everything D major needs.",
     notes = D_MAJOR_NOTES,
 )
 
 val chromaticSharpsUnit = noteGroupUnit(
     id = CHROMATIC_SHARPS_UNIT_ID,
-    title = "Group 3",
+    title = "Basics 3",
     description = "Chromatic from C to C, plus the high D, the black keys written as sharps.",
     notes = CHROMATIC_SHARPS,
 )
 
 val chromaticSharpsAndFlatsUnit = noteGroupUnit(
     id = CHROMATIC_SHARPS_AND_FLATS_UNIT_ID,
-    title = "Group 4",
-    description = "The same notes as group 3, every black key both as a sharp and as a flat.",
+    title = "Basics 4",
+    description = "The same notes as Basics 3, every black key both as a sharp and as a flat.",
     notes = CHROMATIC_SHARPS_AND_FLATS,
 )
 
-/** One group: its quiz and its trainer, nothing more. */
+/** One group: its quiz, its trainer and its long tones, nothing more. */
 private fun noteGroupUnit(
     id: String,
     title: String,
@@ -98,6 +104,19 @@ private fun noteGroupUnit(
                         rounds = TRAINER_ROUNDS,
                         showFingeringHint = false,
                         holdBeats = TRAINER_HOLD,
+                    ),
+                ),
+            ),
+        ),
+        Lesson(
+            id = LessonId("$id-long-tones"),
+            title = "Hold them",
+            subtitle = "One round of long tones, each note held for 8 beats",
+            steps = listOf(
+                longToneStep(
+                    LongTonePreset(
+                        notes = notes,
+                        beatsPerNote = LONG_TONE_BEATS,
                     ),
                 ),
             ),

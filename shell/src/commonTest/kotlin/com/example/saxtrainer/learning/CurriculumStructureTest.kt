@@ -4,6 +4,7 @@ import com.example.saxtrainer.core.fingering.TenorSaxophoneFingerings
 import com.example.saxtrainer.core.learning.LessonProgressState
 import com.example.saxtrainer.core.learning.LessonStep
 import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.learning.catalog.steps.longTonePresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
 import com.example.saxtrainer.learning.catalog.steps.sequencePresetOf
@@ -43,12 +44,14 @@ class CurriculumStructureTest {
         "note quiz" to ::noteQuizPresetOf,
         "note trainer" to ::noteTrainerPresetOf,
         "sequence" to ::sequencePresetOf,
+        "long tones" to ::longTonePresetOf,
     )
 
     /** The written notes a step practises, whichever trainer it belongs to. */
     private fun notesOf(step: LessonStep): List<SpelledNote> = listOfNotNull(
         noteQuizPresetOf(step)?.notes,
         noteTrainerPresetOf(step)?.notes,
+        longTonePresetOf(step)?.notes,
     ).flatten()
 
     @Test
@@ -83,6 +86,7 @@ class CurriculumStructureTest {
                     noteTrainerPresetOf(step)
 
                 com.example.saxtrainer.core.learning.TrainerId.SEQUENCE -> sequencePresetOf(step)
+                com.example.saxtrainer.core.learning.TrainerId.LONG_TONES -> longTonePresetOf(step)
                 else -> null
             }
             assertNotNull(preset, "a ${step.trainerId} step carries no ${step.trainerId} preset")

@@ -1,11 +1,16 @@
 package com.example.saxtrainer.core.designsystem.component
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,10 +25,13 @@ import com.example.saxtrainer.core.designsystem.icon.Preview as PreviewIcon
 import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.NoteName
+import com.example.saxtrainer.core.music.Scale
 import com.example.saxtrainer.core.phrase.Phrase
 import com.example.saxtrainer.core.phrase.PhraseRecipe
 import com.example.saxtrainer.core.phrase.ScaleChoice
+import com.example.saxtrainer.core.phrase.rootStyleOf
 
 /**
  * The two windows a phrase is chosen in - the library of written-out phrases, and the scale
@@ -68,11 +76,12 @@ fun PhraseLibraryWindow(
 }
 
 /**
- * Scale, octaves, then the stored patterns to choose between - the pattern is what closes the
- * window; changing the scale or the octaves just changes what the same list of patterns will sound
- * like. Scale and octaves are each a closed field: tapping one opens a dialog over this window
- * rather than crowding the list with a slider or a row of chips.
+ * Scale, root, octaves, then the stored patterns to choose between - the pattern is what closes the
+ * window; changing the scale, the root or the octaves just changes what the same list of patterns
+ * will sound like. Scale and octaves are each a closed field that opens a dialog over this window;
+ * the root is a row of chips, one tap per key.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ScalePatternWindow(
     patterns: List<PhraseRecipe>,
@@ -90,14 +99,38 @@ fun ScalePatternWindow(
     var scaleDialogOpen by remember { mutableStateOf(false) }
     var octaveDialogOpen by remember { mutableStateOf(false) }
     val scaleChoice = scaleChoices.firstOrNull { it.id == scaleChoiceId }
+    val scales = scaleChoices.map { it.scale }.distinctBy { it.id }
+    val roots = scaleChoices.map { it.root }.distinct()
+    // Changing one half keeps the other: a new scale stays on the same root, a new root on the
+    // same scale.
+    fun choose(scale: Scale?, root: NoteName?) {
+        val chosen = scaleChoices.firstOrNull {
+            it.scale.id == (scale ?: scaleChoice?.scale)?.id && it.root == (root ?: scaleChoice?.root ?: NoteName.C)
+        }
+        chosen?.let { onSelectScaleChoice(it.id) }
+    }
 
     FullScreenWindow(title = "Scale Pattern", onDismiss = onDismiss) {
         SectionHeader("Scale")
         FieldRow(
             label = "Scale",
-            value = scaleChoice?.displayName ?: "Choose a scale",
+            value = scaleChoice?.scale?.name ?: "Choose a scale",
             onClick = { scaleDialogOpen = true },
         )
+
+        Spacer(Modifier.height(Dimens.spaceSm))
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+        ) {
+            roots.forEach { root ->
+                FilterChip(
+                    selected = root == scaleChoice?.root,
+                    onClick = { choose(scale = null, root = root) },
+                    label = { Text(scaleChoices.first { it.root == root }.rootName) },
+                )
+            }
+        }
 
         Spacer(Modifier.height(Dimens.spaceSm))
         FieldRow(
@@ -128,9 +161,9 @@ fun ScalePatternWindow(
 
     if (scaleDialogOpen) {
         ScaleChoiceDialog(
-            choices = scaleChoices,
-            selectedId = scaleChoiceId,
-            onSelect = onSelectScaleChoice,
+            scales = scales,
+            selectedId = scaleChoice?.scale?.id,
+            onSelect = { scale -> choose(scale = scale, root = null) },
             onDismiss = { scaleDialogOpen = false },
         )
     }
@@ -169,9 +202,9 @@ private fun PreviewButton(name: String, onClick: () -> Unit) {
 /** Which scale a pattern is played on - single choice, so picking one closes the dialog. */
 @Composable
 private fun ScaleChoiceDialog(
-    choices: List<ScaleChoice>,
-    selectedId: String,
-    onSelect: (String) -> Unit,
+    scales: List<Scale>,
+    selectedId: String?,
+    onSelect: (Scale) -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -179,12 +212,12 @@ private fun ScaleChoiceDialog(
         title = { Text("Choose a scale") },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                choices.forEach { choice ->
+                scales.forEach { scale ->
                     SelectableRow(
-                        title = choice.displayName,
-                        selected = choice.id == selectedId,
+                        title = scale.name,
+                        selected = scale.id == selectedId,
                         onClick = {
-                            onSelect(choice.id)
+                            onSelect(scale)
                             onDismiss()
                         },
                     )
@@ -237,7 +270,7 @@ private fun OctaveChoiceDialog(
 private fun octaveHint(octave: Int, root: NoteName?): String {
     if (root == null) return "the root note in this octave"
     val note = Note(root, octave)
-    val label = "${root.displayName}$octave"
+    val label = NoteNaming.INTERNATIONAL.nameOf(note, rootStyleOf(root)) + octave
     return when {
         note.midiNumber < SaxWrittenRange.LOWEST.midiNumber -> "starts on $label - below the saxophone's range"
         note.midiNumber > SaxWrittenRange.HIGHEST.midiNumber -> "starts on $label - altissimo, needs years of practice"

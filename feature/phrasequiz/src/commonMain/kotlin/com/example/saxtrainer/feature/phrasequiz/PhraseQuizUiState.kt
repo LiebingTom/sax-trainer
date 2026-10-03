@@ -84,8 +84,8 @@ data class PhraseQuizUiState(
     val libraryPhraseId: String? = null,
     /** Whether the phrase-library window is open, listing [library] for the player to choose from. */
     val libraryPickerOpen: Boolean = false,
-    val scaleChoices: List<ScaleChoice> = ScaleChoice.defaults,
-    val scaleChoiceId: String = ScaleChoice.defaults.first().id,
+    val scaleChoices: List<ScaleChoice> = ScaleChoice.all,
+    val scaleChoiceId: String = ScaleChoice.default?.id.orEmpty(),
     /**
      * The octaves a scale pattern is generated in - a setting of its own, apart from which key it
      * is. More than one means a training unit can come from any of them, not that they are woven

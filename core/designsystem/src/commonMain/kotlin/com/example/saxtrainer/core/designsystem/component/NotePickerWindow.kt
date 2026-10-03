@@ -73,7 +73,7 @@ fun NotePickerWindow(
     var choosingPattern by remember { mutableStateOf(false) }
     // The pattern window's own scale and octaves, kept while this window is open so reopening it
     // shows what was last used.
-    var scaleChoiceId by remember { mutableStateOf(ScaleChoice.defaults.first().id) }
+    var scaleChoiceId by remember { mutableStateOf(ScaleChoice.default?.id.orEmpty()) }
     var patternOctaves by remember { mutableStateOf(setOf(DEFAULT_PATTERN_OCTAVE)) }
 
     FullScreenWindow(
@@ -197,7 +197,7 @@ fun NotePickerWindow(
         ScalePatternWindow(
             patterns = patterns,
             selectedPatternId = null,
-            scaleChoices = ScaleChoice.defaults,
+            scaleChoices = ScaleChoice.all,
             scaleChoiceId = scaleChoiceId,
             octaves = patternOctaves,
             octaveRange = PATTERN_OCTAVES,

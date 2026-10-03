@@ -344,7 +344,7 @@ class PhraseTrainerViewModelTest {
     @Test
     fun `every choice survives being written down and started again`() = trainerTest {
         val configured = viewModel()
-        configured.selectScaleChoice(ScaleChoice.defaults[1].id)
+        configured.selectScaleChoice("d_major")
         configured.selectPattern(TestPatterns.catalog.all.last().id)
         configured.setCheckDuration(true)
         configured.selectRepeats(3)

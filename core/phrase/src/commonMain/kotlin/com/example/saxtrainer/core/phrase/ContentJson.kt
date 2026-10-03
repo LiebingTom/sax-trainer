@@ -5,6 +5,7 @@ import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NotatedDuration
 import com.example.saxtrainer.core.music.NoteValue
+import com.example.saxtrainer.core.music.Scale
 import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.TimeSignature
 import com.example.saxtrainer.core.music.ToneStep
@@ -47,7 +48,24 @@ data class PatternJson(
     val description: String = "",
     val trainingBars: Int = 1,
     val timeSignature: String? = null,
-    val bars: List<BarJson>,
+    val bars: List<BarJson> = emptyList(),
+    /** In place of [bars]: the scale up and down, every note this long - see [ScaleRun]. */
+    val run: RunJson? = null,
+)
+
+@Serializable
+data class RunJson(val duration: String)
+
+/**
+ * The on-disk shape of a scale: its steps in semitones from the root, and - for a scale that is not
+ * one note per letter - which letter each degree is written on. See [Scale.letterSteps].
+ */
+@Serializable
+data class ScaleJson(
+    val id: String,
+    val name: String,
+    val intervals: List<Int>,
+    val letters: List<Int>? = null,
 )
 
 /** The manifest a folder of content files needs, since reading one back cannot list a directory. */
@@ -102,11 +120,24 @@ private fun toPhrase(source: PhraseJson): Phrase? {
     }.getOrNull()
 }
 
+/** The scales built from JSON text - see [ScaleLibrary]. A file that does not parse is left out. */
+fun parseScales(files: Collection<String>): List<Scale> = files.mapNotNull { text ->
+    runCatching {
+        val source = json.decodeFromString<ScaleJson>(text)
+        if (source.letters == null) {
+            Scale(id = source.id, name = source.name, intervals = source.intervals)
+        } else {
+            Scale(id = source.id, name = source.name, intervals = source.intervals, letterSteps = source.letters)
+        }
+    }.getOrNull()
+}
+
 private fun toPattern(source: PatternJson): PhraseRecipe? {
     val timeSignature = timeSignatureOf(source.timeSignature)
     val bars = source.bars.map { bar ->
         RecipeBar(bar.steps.map { step -> RecipeStep(step.degree, durationOf(step.duration, timeSignature) ?: return null) })
     }
+    val run = source.run?.let { ScaleRun(durationOf(it.duration, timeSignature) ?: return null) }
     return runCatching {
         PhraseRecipe(
             id = source.id,
@@ -115,6 +146,7 @@ private fun toPattern(source: PatternJson): PhraseRecipe? {
             bars = bars,
             trainingBars = source.trainingBars,
             timeSignature = timeSignature,
+            run = run,
         )
     }.getOrNull()
 }

@@ -1,10 +1,10 @@
 package com.example.saxtrainer.core.phrase
 
+
 import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
-import com.example.saxtrainer.core.music.Scales
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -23,13 +23,13 @@ class PhraseRecipeTest {
     fun theSamePatternResolvesDifferentlyInDifferentKeys() {
         val pattern = PhraseRecipe(id = "p", name = "1-2-3-5", description = "", bars = listOf(bar(1, 2, 3, 5)))
 
-        val dMajor = pattern.resolve(Scales.MAJOR, Note(NoteName.D, 4))
+        val dMajor = pattern.resolve(TestScales.MAJOR, Note(NoteName.D, 4))
         assertEquals(
             listOf(Note(NoteName.D, 4), Note(NoteName.E, 4), Note(NoteName.F_SHARP, 4), Note(NoteName.A, 4)),
             dMajor.toneSequence().notes,
         )
 
-        val cMajor = pattern.resolve(Scales.MAJOR, Note(NoteName.C, 4))
+        val cMajor = pattern.resolve(TestScales.MAJOR, Note(NoteName.C, 4))
         assertEquals(
             listOf(Note(NoteName.C, 4), Note(NoteName.D, 4), Note(NoteName.E, 4), Note(NoteName.G, 4)),
             cMajor.toneSequence().notes,
@@ -40,7 +40,7 @@ class PhraseRecipeTest {
     fun theOctaveComesFromTheRootNotThePattern() {
         val pattern = PhraseRecipe(id = "p", name = "1-3-5", description = "", bars = listOf(bar(1, 3, 5, 1)))
 
-        val resolved = pattern.resolve(Scales.MAJOR, Note(NoteName.C, 5))
+        val resolved = pattern.resolve(TestScales.MAJOR, Note(NoteName.C, 5))
 
         assertEquals(
             listOf(Note(NoteName.C, 5), Note(NoteName.E, 5), Note(NoteName.G, 5), Note(NoteName.C, 5)),
@@ -57,7 +57,7 @@ class PhraseRecipeTest {
             bars = listOf(RecipeBar(listOf(RecipeStep(1, quarter), RecipeStep(null, quarter), RecipeStep(3, quarter), RecipeStep(5, quarter)))),
         )
 
-        val resolved = pattern.resolve(Scales.MAJOR, Note(NoteName.C, 4))
+        val resolved = pattern.resolve(TestScales.MAJOR, Note(NoteName.C, 4))
 
         assertEquals(listOf(true, false, true, true), resolved.bars.single().steps.map { !it.isRest })
     }
@@ -66,7 +66,7 @@ class PhraseRecipeTest {
     fun resolvedPhraseKeepsTheRecipesTrainingBars() {
         val pattern = PhraseRecipe(id = "p", name = "p", description = "", bars = listOf(bar(1, 2, 3, 5), bar(5, 3, 2, 1)), trainingBars = 2)
 
-        assertEquals(2, pattern.resolve(Scales.MAJOR, Note(NoteName.C, 4)).trainingBars)
+        assertEquals(2, pattern.resolve(TestScales.MAJOR, Note(NoteName.C, 4)).trainingBars)
     }
 
     @Test
@@ -82,7 +82,7 @@ class PhraseRecipeTest {
     fun aSevenNoteScaleWritesEachDegreeOnItsOwnLetter() {
         val pattern = PhraseRecipe(id = "p", name = "up", description = "", bars = listOf(bar(1, 2, 3, 4), bar(5, 6, 7, 8)))
 
-        val fMajor = pattern.resolve(Scales.MAJOR, Note(NoteName.F, 4)).toneSequence()
+        val fMajor = pattern.resolve(TestScales.MAJOR, Note(NoteName.F, 4)).toneSequence()
 
         assertEquals(
             listOf("F4", "G4", "A4", "Bb4", "C5", "D5", "E5", "F5"),
@@ -90,10 +90,10 @@ class PhraseRecipeTest {
             "the fourth of F major is a B flat, whatever the phrase's fallback style",
         )
 
-        val cMinor = pattern.resolve(Scales.NATURAL_MINOR, Note(NoteName.C, 4)).toneSequence()
+        val cMinor = pattern.resolve(TestScales.NATURAL_MINOR, Note(NoteName.C, 4)).toneSequence()
         assertEquals(listOf("C4", "D4", "Eb4", "F4", "G4", "Ab4", "Bb4", "C5"), cMinor.writtenNotes.map { it.token })
 
-        val dMajor = pattern.resolve(Scales.MAJOR, Note(NoteName.D, 4)).toneSequence()
+        val dMajor = pattern.resolve(TestScales.MAJOR, Note(NoteName.D, 4)).toneSequence()
         assertEquals(listOf("D4", "E4", "F#4", "G4", "A4", "B4", "C#5", "D5"), dMajor.writtenNotes.map { it.token })
     }
 
@@ -101,13 +101,13 @@ class PhraseRecipeTest {
     fun theBluesIsWrittenWithItsFlatsNotRespelledAsSharps() {
         val pattern = PhraseRecipe(id = "p", name = "blues", description = "", bars = listOf(bar(1, 2, 3, 4), bar(5, 6, 7, 1)))
 
-        val cBlues = pattern.resolve(Scales.BLUES, Note(NoteName.C, 4)).toneSequence()
+        val cBlues = pattern.resolve(TestScales.BLUES, Note(NoteName.C, 4)).toneSequence()
         assertEquals(
             listOf("C4", "Eb4", "F4", "Gb4", "G4", "Bb4", "C5", "C4"),
             cBlues.writtenNotes.map { it.token },
         )
 
-        val aBlues = pattern.resolve(Scales.BLUES, Note(NoteName.A, 4)).toneSequence()
+        val aBlues = pattern.resolve(TestScales.BLUES, Note(NoteName.A, 4)).toneSequence()
         assertEquals(listOf("A4", "C5", "D5", "Eb5", "E5", "G5", "A5", "A4"), aBlues.writtenNotes.map { it.token })
     }
 

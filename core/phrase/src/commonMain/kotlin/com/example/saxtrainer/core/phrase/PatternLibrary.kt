@@ -9,4 +9,97 @@ package com.example.saxtrainer.core.phrase
  * See `tools/generate_phrase_library.py` for why this is generated rather than hand-written, and
  * [PatternCatalog] for the seam a real file-backed catalog would use instead.
  */
-object PatternLibrary : PatternCatalog by InMemoryPatternCatalog(parsePatterns(listOf()))
+object PatternLibrary : PatternCatalog by InMemoryPatternCatalog(parsePatterns(listOf(BLUES_1_MELODY_JSON, SCALE_UP_AND_DOWN_JSON)))
+
+@Suppress("ktlint")
+private val BLUES_1_MELODY_JSON = """
+{
+  "id": "blues_1_melody",
+  "name": "Blues 1 melody",
+  "description": "Four bars, call and response: climb to the blue note and back, then home to the root. Play it on the Blues scale - in A it reads A C D E♭ E | E D C | A C D C | A.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "quarter"
+        },
+        {
+          "degree": 2,
+          "duration": "quarter"
+        },
+        {
+          "degree": 3,
+          "duration": "quarter"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 5,
+          "duration": "half"
+        },
+        {
+          "degree": 3,
+          "duration": "quarter"
+        },
+        {
+          "degree": 2,
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "quarter"
+        },
+        {
+          "degree": 2,
+          "duration": "quarter"
+        },
+        {
+          "degree": 3,
+          "duration": "quarter"
+        },
+        {
+          "degree": 2,
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "whole"
+        }
+      ]
+    }
+  ]
+}
+""".trimIndent()
+
+@Suppress("ktlint")
+private val SCALE_UP_AND_DOWN_JSON = """
+{
+  "id": "scale_up_and_down",
+  "name": "Scale up & down",
+  "description": "The scale in eighths, up to the root an octave higher and back down, then a rest to breathe. Fits any scale: six notes of the blues, seven of major or minor.",
+  "trainingBars": 2,
+  "run": {
+    "duration": "eighth"
+  }
+}
+""".trimIndent()

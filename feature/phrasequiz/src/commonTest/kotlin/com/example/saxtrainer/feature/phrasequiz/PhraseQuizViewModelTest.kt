@@ -139,7 +139,7 @@ class PhraseQuizViewModelTest {
     @Test
     fun `picking a library phrase selects it and closes the window`() = runTest(dispatcher) {
         val viewModel = viewModel()
-        viewModel.selectScaleChoice(ScaleChoice.defaults[1].id) // start from scale pattern
+        viewModel.selectScaleChoice("d_major") // start from scale pattern
         viewModel.selectPattern(TestPatterns.catalog.all.first().id)
         viewModel.openLibraryPicker()
 
@@ -238,7 +238,7 @@ class PhraseQuizViewModelTest {
         val viewModel = viewModel()
         viewModel.start()
 
-        viewModel.selectScaleChoice(ScaleChoice.defaults[1].id)
+        viewModel.selectScaleChoice("d_major")
 
         assertEquals(PhraseSourceType.LIBRARY, viewModel.uiState.value.sourceType)
     }
@@ -519,7 +519,7 @@ class PhraseQuizViewModelTest {
     @Test
     fun `every choice survives being written down and started again`() = runTest(dispatcher) {
         val configured = viewModel()
-        configured.selectScaleChoice(ScaleChoice.defaults[2].id)
+        configured.selectScaleChoice("g_major")
         configured.selectPattern(TestPatterns.catalog.all.last().id)
         configured.selectRepeats(4)
         configured.setMixed(true)

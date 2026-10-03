@@ -66,37 +66,3 @@ data class Scale(
         const val LETTERS_PER_OCTAVE = 7
     }
 }
-
-/**
- * The predefined scales.
- *
- * Data, deliberately outside any feature: adding a scale is one entry here and nothing else, in the
- * same spirit as [com.example.saxtrainer.core.exercise.SequenceLibrary].
- */
-object Scales {
-
-    val MAJOR = Scale(id = "major", name = "Major", intervals = listOf(0, 2, 4, 5, 7, 9, 11))
-
-    val NATURAL_MINOR = Scale(
-        id = "natural_minor",
-        name = "Natural minor",
-        intervals = listOf(0, 2, 3, 5, 7, 8, 10),
-    )
-
-    /**
-     * The six-note blues scale: minor pentatonic plus the flat five "blue note".
-     *
-     * Written the way the blues is: root, flat three, four, flat five, five, flat seven - E flat, G
-     * flat and B flat in C, never D sharp, F sharp and A sharp.
-     */
-    val BLUES = Scale(
-        id = "blues",
-        name = "Blues",
-        intervals = listOf(0, 3, 5, 6, 7, 10),
-        letterSteps = listOf(0, 2, 3, 4, 4, 6),
-    )
-
-    val all: List<Scale> = listOf(MAJOR, NATURAL_MINOR, BLUES)
-
-    fun byId(id: String): Scale? = all.firstOrNull { it.id == id }
-}

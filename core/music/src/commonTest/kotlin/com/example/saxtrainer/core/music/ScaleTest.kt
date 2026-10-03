@@ -6,23 +6,31 @@ import kotlin.test.assertFailsWith
 
 class ScaleTest {
 
+    private val MAJOR = Scale(id = "major", name = "Major", intervals = listOf(0, 2, 4, 5, 7, 9, 11))
+    private val BLUES = Scale(
+        id = "blues",
+        name = "Blues",
+        intervals = listOf(0, 3, 5, 6, 7, 10),
+        letterSteps = listOf(0, 2, 3, 4, 4, 6),
+    )
+
     @Test
     fun majorScaleDegreesAreWholeAndHalfSteps() {
         val expected = listOf(0, 2, 4, 5, 7, 9, 11)
         expected.forEachIndexed { index, offset ->
-            assertEquals(offset, Scales.MAJOR.semitoneOffset(index + 1))
+            assertEquals(offset, MAJOR.semitoneOffset(index + 1))
         }
     }
 
     @Test
     fun degreePastTheTopWrapsIntoTheNextOctave() {
-        assertEquals(12, Scales.MAJOR.semitoneOffset(8))
-        assertEquals(14, Scales.MAJOR.semitoneOffset(9))
+        assertEquals(12, MAJOR.semitoneOffset(8))
+        assertEquals(14, MAJOR.semitoneOffset(9))
     }
 
     @Test
     fun degreeBelowOneIsRejected() {
-        assertFailsWith<IllegalArgumentException> { Scales.MAJOR.semitoneOffset(0) }
+        assertFailsWith<IllegalArgumentException> { MAJOR.semitoneOffset(0) }
     }
 
     @Test
@@ -33,22 +41,15 @@ class ScaleTest {
     }
 
     @Test
-    fun byIdFindsAKnownScaleAndMissesAnUnknownOne() {
-        assertEquals(Scales.MAJOR, Scales.byId("major"))
-        assertEquals(Scales.BLUES, Scales.byId("blues"))
-        assertEquals(null, Scales.byId("does_not_exist"))
-    }
-
-    @Test
     fun aSevenNoteScaleWritesEachDegreeOnTheNextLetter() {
-        assertEquals((0..6).toList(), (1..7).map { Scales.MAJOR.letterStep(it) })
-        assertEquals(7, Scales.MAJOR.letterStep(8), "the octave is the root's letter again, one up")
+        assertEquals((0..6).toList(), (1..7).map { MAJOR.letterStep(it) })
+        assertEquals(7, MAJOR.letterStep(8), "the octave is the root's letter again, one up")
     }
 
     @Test
     fun theBluesSaysWhichLetterEachOfItsSixDegreesIsWrittenOn() {
-        assertEquals(listOf(0, 2, 3, 4, 4, 6), (1..6).map { Scales.BLUES.letterStep(it) })
-        assertEquals(7, Scales.BLUES.letterStep(7))
+        assertEquals(listOf(0, 2, 3, 4, 4, 6), (1..6).map { BLUES.letterStep(it) })
+        assertEquals(7, BLUES.letterStep(7))
     }
 
     @Test

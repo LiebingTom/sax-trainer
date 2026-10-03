@@ -1,10 +1,9 @@
 package com.example.saxtrainer.core.phrase
 
-import com.example.saxtrainer.core.testing.TestPatterns
+
 
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
-import com.example.saxtrainer.core.music.Scales
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -29,7 +28,7 @@ class PhraseSourceTest {
     fun scalePatternResolvesAStoredRecipeAgainstTheChosenScaleAndRoot() {
         val source = PhraseSource.ScalePattern(
             patternId = TestPatterns.WALK_ID,
-            scale = Scales.MAJOR,
+            scale = TestScales.MAJOR,
             root = NoteName.D,
             octaves = setOf(4),
         )
@@ -47,7 +46,7 @@ class PhraseSourceTest {
     fun scalePatternWithSeveralOctavesConcatenatesEachOctavesBarsInOrder() {
         val source = PhraseSource.ScalePattern(
             patternId = TestPatterns.WALK_ID,
-            scale = Scales.MAJOR,
+            scale = TestScales.MAJOR,
             root = NoteName.D,
             octaves = setOf(5, 4), // unsorted on purpose: resolution sorts them
         )
@@ -65,7 +64,7 @@ class PhraseSourceTest {
     fun scalePatternResolvesToNullForAnUnknownPatternId() {
         val source = PhraseSource.ScalePattern(
             patternId = "does_not_exist",
-            scale = Scales.MAJOR,
+            scale = TestScales.MAJOR,
             root = NoteName.C,
             octaves = setOf(4),
         )

@@ -23,7 +23,7 @@ data class Key(
     /** "B♭ major", "Fis minor": the root as [naming] calls it, then the scale. */
     fun nameIn(naming: NoteNaming): String {
         // A key is never called "natural minor" - that is the scale's name, not the key's.
-        val mode = if (scale == Scales.NATURAL_MINOR) "minor" else scale.name.lowercase()
+        val mode = if (scale == NATURAL_MINOR) "minor" else scale.name.lowercase()
         return naming.nameOf(rootIn(DISPLAY_OCTAVE)) + " " + mode
     }
 
@@ -48,8 +48,17 @@ data class Key(
     companion object {
         private const val DISPLAY_OCTAVE = 4
 
-        private fun major(token: String) = keyOf(token, Scales.MAJOR)
-        private fun minor(token: String) = keyOf(token, Scales.NATURAL_MINOR)
+        // The two scales a key is built on. The note selector's own, not content: the scales a
+        // pattern is played on come from the content files instead.
+        private val MAJOR = Scale(id = "major", name = "Major", intervals = listOf(0, 2, 4, 5, 7, 9, 11))
+        private val NATURAL_MINOR = Scale(
+            id = "natural_minor",
+            name = "Natural minor",
+            intervals = listOf(0, 2, 3, 5, 7, 8, 10),
+        )
+
+        private fun major(token: String) = keyOf(token, MAJOR)
+        private fun minor(token: String) = keyOf(token, NATURAL_MINOR)
 
         private fun keyOf(root: String, scale: Scale): Key {
             val written = requireNotNull(SpelledNote.parse("$root$DISPLAY_OCTAVE")) {

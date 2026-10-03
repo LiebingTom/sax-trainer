@@ -1,0 +1,9 @@
+{
+  "id": "scale_up_and_down",
+  "name": "Scale up & down",
+  "description": "The scale in eighths, up to the root an octave higher and back down, then a rest to breathe. Fits any scale: six notes of the blues, seven of major or minor.",
+  "trainingBars": 2,
+  "run": {
+    "duration": "eighth"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "id": "blues_1_melody",
+  "name": "Blues 1 melody",
+  "description": "Four bars, call and response: climb to the blue note and back, then home to the root. Play it on the Blues scale - in A it reads A C D E♭ E | E D C | A C D C | A.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "quarter"
+        },
+        {
+          "degree": 2,
+          "duration": "quarter"
+        },
+        {
+          "degree": 3,
+          "duration": "quarter"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 5,
+          "duration": "half"
+        },
+        {
+          "degree": 3,
+          "duration": "quarter"
+        },
+        {
+          "degree": 2,
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "quarter"
+        },
+        {
+          "degree": 2,
+          "duration": "quarter"
+        },
+        {
+          "degree": 3,
+          "duration": "quarter"
+        },
+        {
+          "degree": 2,
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "whole"
+        }
+      ]
+    }
+  ]
+}

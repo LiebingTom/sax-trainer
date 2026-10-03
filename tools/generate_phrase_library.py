@@ -29,10 +29,12 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PHRASES_DIR = ROOT / "content" / "phrases"
 PATTERNS_DIR = ROOT / "content" / "patterns"
+SCALES_DIR = ROOT / "content" / "scales"
 
 PACKAGE_DIR = ROOT / "core/phrase/src/commonMain/kotlin/com/example/saxtrainer/core/phrase"
 PHRASE_LIBRARY_KT = PACKAGE_DIR / "PhraseLibrary.kt"
 PATTERN_LIBRARY_KT = PACKAGE_DIR / "PatternLibrary.kt"
+SCALE_LIBRARY_KT = PACKAGE_DIR / "ScaleLibrary.kt"
 
 NOTE_VALUE_QUARTERS = {
     "whole": 4.0,
@@ -100,6 +102,22 @@ def validate_bars(bars: list, beats_per_bar: int, beat_unit: int, path: str, is_
             )
 
 
+def validate_run(doc: dict, beats_per_bar: int, beat_unit: int, path: str) -> None:
+    """A pattern that is the scale up and down: one note value, no bars of its own."""
+    if doc.get("bars"):
+        raise ContentError(f"{path}: a pattern is either bars or a run, not both")
+    run = doc["run"]
+    if not isinstance(run, dict) or "duration" not in run:
+        raise ContentError(f"{path}: a run needs a duration")
+    try:
+        step = beats_for(run["duration"], beat_unit)
+    except ValueError as error:
+        raise ContentError(f"{path}: {error}") from error
+    steps_per_bar = beats_per_bar / step
+    if abs(steps_per_bar - round(steps_per_bar)) > 1e-9:
+        raise ContentError(f"{path}: {run['duration']} notes do not fill a bar of {beats_per_bar} beats evenly")
+
+
 def validate_common(doc: dict, path: str) -> tuple[int, int]:
     if not doc.get("id") or not ID_PATTERN.match(doc["id"]):
         raise ContentError(f"{path}: id must be lowercase letters, digits and underscores, starting with a letter")
@@ -130,7 +148,10 @@ def load_content(directory: pathlib.Path, is_phrase: bool) -> list[tuple[str, st
             raise ContentError(f"{file}: not valid JSON ({error})") from error
 
         beats_per_bar, beat_unit = validate_common(doc, str(file))
-        validate_bars(doc.get("bars", []), beats_per_bar, beat_unit, str(file), is_phrase)
+        if not is_phrase and "run" in doc:
+            validate_run(doc, beats_per_bar, beat_unit, str(file))
+        else:
+            validate_bars(doc.get("bars", []), beats_per_bar, beat_unit, str(file), is_phrase)
 
         content_id = doc["id"]
         if content_id in seen_ids:
@@ -138,6 +159,50 @@ def load_content(directory: pathlib.Path, is_phrase: bool) -> list[tuple[str, st
         seen_ids.add(content_id)
 
         entries.append((content_id, kotlin_constant_name(content_id), text.strip()))
+
+    return [(name, text) for _id, name, text in entries]
+
+
+def load_scales(directory: pathlib.Path) -> list[tuple[str, str]]:
+    """Every scale file in [directory], validated, as (constant name, raw JSON text) pairs, by id."""
+    if not directory.is_dir():
+        return []
+
+    entries: list[tuple[str, str, str]] = []
+    seen_ids: set[str] = set()
+    for file in sorted(directory.glob("*.json")):
+        path = str(file)
+        text = file.read_text(encoding="utf-8")
+        try:
+            doc = json.loads(text)
+        except json.JSONDecodeError as error:
+            raise ContentError(f"{path}: not valid JSON ({error})") from error
+
+        if not doc.get("id") or not ID_PATTERN.match(doc["id"]):
+            raise ContentError(f"{path}: id must be lowercase letters, digits and underscores, starting with a letter")
+        if not doc.get("name"):
+            raise ContentError(f"{path}: needs a name")
+        intervals = doc.get("intervals")
+        if not isinstance(intervals, list) or not intervals or not all(isinstance(i, int) for i in intervals):
+            raise ContentError(f"{path}: intervals must be a list of whole numbers")
+        if intervals[0] != 0:
+            raise ContentError(f"{path}: intervals must start on the root, 0")
+        if any(b <= a for a, b in zip(intervals, intervals[1:])) or intervals[-1] > 11:
+            raise ContentError(f"{path}: intervals must rise, each within the octave (0 to 11)")
+        letters = doc.get("letters")
+        if letters is None:
+            if len(intervals) != 7:
+                raise ContentError(f"{path}: a scale of {len(intervals)} notes needs 'letters' to say how it is written")
+        else:
+            if not isinstance(letters, list) or len(letters) != len(intervals):
+                raise ContentError(f"{path}: letters must name one letter step per interval")
+            if not all(isinstance(step, int) and 0 <= step <= 6 for step in letters):
+                raise ContentError(f"{path}: every letter step must be 0 to 6")
+
+        if doc["id"] in seen_ids:
+            raise ContentError(f"{path}: id '{doc['id']}' is already used by another file in {directory}")
+        seen_ids.add(doc["id"])
+        entries.append((doc["id"], kotlin_constant_name(doc["id"]), text.strip()))
 
     return [(name, text) for _id, name, text in entries]
 
@@ -191,6 +256,7 @@ def main() -> int:
     try:
         phrases = load_content(PHRASES_DIR, is_phrase=True)
         patterns = load_content(PATTERNS_DIR, is_phrase=False)
+        scales = load_scales(SCALES_DIR)
     except ContentError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
@@ -211,19 +277,29 @@ def main() -> int:
         source_glob="content/patterns/*.json",
         entries=patterns,
     )
+    scale_kt = render_kotlin(
+        object_name="ScaleLibrary",
+        catalog_type="ScaleCatalog",
+        in_memory_type="InMemoryScaleCatalog",
+        parse_function="parseScales",
+        source_glob="content/scales/*.json",
+        entries=scales,
+    )
 
     changed = []
     if write_if_changed(PHRASE_LIBRARY_KT, phrase_kt):
         changed.append(PHRASE_LIBRARY_KT)
     if write_if_changed(PATTERN_LIBRARY_KT, pattern_kt):
         changed.append(PATTERN_LIBRARY_KT)
+    if write_if_changed(SCALE_LIBRARY_KT, scale_kt):
+        changed.append(SCALE_LIBRARY_KT)
 
     if changed:
         for path in changed:
             print(f"wrote {path.relative_to(ROOT)}")
     else:
         print("up to date")
-    print(f"{len(phrases)} phrase(s), {len(patterns)} pattern(s)")
+    print(f"{len(phrases)} phrase(s), {len(patterns)} pattern(s), {len(scales)} scale(s)")
     return 0
 
 

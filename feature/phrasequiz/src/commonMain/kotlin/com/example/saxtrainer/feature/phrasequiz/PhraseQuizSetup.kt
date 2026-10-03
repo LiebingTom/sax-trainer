@@ -15,7 +15,7 @@ import com.example.saxtrainer.core.settings.exerciseSetup
  *
  * Only what the setup screen asks for. A library phrase travels as its id, never as its notes - the
  * same convention [PhraseSource.Library] itself follows. A scale pattern travels as the id of one of
- * [ScaleChoice.defaults], the octave chosen on top of it, and the id of the stored pattern from
+ * [ScaleChoice.all], the octave chosen on top of it, and the id of the stored pattern from
  * [PatternLibrary] - the recipe, not the notes it produces.
  */
 internal fun PhraseQuizUiState.toSetup(): ExerciseSetup = exerciseSetup {
@@ -125,8 +125,8 @@ fun phraseQuizPresetOf(
         }
 
         PhraseSourceType.SCALE_PATTERN -> {
-            val choice = setup.string(KEY_SCALE_CHOICE)?.let(ScaleChoice::byId)
-                ?: ScaleChoice.defaults.firstOrNull()
+            val choice = setup.string(KEY_SCALE_CHOICE)?.let { ScaleChoice.byId(it) }
+                ?: ScaleChoice.default
                 ?: return null
             val octaves = setup.ints(KEY_OCTAVES)
                 ?.filter { it in PhraseQuizUiState.OCTAVE_RANGE }

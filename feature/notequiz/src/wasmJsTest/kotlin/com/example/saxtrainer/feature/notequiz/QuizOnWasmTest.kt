@@ -57,6 +57,20 @@ class QuizOnWasmTest {
     }
 
     @Test
+    fun notes_are_chosen_in_their_own_window() = runScreenTest { host ->
+        setContent { Quiz(host) }
+
+        onNodeWithContentDescription("Choose notes").performScrollTo().performClick()
+        waitUntil("the note window", BROWSER_TIMEOUT_MS) { shows("Preselect") }
+
+        onNodeWithText("Chromatic").performScrollTo().performClick()
+        onNodeWithText("Apply").performClick()
+
+        waitUntil("the window to close", BROWSER_TIMEOUT_MS) { !shows("Preselect") }
+        waitUntil("the summary to name the set", BROWSER_TIMEOUT_MS) { shows("Chromatic") }
+    }
+
+    @Test
     fun a_preset_quiz_is_played_through_to_its_result() = runScreenTest { host ->
         var finished: QuizResult? = null
         setContent {

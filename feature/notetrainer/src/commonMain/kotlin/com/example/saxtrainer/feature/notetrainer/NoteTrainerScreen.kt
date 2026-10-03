@@ -25,7 +25,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
-import com.example.saxtrainer.core.designsystem.component.NoteChoiceDialog
+import com.example.saxtrainer.core.designsystem.component.NotePickerWindow
+import com.example.saxtrainer.core.designsystem.component.NoteSelectionSummary
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.SaxophoneFingeringView
 import com.example.saxtrainer.core.designsystem.component.ScreenHeader
@@ -35,7 +36,6 @@ import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.StepSlider
-import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.component.StaffPrefix
 import com.example.saxtrainer.core.designsystem.component.fingeringHeightOf
 import com.example.saxtrainer.core.designsystem.component.reservedWrittenStepRange
@@ -44,8 +44,10 @@ import com.example.saxtrainer.core.designsystem.text.toFixed
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
+import com.example.saxtrainer.core.fingering.NotePickerState
 import com.example.saxtrainer.core.fingering.NoteSet
-import com.example.saxtrainer.core.fingering.SaxophoneFingerings
+import com.example.saxtrainer.core.phrase.Phrase
+import com.example.saxtrainer.core.phrase.PhraseRecipe
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.SpelledNote
@@ -68,13 +70,11 @@ import com.example.saxtrainer.core.designsystem.component.fingeringWidthOf
 @Composable
 fun NoteTrainerScreen(
     state: NoteTrainerUiState,
-    onSelectNoteSet: (NoteSet) -> Unit,
-    onEditCustomNotes: () -> Unit,
-    onToggleCustomNote: (SpelledNote) -> Unit,
-    onSelectAllCustomNotes: () -> Unit,
-    onClearCustomNotes: () -> Unit,
-    onApplyCustomNotes: () -> Unit,
-    onCancelCustomNotes: () -> Unit,
+    onOpenNotePicker: () -> Unit,
+    onNotePickerChange: ((NotePickerState) -> NotePickerState) -> Unit,
+    onNotePickerStartFrom: (NoteSet) -> Unit,
+    onApplyNotePicker: () -> Unit,
+    onCloseNotePicker: () -> Unit,
     onRandomChange: (Boolean) -> Unit,
     onRoundsChange: (Int) -> Unit,
     onShowFingeringHintChange: (Boolean) -> Unit,
@@ -87,6 +87,8 @@ fun NoteTrainerScreen(
     onReset: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    phrases: List<Phrase> = emptyList(),
+    patterns: List<PhraseRecipe> = emptyList(),
     onAddToLessons: (() -> Unit)? = null,
     isFavorite: Boolean = false,
     onToggleFavorite: ((Boolean) -> Unit)? = null,
@@ -132,8 +134,7 @@ fun NoteTrainerScreen(
                 } else {
                     Setup(
                         state = state,
-                        onSelectNoteSet = onSelectNoteSet,
-                        onEditCustomNotes = onEditCustomNotes,
+                        onOpenNotePicker = onOpenNotePicker,
                         onRandomChange = onRandomChange,
                         onRoundsChange = onRoundsChange,
                         onShowFingeringHintChange = onShowFingeringHintChange,
@@ -147,16 +148,17 @@ fun NoteTrainerScreen(
                 is NoteTrainerPhase.Finished -> ResultCard(state, phase.result)
             }
 
-            if (state.isEditingCustomNotes) {
-                NoteChoiceDialog(
-                    notes = state.availableNotes,
-                    chosen = state.customNotesDraft.orEmpty(),
-                    label = state::nameOf,
-                    onToggle = onToggleCustomNote,
-                    onSelectAll = onSelectAllCustomNotes,
-                    onClearAll = onClearCustomNotes,
-                    onApply = onApplyCustomNotes,
-                    onCancel = onCancelCustomNotes,
+            state.notePicker?.let { picker ->
+                NotePickerWindow(
+                    state = picker,
+                    naming = state.noteNaming,
+                    octaves = state.octaveNumbering,
+                    onChange = onNotePickerChange,
+                    onStartFrom = onNotePickerStartFrom,
+                    onApply = onApplyNotePicker,
+                    onCancel = onCloseNotePicker,
+                    phrases = phrases,
+                    patterns = patterns,
                 )
             }
         }
@@ -167,8 +169,7 @@ fun NoteTrainerScreen(
 @Composable
 private fun Setup(
     state: NoteTrainerUiState,
-    onSelectNoteSet: (NoteSet) -> Unit,
-    onEditCustomNotes: () -> Unit,
+    onOpenNotePicker: () -> Unit,
     onRandomChange: (Boolean) -> Unit,
     onRoundsChange: (Int) -> Unit,
     onShowFingeringHintChange: (Boolean) -> Unit,
@@ -176,16 +177,12 @@ private fun Setup(
     onHoldChange: (Beats) -> Unit,
 ) {
     SectionHeader("Notes")
-    state.noteSets.forEach { set ->
-        SelectableRow(
-            title = set.displayName,
-            supportingText = state.summaryOf(set, SaxophoneFingerings),
-            selected = set == state.noteSet,
-            onClick = {
-                if (set == NoteSet.CUSTOM) onEditCustomNotes() else onSelectNoteSet(set)
-            },
-        )
-    }
+    NoteSelectionSummary(
+        title = state.noteSet.displayName,
+        detail = state.notesDetail,
+        names = state.activeNotes.joinToString(" ") { state.nameOf(it) },
+        onChoose = onOpenNotePicker,
+    )
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SwitchRow(
@@ -550,13 +547,11 @@ private fun NoteTrainerSetupPreview() {
                 activeNotes = listOf(Note(NoteName.C, 4), Note(NoteName.D, 4)).map { SpelledNote.of(it) },
                 holdOptions = listOf(0, 2, 4, 8).map(Beats::of),
             ),
-            onSelectNoteSet = {},
-            onEditCustomNotes = {},
-            onToggleCustomNote = {},
-            onSelectAllCustomNotes = {},
-            onClearCustomNotes = {},
-            onApplyCustomNotes = {},
-            onCancelCustomNotes = {},
+            onOpenNotePicker = {},
+            onNotePickerChange = {},
+            onNotePickerStartFrom = {},
+            onApplyNotePicker = {},
+            onCloseNotePicker = {},
             onRandomChange = {},
             onRoundsChange = {},
             onShowFingeringHintChange = {},

@@ -5,59 +5,36 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.example.saxtrainer.core.designsystem.component.BoundedMusicalPage
 import com.example.saxtrainer.core.designsystem.component.CheckableRow
-import com.example.saxtrainer.core.designsystem.component.FieldRow
-import com.example.saxtrainer.core.designsystem.component.IconSource
-import com.example.saxtrainer.core.designsystem.component.InlineIcon
-import com.example.saxtrainer.core.designsystem.component.NotesPreviewDialog
+import com.example.saxtrainer.core.designsystem.component.PhraseLibraryWindow
 import com.example.saxtrainer.core.designsystem.component.PracticeTitleActions
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
+import com.example.saxtrainer.core.designsystem.component.ScalePatternWindow
 import com.example.saxtrainer.core.designsystem.component.ScreenHeader
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
-import com.example.saxtrainer.core.designsystem.component.SelectableCard
-import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.component.StepSlider
-import com.example.saxtrainer.core.designsystem.icon.ArrowBack
-import com.example.saxtrainer.core.designsystem.icon.Preview as PreviewIcon
-import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
+import com.example.saxtrainer.core.designsystem.component.octaveSummary
 import com.example.saxtrainer.core.designsystem.text.toFixed
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.phrase.Phrase
-import com.example.saxtrainer.core.phrase.PhraseRecipe
 import com.example.saxtrainer.core.phrase.PhraseSourceType
 
 /**
@@ -156,11 +133,21 @@ fun PhraseTrainerScreen(
     }
 
     if (state.libraryPickerOpen) {
-        PhraseLibraryWindow(state = state, onSelect = onSelectLibraryPhrase, onDismiss = onCloseLibraryPicker)
+        PhraseLibraryWindow(
+            phrases = state.library,
+            selectedId = state.libraryPhraseId.takeIf { state.sourceType == PhraseSourceType.LIBRARY },
+            onSelect = onSelectLibraryPhrase,
+            onDismiss = onCloseLibraryPicker,
+        )
     }
     if (state.patternPickerOpen) {
         ScalePatternWindow(
-            state = state,
+            patterns = state.patterns,
+            selectedPatternId = state.patternId.takeIf { state.sourceType == PhraseSourceType.SCALE_PATTERN },
+            scaleChoices = state.scaleChoices,
+            scaleChoiceId = state.scaleChoiceId,
+            octaves = state.octaves,
+            octaveRange = PhraseTrainerUiState.OCTAVE_RANGE,
             onSelectScaleChoice = onSelectScaleChoice,
             onToggleOctave = onToggleOctave,
             onSelectPattern = onSelectPattern,
@@ -309,246 +296,6 @@ private fun SourceButton(text: String, selected: Boolean, onClick: () -> Unit, m
         SecondaryButton(text = text, onClick = onClick, modifier = modifier)
     }
 }
-
-/** A full-screen window over the setup screen, for a choice too long for an inline list. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FullScreenWindow(title: String, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                TopAppBar(
-                    title = { Text(title) },
-                    navigationIcon = {
-                        IconButton(onClick = onDismiss) {
-                            InlineIcon(IconSource.Vector(SaxTrainerIcons.ArrowBack), contentDescription = "Back")
-                        }
-                    },
-                )
-            },
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(Dimens.screenPadding),
-                verticalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
-                content = content,
-            )
-        }
-    }
-}
-
-/** Simply lists the phrases in the library. No editing happens here. */
-@Composable
-private fun PhraseLibraryWindow(state: PhraseTrainerUiState, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
-    var previewing by remember { mutableStateOf<Phrase?>(null) }
-
-    FullScreenWindow(title = "Phrase Library", onDismiss = onDismiss) {
-        if (state.library.isEmpty()) {
-            Text(
-                text = "No phrases yet.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        state.library.forEach { phrase ->
-            SelectableCard(
-                title = phrase.name,
-                supportingText = phrase.description,
-                selected = phrase.id == state.libraryPhraseId && state.sourceType == PhraseSourceType.LIBRARY,
-                onClick = { onSelect(phrase.id) },
-                trailing = { PreviewButton(name = phrase.name, onClick = { previewing = phrase }) },
-            )
-        }
-    }
-
-    previewing?.let { phrase ->
-        NotesPreviewDialog(title = phrase.name, sequence = phrase.toneSequence(), onDismiss = { previewing = null })
-    }
-}
-
-/**
- * Octave, scale, then the stored patterns to choose between - the pattern is what closes the
- * window; changing the octave or the scale just changes what the same list of patterns will sound
- * like.
- */
-@Composable
-private fun ScalePatternWindow(
-    state: PhraseTrainerUiState,
-    onSelectScaleChoice: (String) -> Unit,
-    onToggleOctave: (Int) -> Unit,
-    onSelectPattern: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var previewing by remember { mutableStateOf<PhraseRecipe?>(null) }
-    var scaleDialogOpen by remember { mutableStateOf(false) }
-    var octaveDialogOpen by remember { mutableStateOf(false) }
-
-    FullScreenWindow(title = "Scale Pattern", onDismiss = onDismiss) {
-        SectionHeader("Scale")
-        FieldRow(
-            label = "Scale",
-            value = state.scaleChoice?.displayName ?: "Choose a scale",
-            onClick = { scaleDialogOpen = true },
-        )
-
-        Spacer(Modifier.height(Dimens.spaceSm))
-        FieldRow(
-            label = "Octaves",
-            value = octaveSummary(state.octaves),
-            onClick = { octaveDialogOpen = true },
-        )
-
-        Spacer(Modifier.height(Dimens.spaceSm))
-        SectionHeader("Pattern")
-        if (state.patterns.isEmpty()) {
-            Text(
-                text = "No patterns yet.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        state.patterns.forEach { pattern ->
-            SelectableCard(
-                title = pattern.name,
-                supportingText = pattern.description,
-                selected = pattern.id == state.patternId && state.sourceType == PhraseSourceType.SCALE_PATTERN,
-                onClick = { onSelectPattern(pattern.id) },
-                trailing = { PreviewButton(name = pattern.name, onClick = { previewing = pattern }) },
-            )
-        }
-    }
-
-    if (scaleDialogOpen) {
-        ScaleChoiceDialog(
-            choices = state.scaleChoices,
-            selectedId = state.scaleChoiceId,
-            onSelect = onSelectScaleChoice,
-            onDismiss = { scaleDialogOpen = false },
-        )
-    }
-    if (octaveDialogOpen) {
-        OctaveChoiceDialog(
-            octaves = PhraseTrainerUiState.OCTAVE_RANGE.toList(),
-            chosen = state.octaves,
-            root = state.scaleChoice?.root,
-            onToggle = onToggleOctave,
-            onDismiss = { octaveDialogOpen = false },
-        )
-    }
-
-    val choice = state.scaleChoice
-    val previewedPattern = previewing
-    if (previewedPattern != null && choice != null && state.octaves.isNotEmpty()) {
-        val resolved = previewedPattern.resolve(choice.scale, choice.root, state.octaves)
-        NotesPreviewDialog(title = resolved.name, sequence = resolved.toneSequence(), onDismiss = { previewing = null })
-    }
-}
-
-/** The trailing preview button on a phrase/pattern row: opens a read-only look at its notes. */
-@Composable
-private fun PreviewButton(name: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick) {
-        InlineIcon(IconSource.Vector(SaxTrainerIcons.PreviewIcon), contentDescription = "Preview $name")
-    }
-}
-
-/** Which scale a pattern is played on - single choice, so picking one closes the dialog. */
-@Composable
-private fun ScaleChoiceDialog(
-    choices: List<com.example.saxtrainer.core.phrase.ScaleChoice>,
-    selectedId: String,
-    onSelect: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Choose a scale") },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                choices.forEach { choice ->
-                    SelectableRow(
-                        title = choice.displayName,
-                        selected = choice.id == selectedId,
-                        onClick = {
-                            onSelect(choice.id)
-                            onDismiss()
-                        },
-                    )
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-    )
-}
-
-/**
- * Which octaves a pattern is generated in - any number of them, so every tap stays open: closing is
- * its own, separate action, the same as the note quiz's own custom-notes dialog.
- */
-@Composable
-private fun OctaveChoiceDialog(
-    octaves: List<Int>,
-    chosen: Set<Int>,
-    root: NoteName?,
-    onToggle: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Choose octaves") },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                octaves.forEach { octave ->
-                    CheckableRow(
-                        title = "Octave $octave",
-                        supportingText = octaveHint(octave, root),
-                        checked = octave in chosen,
-                        onCheckedChange = { onToggle(octave) },
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            // Nothing to generate from is not a choice, so Done waits for at least one octave.
-            TextButton(onClick = onDismiss, enabled = chosen.isNotEmpty()) { Text("Done") }
-        },
-    )
-}
-
-/**
- * What octave [octave] actually means for [root]: the root note it starts on, so "octave 4" is
- * never just a bare number, and a flag where that note falls outside what a saxophone can write -
- * see [SaxWrittenRange].
- */
-private fun octaveHint(octave: Int, root: NoteName?): String {
-    if (root == null) return "the root note in this octave"
-    val note = Note(root, octave)
-    val label = "${root.displayName}$octave"
-    return when {
-        note.midiNumber < SaxWrittenRange.LOWEST.midiNumber -> "starts on $label - below the saxophone's range"
-        note.midiNumber > SaxWrittenRange.HIGHEST.midiNumber -> "starts on $label - altissimo, needs years of practice"
-        else -> "starts on $label"
-    }
-}
-
-/**
- * The written range every saxophone shares - low Bb up to high F#, no altissimo - the same across
- * soprano, alto, tenor and baritone, since a fingering chart is written pitch (see
- * `core/fingering/TenorSaxophoneFingerings`, which this only borrows the two ends of rather than
- * depending on the whole chart - this trainer already keeps core:fingering out on purpose).
- */
-private object SaxWrittenRange {
-    val LOWEST = Note(NoteName.A_SHARP, 3)
-    val HIGHEST = Note(NoteName.F_SHARP, 6)
-}
-
-/** "Choose octaves" while nothing is picked, otherwise the chosen ones in order, lowest first. */
-private fun octaveSummary(octaves: Set<Int>): String =
-    octaves.sorted().joinToString(", ").ifEmpty { "Choose octaves" }
 
 /** The correct notation, drawn in full: what is about to be taken away. */
 @Composable

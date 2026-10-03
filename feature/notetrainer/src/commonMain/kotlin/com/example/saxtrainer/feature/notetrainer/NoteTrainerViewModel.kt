@@ -18,6 +18,8 @@ import com.example.saxtrainer.core.exercise.leadIn
 import com.example.saxtrainer.core.exercise.leadInBeatsFor
 import com.example.saxtrainer.core.exercise.pausedBy
 import com.example.saxtrainer.core.exercise.practiceOrder
+import com.example.saxtrainer.core.fingering.NotePickerState
+import com.example.saxtrainer.core.fingering.matchingSet
 import com.example.saxtrainer.core.fingering.NoteSet
 import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.music.Note
@@ -118,26 +120,31 @@ class NoteTrainerViewModel(
 
     fun selectNoteSet(noteSet: NoteSet) = updateSetup { it.withNoteSet(noteSet) }
 
-    fun editCustomNotes() = updateSetup { it.copy(customNotesDraft = it.customNotes) }
-
-    fun toggleCustomNote(note: SpelledNote) = updateSetup { state ->
-        val draft = state.customNotesDraft ?: return@updateSetup state
-        state.copy(customNotesDraft = if (note in draft) draft - note else draft + note)
+    /** Opens the note window on the notes the next run would use, whichever set they come from. */
+    fun openNotePicker() = updateSetup {
+        it.copy(notePicker = NotePickerState.open(it.availableNotes, it.activeNotes.toSet()))
     }
 
-    /** Every pitch once, written the way it usually is - not every spelling of it. */
-    fun selectAllCustomNotes() = updateSetup {
-        it.copy(customNotesDraft = NoteSets.notesOf(NoteSet.CHROMATIC, config.chart, emptySet()).toSet())
+    /** One change to the open window's draft; nothing is decided until [applyNotePicker]. */
+    fun updateNotePicker(change: (NotePickerState) -> NotePickerState) = updateSetup { state ->
+        val picker = state.notePicker ?: return@updateSetup state
+        state.copy(notePicker = change(picker))
     }
 
-    fun clearCustomNotes() = updateSetup { it.copy(customNotesDraft = emptySet()) }
+    fun startNotePickerFrom(set: NoteSet) = updateNotePicker { it.startFrom(set, config.chart) }
 
-    fun applyCustomNotes() = updateSetup { state ->
-        val draft = state.customNotesDraft ?: return@updateSetup state
-        state.copy(customNotes = draft, customNotesDraft = null).withNoteSet(NoteSet.CUSTOM)
+    /**
+     * Takes the draft. Exactly a ready-made set is stored as that set; anything else is the
+     * player's own, and becomes the custom set.
+     */
+    fun applyNotePicker() = updateSetup { state ->
+        val picker = state.notePicker?.takeIf { it.canApply } ?: return@updateSetup state
+        val set = NoteSets.matchingSet(picker.chosen, config.chart)
+        val customNotes = if (set == NoteSet.CUSTOM) picker.chosen else state.customNotes
+        state.copy(customNotes = customNotes, notePicker = null).withNoteSet(set)
     }
 
-    fun cancelCustomNotes() = updateSetup { it.copy(customNotesDraft = null) }
+    fun closeNotePicker() = updateSetup { it.copy(notePicker = null) }
 
     fun setRandomOrder(random: Boolean) = updateSetup {
         it.copy(order = if (random) NoteOrder.RANDOM else NoteOrder.ORDERED)

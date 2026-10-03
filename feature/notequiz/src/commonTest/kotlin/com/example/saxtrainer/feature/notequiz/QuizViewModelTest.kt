@@ -115,10 +115,7 @@ class QuizViewModelTest {
     @Test
     fun `a quiz needs something to choose between`() = runTest(dispatcher) {
         val viewModel = viewModel()
-        viewModel.editCustomNotes()
-        viewModel.clearCustomNotes()
-        viewModel.toggleCustomNote(c4)
-        viewModel.applyCustomNotes()
+        viewModel.selectOnly(c4)
 
         assertFalse(viewModel.uiState.value.canStart, "one note is not a question")
 
@@ -563,12 +560,27 @@ class QuizViewModelTest {
 
     // --- the round trip ---------------------------------------------------------------------
 
-    /** Puts exactly these notes into the custom set and switches to it, as the dialog would. */
+    /** Chooses exactly these notes in the note window and applies them, as the player would. */
     private fun QuizViewModel.selectOnly(vararg notes: SpelledNote) {
-        editCustomNotes()
-        clearCustomNotes()
-        notes.forEach(::toggleCustomNote)
-        applyCustomNotes()
+        openNotePicker()
+        updateNotePicker { picker -> notes.fold(picker.copy(chosen = emptySet())) { acc, note -> acc.toggle(note) } }
+        applyNotePicker()
+    }
+
+    @Test
+    fun `a selection equal to a ready-made set is stored as that set`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.openNotePicker()
+        viewModel.startNotePickerFrom(NoteSet.BEGINNER_PLUS)
+        viewModel.applyNotePicker()
+
+        assertEquals(NoteSet.BEGINNER_PLUS, viewModel.uiState.value.noteSet)
+
+        viewModel.openNotePicker()
+        viewModel.updateNotePicker { it.toggle(written("D#4")) }
+        viewModel.closeNotePicker()
+
+        assertEquals(NoteSet.BEGINNER_PLUS, viewModel.uiState.value.noteSet, "closing discards the draft")
     }
 
     /**

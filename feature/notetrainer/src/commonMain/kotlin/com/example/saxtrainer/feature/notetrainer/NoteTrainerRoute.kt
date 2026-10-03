@@ -9,6 +9,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.saxtrainer.core.phrase.PatternLibrary
+import com.example.saxtrainer.core.phrase.PhraseLibrary
 import com.example.saxtrainer.core.audio.capture.AudioCapture
 import com.example.saxtrainer.core.audio.capture.rememberMicrophoneAccess
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
@@ -95,13 +97,13 @@ fun NoteTrainerRoute(
 
     NoteTrainerScreen(
         state = state,
-        onSelectNoteSet = viewModel::selectNoteSet,
-        onEditCustomNotes = viewModel::editCustomNotes,
-        onToggleCustomNote = viewModel::toggleCustomNote,
-        onSelectAllCustomNotes = viewModel::selectAllCustomNotes,
-        onClearCustomNotes = viewModel::clearCustomNotes,
-        onApplyCustomNotes = viewModel::applyCustomNotes,
-        onCancelCustomNotes = viewModel::cancelCustomNotes,
+        onOpenNotePicker = viewModel::openNotePicker,
+        onNotePickerChange = viewModel::updateNotePicker,
+        onNotePickerStartFrom = viewModel::startNotePickerFrom,
+        onApplyNotePicker = viewModel::applyNotePicker,
+        onCloseNotePicker = viewModel::closeNotePicker,
+        phrases = PhraseLibrary.all,
+        patterns = PatternLibrary.all,
         onRandomChange = viewModel::setRandomOrder,
         onRoundsChange = viewModel::setRounds,
         onShowFingeringHintChange = viewModel::setShowFingeringHint,

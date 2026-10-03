@@ -19,7 +19,7 @@ enum class NoteSet(val displayName: String, val description: String) {
     BEGINNER("Beginner", "C to C, no sharps or flats"),
     BEGINNER_PLUS("Beginner plus", "Adds B flat and F sharp"),
     CHROMATIC("Chromatic", "Every note the horn can play, sharps and flats included"),
-    CUSTOM("Custom", "Notes you choose yourself"),
+    CUSTOM("Own selection", "Notes you choose yourself"),
 }
 
 object NoteSets {

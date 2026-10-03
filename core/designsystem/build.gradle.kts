@@ -59,6 +59,7 @@ kotlin {
         commonMain.dependencies {
             api(project(":core:music"))
             api(project(":core:fingering"))
+            api(project(":core:phrase"))
 
             // `api`, not `implementation`: every public composable here takes a Modifier and
             // composes into its caller, so no consumer can use this module without these types.

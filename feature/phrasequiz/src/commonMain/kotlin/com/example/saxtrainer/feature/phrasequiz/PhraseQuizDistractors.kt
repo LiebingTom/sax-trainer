@@ -1,6 +1,7 @@
 package com.example.saxtrainer.feature.phrasequiz
 
 import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.NoteName
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.random.Random
@@ -62,3 +63,12 @@ private const val PROXIMITY_EXPONENT = 2.0
 
 /** How far past the correct notes' own range a decoy may be drawn from. */
 private const val DECOY_RANGE_SEMITONES = 12
+
+/**
+ * The written range every saxophone shares - low Bb up to high F#, no altissimo: a decoy outside it
+ * could never be played at all.
+ */
+internal object SaxWrittenRange {
+    val LOWEST = Note(NoteName.A_SHARP, 3)
+    val HIGHEST = Note(NoteName.F_SHARP, 6)
+}

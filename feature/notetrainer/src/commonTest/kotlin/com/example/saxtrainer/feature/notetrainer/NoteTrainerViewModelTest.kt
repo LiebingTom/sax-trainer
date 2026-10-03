@@ -85,12 +85,11 @@ class NoteTrainerViewModelTest {
         nanoTime = { testScheduler.currentTime * 1_000_000 },
     )
 
-    /** Puts exactly these notes into the custom set and switches to it, as the dialog would. */
+    /** Chooses exactly these notes in the note window and applies them, as the player would. */
     private fun NoteTrainerViewModel.selectOnly(vararg notes: SpelledNote) {
-        editCustomNotes()
-        clearCustomNotes()
-        notes.forEach(::toggleCustomNote)
-        applyCustomNotes()
+        openNotePicker()
+        updateNotePicker { picker -> notes.fold(picker.copy(chosen = emptySet())) { acc, note -> acc.toggle(note) } }
+        applyNotePicker()
         setRandomOrder(false)
     }
 
@@ -588,16 +587,36 @@ class NoteTrainerViewModelTest {
     }
 
     @Test
-    fun `all selects every pitch once, not every spelling of it`() = trainerTest {
+    fun `the note window opens on the notes in use, and offers every spelling`() = trainerTest {
         val viewModel = viewModel()
-        viewModel.editCustomNotes()
-        viewModel.selectAllCustomNotes()
+        viewModel.selectNoteSet(NoteSet.BEGINNER_PLUS)
+        viewModel.openNotePicker()
 
         val state = viewModel.uiState.value
-        val draft = state.customNotesDraft!!
-        assertEquals(draft.size, draft.map { it.note }.distinct().size)
-        assertTrue(state.availableNotes.size > draft.size, "the picker offers more spellings than pitches")
-        assertTrue(written("Eb4") in state.availableNotes && written("D#4") in state.availableNotes)
+        val picker = state.notePicker!!
+        assertEquals(state.activeNotes.toSet(), picker.chosen)
+        assertTrue(state.availableNotes.size > picker.chosen.size)
+        assertTrue(written("Eb4") in picker.choices && written("D#4") in picker.choices)
+    }
+
+    @Test
+    fun `starting from chromatic is stored as the chromatic set, anything else as custom`() = trainerTest {
+        val viewModel = viewModel()
+        viewModel.openNotePicker()
+        viewModel.startNotePickerFrom(NoteSet.CHROMATIC)
+        viewModel.applyNotePicker()
+
+        assertEquals(NoteSet.CHROMATIC, viewModel.uiState.value.noteSet)
+        assertNull(viewModel.uiState.value.notePicker, "the window closes")
+
+        viewModel.openNotePicker()
+        viewModel.updateNotePicker { it.toggle(written("D#4")) }
+        viewModel.applyNotePicker()
+
+        val state = viewModel.uiState.value
+        assertEquals(NoteSet.CUSTOM, state.noteSet)
+        assertTrue(written("D#4") !in state.activeNotes, "the sharp was taken out")
+        assertEquals(state.activeNotes.toSet(), state.customNotes)
     }
 
     @Test
@@ -901,30 +920,26 @@ class NoteTrainerViewModelTest {
     }
 
     @Test
-    fun `choosing no notes at all is a choice, and is kept`() = trainerTest {
-        // Nothing to practise, so the exercise cannot be started - which is exactly why waiting for
-        // Start would have lost it. The screen opens on the empty selection and says so.
-        val setups = InMemoryExerciseSetupRepository()
-        val cleared = viewModel(setups = setups)
-        cleared.editCustomNotes()
-        cleared.clearCustomNotes()
-        cleared.applyCustomNotes()
+    fun `an empty draft cannot be applied`() = trainerTest {
+        val viewModel = viewModel()
+        val before = viewModel.uiState.value.activeNotes
+        viewModel.openNotePicker()
+        viewModel.updateNotePicker { it.copy(chosen = emptySet()) }
+        viewModel.applyNotePicker()
 
-        val opened = viewModel(setups = setups).uiState.value
-
-        assertTrue(opened.customNotes.isEmpty())
-        assertTrue(opened.activeNotes.isEmpty())
-        assertFalse(opened.canStart)
+        val state = viewModel.uiState.value
+        assertNotNull(state.notePicker, "the window stays open")
+        assertEquals(before, state.activeNotes)
     }
 
     @Test
-    fun `notes ticked in the dialog count for nothing until they are applied`() = trainerTest {
+    fun `notes ticked in the window count for nothing until they are applied`() = trainerTest {
         val setups = InMemoryExerciseSetupRepository()
         val fiddled = viewModel(setups = setups)
         fiddled.selectOnly(c4, e4)
-        fiddled.editCustomNotes()
-        fiddled.toggleCustomNote(d4)
-        fiddled.cancelCustomNotes()
+        fiddled.openNotePicker()
+        fiddled.updateNotePicker { it.toggle(d4) }
+        fiddled.closeNotePicker()
 
         assertEquals(setOf(c4, e4), viewModel(setups = setups).uiState.value.customNotes)
     }

@@ -2,6 +2,7 @@ package com.example.saxtrainer.core.phrase
 
 import com.example.saxtrainer.core.music.AccidentalStyle
 import com.example.saxtrainer.core.music.Beats
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.TimeSignature
 import com.example.saxtrainer.core.music.ToneSequence
 
@@ -53,6 +54,13 @@ data class Phrase(
         get() = bars.indices.chunked(trainingBars).map { PracticeUnit(it.first()..it.last()) }
 
     /** The whole phrase, flattened into the flat sequence type everything else plays and reads. */
+    /**
+     * Every note the phrase asks for, each once and exactly as written, lowest first - what it is
+     * made of, with its order, rhythm and rests left behind.
+     */
+    fun distinctWrittenNotes(): List<SpelledNote> =
+        toneSequence().writtenNotes.distinct().sortedWith(SpelledNote.PITCH_ORDER)
+
     fun toneSequence(): ToneSequence = ToneSequence(
         steps = bars.flatMap { it.steps },
         timeSignature = timeSignature,

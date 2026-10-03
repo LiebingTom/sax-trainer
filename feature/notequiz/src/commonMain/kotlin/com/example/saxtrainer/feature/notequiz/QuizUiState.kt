@@ -1,7 +1,8 @@
 package com.example.saxtrainer.feature.notequiz
 
+import com.example.saxtrainer.core.fingering.NotePickerState
 import com.example.saxtrainer.core.fingering.NoteSet
-import com.example.saxtrainer.core.fingering.NoteSets
+import com.example.saxtrainer.core.fingering.notesDetailOf
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.OctaveNumbering
 import com.example.saxtrainer.core.music.SpelledNote
@@ -79,8 +80,8 @@ data class QuizUiState(
     val noteSet: NoteSet = NoteSet.BEGINNER,
     val noteSets: List<NoteSet> = NoteSet.entries,
     val customNotes: Set<SpelledNote> = emptySet(),
-    /** Non-null while the note dialog is open; edits stay here until they are applied. */
-    val customNotesDraft: Set<SpelledNote>? = null,
+    /** Non-null while the note window is open; edits stay here until they are applied. */
+    val notePicker: NotePickerState? = null,
     /** What the questions are about, each exactly as it is to be read. */
     val activeNotes: List<SpelledNote> = emptyList(),
     val mode: QuizMode = QuizMode.NOTE_AND_FINGERING,
@@ -109,14 +110,8 @@ data class QuizUiState(
     val canStart: Boolean
         get() = QuizQuestionGenerator.pitchCountOf(activeNotes) >= QuizQuestionGenerator.MIN_OPTIONS
 
-    val isEditingCustomNotes: Boolean get() = customNotesDraft != null
-
-    /** How a note set reads on the setup screen. */
-    fun summaryOf(set: NoteSet, chart: com.example.saxtrainer.core.fingering.FingeringChart): String =
-        NoteSets.notesOf(set, chart, customNotes)
-            .takeIf { it.isNotEmpty() }
-            ?.joinToString(" ") { nameOf(it) }
-            ?: "No notes chosen yet"
+    /** What the setup screen says about [activeNotes]: how many, and from where to where. */
+    val notesDetail: String get() = notesDetailOf(activeNotes, ::nameOf)
 
     /** The name of a written note, as written, under the chosen naming. */
     fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note, octaveNumbering)

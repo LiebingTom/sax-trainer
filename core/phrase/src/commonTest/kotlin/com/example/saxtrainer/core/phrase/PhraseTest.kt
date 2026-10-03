@@ -96,4 +96,19 @@ class PhraseTest {
         assertEquals(phrase.bars.first().steps.first(), sequence.steps.first())
         assertEquals(phrase.bars.last().steps.last(), sequence.steps.last())
     }
+
+    @Test
+    fun itsNotesAreEachTakenOnceLowestFirstAsWritten() {
+        val phrase = Phrase(
+            id = "p",
+            name = "P",
+            description = "",
+            bars = listOf(
+                bar(NoteName.E, NoteName.C, NoteName.E, NoteName.A_SHARP),
+                PhraseBar(listOf(ToneStep.rest(quarter), step(NoteName.C), step(NoteName.D), step(NoteName.C, 5))),
+            ),
+        )
+
+        assertEquals(listOf("C4", "D4", "E4", "A#4", "C5"), phrase.distinctWrittenNotes().map { it.token })
+    }
 }

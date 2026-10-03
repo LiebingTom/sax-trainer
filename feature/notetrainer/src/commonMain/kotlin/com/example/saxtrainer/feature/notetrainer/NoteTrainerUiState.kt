@@ -2,8 +2,9 @@ package com.example.saxtrainer.feature.notetrainer
 
 import com.example.saxtrainer.core.exercise.NoteOrder
 import com.example.saxtrainer.core.fingering.Fingering
+import com.example.saxtrainer.core.fingering.NotePickerState
+import com.example.saxtrainer.core.fingering.notesDetailOf
 import com.example.saxtrainer.core.fingering.NoteSet
-import com.example.saxtrainer.core.fingering.NoteSets
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.SpelledNote
@@ -135,8 +136,8 @@ data class NoteTrainerUiState(
     val noteSet: NoteSet = NoteSet.BEGINNER,
     val noteSets: List<NoteSet> = NoteSet.entries,
     val customNotes: Set<SpelledNote> = emptySet(),
-    /** Non-null while the note dialog is open; edits stay here until they are applied. */
-    val customNotesDraft: Set<SpelledNote>? = null,
+    /** Non-null while the note window is open; edits stay here until they are applied. */
+    val notePicker: NotePickerState? = null,
     /** What the next run asks for, each exactly as it is to be read. */
     val activeNotes: List<SpelledNote> = emptyList(),
     val order: NoteOrder = NoteOrder.RANDOM,
@@ -183,19 +184,13 @@ data class NoteTrainerUiState(
      */
     val canStart: Boolean get() = activeNotes.isNotEmpty() && !microphoneUnavailable
 
-    val isEditingCustomNotes: Boolean get() = customNotesDraft != null
+    /** What the setup screen says about [activeNotes]: how many, and from where to where. */
+    val notesDetail: String get() = notesDetailOf(activeNotes, ::nameOf)
 
     val isRandom: Boolean get() = order == NoteOrder.RANDOM
 
     /** No hold to keep: the exercise advances as soon as the note is right. */
     val holdsUntilCorrect: Boolean get() = holdBeats <= Beats.ZERO
-
-    /** How a note set reads on the setup screen. */
-    fun summaryOf(set: NoteSet, chart: com.example.saxtrainer.core.fingering.FingeringChart): String =
-        NoteSets.notesOf(set, chart, customNotes)
-            .takeIf { it.isNotEmpty() }
-            ?.joinToString(" ") { nameOf(it) }
-            ?: "No notes chosen yet"
 
     /** The name of a written note, as written, under the chosen naming. */
     fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note, octaveNumbering)

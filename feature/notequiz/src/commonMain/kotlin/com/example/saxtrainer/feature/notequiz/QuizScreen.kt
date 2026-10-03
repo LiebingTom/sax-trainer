@@ -25,7 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.example.saxtrainer.core.designsystem.component.AnswerOption
 import com.example.saxtrainer.core.designsystem.component.AnswerState
 import com.example.saxtrainer.core.designsystem.component.MusicalNoteView
-import com.example.saxtrainer.core.designsystem.component.NoteChoiceDialog
+import com.example.saxtrainer.core.designsystem.component.NotePickerWindow
+import com.example.saxtrainer.core.designsystem.component.NoteSelectionSummary
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.SaxophoneFingeringView
 import com.example.saxtrainer.core.designsystem.component.ScreenHeader
@@ -41,8 +42,10 @@ import com.example.saxtrainer.core.designsystem.component.reservedWrittenStepRan
 import com.example.saxtrainer.core.designsystem.component.writtenStepRange
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
+import com.example.saxtrainer.core.fingering.NotePickerState
 import com.example.saxtrainer.core.fingering.NoteSet
-import com.example.saxtrainer.core.fingering.SaxophoneFingerings
+import com.example.saxtrainer.core.phrase.Phrase
+import com.example.saxtrainer.core.phrase.PhraseRecipe
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
@@ -59,13 +62,11 @@ import com.example.saxtrainer.core.music.ToneSequence
 @Composable
 fun QuizScreen(
     state: QuizUiState,
-    onSelectNoteSet: (NoteSet) -> Unit,
-    onEditCustomNotes: () -> Unit,
-    onToggleCustomNote: (SpelledNote) -> Unit,
-    onSelectAllCustomNotes: () -> Unit,
-    onClearCustomNotes: () -> Unit,
-    onApplyCustomNotes: () -> Unit,
-    onCancelCustomNotes: () -> Unit,
+    onOpenNotePicker: () -> Unit,
+    onNotePickerChange: ((NotePickerState) -> NotePickerState) -> Unit,
+    onNotePickerStartFrom: (NoteSet) -> Unit,
+    onApplyNotePicker: () -> Unit,
+    onCloseNotePicker: () -> Unit,
     onSelectMode: (QuizMode) -> Unit,
     onSelectQuestionCount: (Int) -> Unit,
     onAnswer: (slot: Int, option: Int) -> Unit,
@@ -75,6 +76,8 @@ fun QuizScreen(
     onReset: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    phrases: List<Phrase> = emptyList(),
+    patterns: List<PhraseRecipe> = emptyList(),
     onAddToLessons: (() -> Unit)? = null,
     isFavorite: Boolean = false,
     onToggleFavorite: ((Boolean) -> Unit)? = null,
@@ -117,8 +120,7 @@ fun QuizScreen(
             } else {
                 Setup(
                     state = state,
-                    onSelectNoteSet = onSelectNoteSet,
-                    onEditCustomNotes = onEditCustomNotes,
+                    onOpenNotePicker = onOpenNotePicker,
                     onSelectMode = onSelectMode,
                     onSelectQuestionCount = onSelectQuestionCount,
                     onAllFingeringsChange = onAllFingeringsChange,
@@ -144,16 +146,17 @@ fun QuizScreen(
             is QuizPhase.Finished -> ResultCard(state, phase.result)
         }
 
-        if (state.isEditingCustomNotes) {
-            NoteChoiceDialog(
-                notes = state.availableNotes,
-                chosen = state.customNotesDraft.orEmpty(),
-                label = state::nameOf,
-                onToggle = onToggleCustomNote,
-                onSelectAll = onSelectAllCustomNotes,
-                onClearAll = onClearCustomNotes,
-                onApply = onApplyCustomNotes,
-                onCancel = onCancelCustomNotes,
+        state.notePicker?.let { picker ->
+            NotePickerWindow(
+                state = picker,
+                naming = state.noteNaming,
+                octaves = state.octaveNumbering,
+                onChange = onNotePickerChange,
+                onStartFrom = onNotePickerStartFrom,
+                onApply = onApplyNotePicker,
+                onCancel = onCloseNotePicker,
+                phrases = phrases,
+                patterns = patterns,
             )
         }
     }
@@ -162,23 +165,18 @@ fun QuizScreen(
 @Composable
 private fun Setup(
     state: QuizUiState,
-    onSelectNoteSet: (NoteSet) -> Unit,
-    onEditCustomNotes: () -> Unit,
+    onOpenNotePicker: () -> Unit,
     onSelectMode: (QuizMode) -> Unit,
     onSelectQuestionCount: (Int) -> Unit,
     onAllFingeringsChange: (Boolean) -> Unit,
 ) {
     SectionHeader("Notes")
-    state.noteSets.forEach { set ->
-        SelectableRow(
-            title = set.displayName,
-            supportingText = state.summaryOf(set, SaxophoneFingerings),
-            selected = set == state.noteSet,
-            onClick = {
-                if (set == NoteSet.CUSTOM) onEditCustomNotes() else onSelectNoteSet(set)
-            },
-        )
-    }
+    NoteSelectionSummary(
+        title = state.noteSet.displayName,
+        detail = state.notesDetail,
+        names = state.activeNotes.joinToString(" ") { state.nameOf(it) },
+        onChoose = onOpenNotePicker,
+    )
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("Question")
@@ -553,13 +551,11 @@ private fun QuizSetupPreview() {
                 activeNotes = listOf(SpelledNote.of(Note(com.example.saxtrainer.core.music.NoteName.C, 4))),
                 questionCounts = listOf(10, 20, 30),
             ),
-            onSelectNoteSet = {},
-            onEditCustomNotes = {},
-            onToggleCustomNote = {},
-            onSelectAllCustomNotes = {},
-            onClearCustomNotes = {},
-            onApplyCustomNotes = {},
-            onCancelCustomNotes = {},
+            onOpenNotePicker = {},
+            onNotePickerChange = {},
+            onNotePickerStartFrom = {},
+            onApplyNotePicker = {},
+            onCloseNotePicker = {},
             onSelectMode = {},
             onSelectQuestionCount = {},
             onAnswer = { _, _ -> },

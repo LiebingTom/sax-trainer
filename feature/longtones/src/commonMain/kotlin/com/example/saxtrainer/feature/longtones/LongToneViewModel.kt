@@ -8,17 +8,21 @@ import com.example.saxtrainer.core.audio.capture.AudioCaptureEvent
 import com.example.saxtrainer.core.audio.metronome.Metronome
 import com.example.saxtrainer.core.audio.metronome.clickCountIn
 import com.example.saxtrainer.core.exercise.BeatClock
-import com.example.saxtrainer.core.exercise.ExercisePattern
 import com.example.saxtrainer.core.exercise.MonotonicBeatClock
 import com.example.saxtrainer.core.exercise.PauseSwitch
-import com.example.saxtrainer.core.exercise.SequenceCatalog
 import com.example.saxtrainer.core.exercise.SequenceRunner
 import com.example.saxtrainer.core.exercise.countIn
 import com.example.saxtrainer.core.exercise.leadIn
 import com.example.saxtrainer.core.exercise.leadInBeatsFor
 import com.example.saxtrainer.core.exercise.pausedBy
+import com.example.saxtrainer.core.fingering.NotePickerState
+import com.example.saxtrainer.core.fingering.NoteSet
+import com.example.saxtrainer.core.fingering.NoteSets
+import com.example.saxtrainer.core.fingering.matchingSet
 import com.example.saxtrainer.core.music.Beats
-import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.TimeSignature
+import com.example.saxtrainer.core.music.ToneSequence
+import com.example.saxtrainer.core.music.ToneStep
 import com.example.saxtrainer.core.settings.NoteDisplay
 import com.example.saxtrainer.core.settings.Exercise
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
@@ -117,12 +121,39 @@ class LongToneViewModel(
         }
     }
 
-    fun selectPattern(pattern: ExercisePattern) = updateSelection {
-        // Each exercise brings its own natural note length; the player can still override it.
-        it.copy(pattern = pattern, beatsPerNote = pattern.defaultBeatsPerNote)
+    /** Opens the note window on the notes the next run would hold. */
+    fun openNotePicker() = updateSetup {
+        val chosen = it.selection.writtenNotes.toSet()
+        it.copy(notePicker = NotePickerState.open(it.availableNotes, chosen))
     }
 
-    fun selectRootNote(note: Note) = updateSelection { it.copy(rootNote = note) }
+    /** One change to the open window's draft; nothing is decided until [applyNotePicker]. */
+    fun updateNotePicker(change: (NotePickerState) -> NotePickerState) = updateSetup { state ->
+        val picker = state.notePicker ?: return@updateSetup state
+        state.copy(notePicker = change(picker))
+    }
+
+    fun startNotePickerFrom(set: NoteSet) = updateNotePicker { it.startFrom(set, config.chart) }
+
+    /**
+     * Takes the draft. Exactly a ready-made set is stored as that set; anything else is the
+     * player's own, and becomes the custom set.
+     */
+    fun applyNotePicker() = updateSetup { state ->
+        val picker = state.notePicker?.takeIf { it.canApply } ?: return@updateSetup state
+        val set = NoteSets.matchingSet(picker.chosen, config.chart)
+        val customNotes = if (set == NoteSet.CUSTOM) picker.chosen else state.customNotes
+        state.copy(
+            noteSet = set,
+            customNotes = customNotes,
+            notePicker = null,
+            selection = state.selection.copy(
+                writtenNotes = NoteSets.notesOf(set, config.chart, customNotes),
+            ),
+        )
+    }
+
+    fun closeNotePicker() = updateSetup { it.copy(notePicker = null) }
 
     /** Changes how this tool shows notes; the shared default is left alone. */
     fun selectNoteDisplay(noteDisplay: NoteDisplay) {
@@ -201,7 +232,12 @@ class LongToneViewModel(
 
     private suspend fun runExercise() {
         val selection = _uiState.value.selection
-        val sequence = selection.pattern.build(selection.rootNote, selection.beatsPerNote)
+        // Each note held for the same length, one after another - what is listened for is the pitch
+        // each written note sounds as on the instrument.
+        val sequence = ToneSequence(
+            steps = _uiState.value.concertNotes.map { ToneStep(it, selection.beatsPerNote) },
+            timeSignature = TimeSignature.FOUR_FOUR,
+        )
         val runner = SequenceRunner(sequence)
         // Decided once for the whole exercise so a note cannot change its presentation while it is
         // being held, and so the preview of the next note is honest.
@@ -411,9 +447,13 @@ class LongToneViewModel(
         }
     }
 
-    private fun updateSelection(change: (ExerciseSelection) -> ExerciseSelection) {
+    private fun updateSelection(change: (ExerciseSelection) -> ExerciseSelection) =
+        updateSetup { it.copy(selection = change(it.selection)) }
+
+    /** A change to the setup: refused while the exercise runs, written down as soon as it is made. */
+    private fun updateSetup(change: (LongToneUiState) -> LongToneUiState) {
         if (_uiState.value.isBusy) return
-        _uiState.value = _uiState.value.copy(selection = change(_uiState.value.selection))
+        _uiState.value = change(_uiState.value)
         rememberSetup()
     }
 
@@ -458,33 +498,43 @@ class LongToneViewModel(
      * player's settings, and the setup screen is skipped rather than pre-filled unless the preset
      * asks to be edited.
      *
-     * What this build no longer offers is left as it was, exactly as a remembered setup is: a
-     * pattern that has gone, a root outside the range, a hold that is not one of the choices.
+     * What this build no longer offers is left as it was, exactly as a remembered setup is: a note
+     * the chart cannot finger, a hold that is not one of the choices. A preset handed over to be
+     * edited fills the setup screen in, so its notes become the set they are - or the player's own.
      */
-    private fun LongToneUiState.withPreset(preset: LongTonePreset): LongToneUiState = copy(
-        showNextNote = preset.showNextNote,
-        isPreconfigured = !preset.editable,
-        selection = selection.copy(
-            pattern = patterns.firstOrNull { it.id == preset.patternId } ?: selection.pattern,
-            rootNote = preset.rootNote.takeIf { it in selectableNotes } ?: selection.rootNote,
-            beatsPerNote = preset.beatsPerNote.takeIf { it in beatOptions } ?: selection.beatsPerNote,
-        ),
-    )
+    private fun LongToneUiState.withPreset(preset: LongTonePreset): LongToneUiState {
+        val notes = preset.notes
+            .filter { config.chart.supports(it.note) }
+            .ifEmpty { selection.writtenNotes }
+        val set = if (preset.editable) NoteSets.matchingSet(notes, config.chart) else noteSet
+        return copy(
+            noteSet = set,
+            customNotes = if (preset.editable && set == NoteSet.CUSTOM) notes.toSet() else customNotes,
+            showNextNote = preset.showNextNote,
+            isPreconfigured = !preset.editable,
+            selection = selection.copy(
+                writtenNotes = notes,
+                beatsPerNote = preset.beatsPerNote.takeIf { it in beatOptions }
+                    ?: selection.beatsPerNote,
+            ),
+        )
+    }
 
     /** One bar of count-in, in beats. */
     private fun countInBeats(): Int = config.countInBars * COUNT_IN_BEATS_PER_BAR
 
     private fun initialState(): LongToneUiState {
         val instrument = settingsRepository.settings.value.instrument
+        val everyPitch = NoteSets.notesOf(NoteSet.CHROMATIC, config.chart, emptySet()).toSet()
         val state = LongToneUiState(
             selection = ExerciseSelection(
-                pattern = config.defaultPattern,
-                rootNote = config.defaultRoot,
-                beatsPerNote = config.defaultPattern.defaultBeatsPerNote,
+                writtenNotes = NoteSets.notesOf(NoteSet.BEGINNER, config.chart, everyPitch),
+                beatsPerNote = config.defaultBeatsPerNote,
                 tempo = config.defaultTempo,
             ),
-            patterns = SequenceCatalog.patterns,
-            selectableNotes = Note.range(config.lowestNote, config.highestNote),
+            availableNotes = NoteSets.choicesOf(config.chart),
+            noteSet = NoteSet.BEGINNER,
+            customNotes = everyPitch,
             beatOptions = config.beatChoices,
             transposition = instrument.transposition,
             instrumentName = instrument.displayName,
@@ -497,7 +547,7 @@ class LongToneViewModel(
         return if (preset != null) {
             state.withPreset(preset)
         } else {
-            state.withSetup(exerciseSetups.setupOf(Exercise.LONG_TONES))
+            state.withSetup(exerciseSetups.setupOf(Exercise.LONG_TONES), config.chart)
         }
     }
 

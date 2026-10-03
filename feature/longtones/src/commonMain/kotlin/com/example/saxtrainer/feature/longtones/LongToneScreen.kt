@@ -1,11 +1,18 @@
 package com.example.saxtrainer.feature.longtones
 
+import com.example.saxtrainer.core.designsystem.component.NotePickerWindow
+import com.example.saxtrainer.core.designsystem.component.NoteSelectionSummary
+import com.example.saxtrainer.core.designsystem.component.reservedWrittenStepRange
+import com.example.saxtrainer.core.fingering.NotePickerState
+import com.example.saxtrainer.core.fingering.NoteSet
+import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.core.phrase.Phrase
+import com.example.saxtrainer.core.phrase.PhraseRecipe
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,8 +20,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,7 +34,6 @@ import com.example.saxtrainer.core.designsystem.component.CentsMeter
 import com.example.saxtrainer.core.designsystem.component.CentsMeterLabels
 import com.example.saxtrainer.core.designsystem.component.LevelMeter
 import com.example.saxtrainer.core.designsystem.component.MetricDisplay
-import com.example.saxtrainer.core.designsystem.component.DEFAULT_STAFF_MARGIN
 import com.example.saxtrainer.core.designsystem.component.NoteDisplayPicker
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.ScreenHeader
@@ -39,14 +43,11 @@ import com.example.saxtrainer.core.designsystem.component.ScreenTiming
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
 import com.example.saxtrainer.core.designsystem.component.StepSlider
-import com.example.saxtrainer.core.designsystem.component.SelectableRow
 import com.example.saxtrainer.core.designsystem.text.toFixed
 import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.FeedbackColors
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.designsystem.theme.numericLarge
-import com.example.saxtrainer.core.exercise.ExercisePattern
-import com.example.saxtrainer.core.exercise.SequenceCatalog
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.Tempo
@@ -58,7 +59,6 @@ import kotlin.math.roundToInt
 import com.example.saxtrainer.core.designsystem.component.MusicalStaffView
 import com.example.saxtrainer.core.designsystem.component.StaffNoteStyle
 import com.example.saxtrainer.core.designsystem.component.StaffPrefix
-import com.example.saxtrainer.core.designsystem.component.reservedStepRange
 import com.example.saxtrainer.core.music.NotatedDuration
 import com.example.saxtrainer.core.music.NoteValue
 import com.example.saxtrainer.core.music.ToneSequence
@@ -70,8 +70,11 @@ import androidx.compose.material3.Switch
 @Composable
 fun LongToneScreen(
     state: LongToneUiState,
-    onSelectPattern: (ExercisePattern) -> Unit,
-    onSelectRootNote: (Note) -> Unit,
+    onOpenNotePicker: () -> Unit,
+    onNotePickerChange: ((NotePickerState) -> NotePickerState) -> Unit,
+    onNotePickerStartFrom: (NoteSet) -> Unit,
+    onApplyNotePicker: () -> Unit,
+    onCloseNotePicker: () -> Unit,
     onSelectBeats: (Beats) -> Unit,
     onSelectNoteDisplay: (NoteDisplay) -> Unit,
     onShowNextNote: (Boolean) -> Unit,
@@ -87,6 +90,8 @@ fun LongToneScreen(
     detectedNoteColor: Color = FeedbackColors.incorrect,
     isFavorite: Boolean = false,
     onToggleFavorite: ((Boolean) -> Unit)? = null,
+    phrases: List<Phrase> = emptyList(),
+    patterns: List<PhraseRecipe> = emptyList(),
 ) {
     ScreenScaffold(
         title = "Long Tones",
@@ -102,8 +107,9 @@ fun LongToneScreen(
         showTrail = !state.isBusy,
         keepScreenOn = state.isBusy,
         header = headerOf(state),
-        // The note being held is the subject; the meters that measure it belong below.
-        subject = { NoteHeader(state, detectedNoteColor) },
+        // The note being held is the subject; the meters that measure it belong below. Before the
+        // run there is nothing being held, and the setup says what will be.
+        subject = if (state.isBusy) ({ NoteHeader(state, detectedNoteColor) }) else null,
         // While it runs the readings size themselves to the screen; the setup list still scrolls.
         scrollable = state.phase !is LongTonePhase.Running,
         timing = timingOf(state),
@@ -141,8 +147,7 @@ fun LongToneScreen(
         if (!state.isBusy && !state.isPreconfigured) {
             ExerciseSetup(
                 state = state,
-                onSelectPattern = onSelectPattern,
-                onSelectRootNote = onSelectRootNote,
+                onOpenNotePicker = onOpenNotePicker,
                 onSelectBeats = onSelectBeats,
                 onSelectNoteDisplay = onSelectNoteDisplay,
                 onShowNextNote = onShowNextNote,
@@ -156,6 +161,20 @@ fun LongToneScreen(
             is LongTonePhase.Finished -> ResultCard(state, phase.result)
             else -> Unit
         }
+    }
+
+    state.notePicker?.let { picker ->
+        NotePickerWindow(
+            state = picker,
+            naming = state.noteNaming,
+            octaves = state.octaveNumbering,
+            onChange = onNotePickerChange,
+            onStartFrom = onNotePickerStartFrom,
+            onApply = onApplyNotePicker,
+            onCancel = onCloseNotePicker,
+            phrases = phrases,
+            patterns = patterns,
+        )
     }
 }
 
@@ -180,11 +199,11 @@ private fun ReadyPanel(state: LongToneUiState) {
         ) {
             Text(text = "Ready", style = MaterialTheme.typography.titleMedium)
             Text(
-                text = state.selection.pattern.name,
+                text = state.notesDetail,
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = state.selection.notes.joinToString(" ") { state.writtenLabel(it) },
+                text = state.selection.writtenNotes.joinToString(" ") { state.nameOf(it) },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -200,8 +219,8 @@ private fun ReadyPanel(state: LongToneUiState) {
 private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
     // Notation shows what the player reads, so every note is transposed for the instrument.
     val currentNote = state.currentNote
-    val written = state.transposition.writtenFor(currentNote)
-    val detected = state.measurements.pitch?.detectedNote?.let(state.transposition::writtenFor)
+    val written = state.writtenOf(currentNote)
+    val detected = state.measurements.pitch?.detectedNote?.let(state::writtenOf)
     val nextNote = state.progress?.upcomingNotes?.firstOrNull()?.takeIf { state.showNextNote }
     // Before the exercise runs there is no schedule yet, so the setting speaks for itself.
     val currentDisplay = state.progress?.noteDisplay ?: state.noteDisplay
@@ -212,11 +231,9 @@ private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
     // read, as in the note quiz. The length is still counted in beats, and the bar at the foot of
     // the screen is what shows how much of it is left - written out, a long tone became tied notes
     // across bar lines that said the same thing far less plainly.
-    val writtenNotes = remember(state.selection.notes, state.transposition) {
-        state.selection.notes.map(state.transposition::writtenFor)
-    }
+    val writtenNotes = state.selection.writtenNotes
     val sequence = remember(written) {
-        // Spelled the way the note is usually written, as the label beside it always was.
+        // Spelled as the exercise writes it, as the label beside it is.
         ToneSequence.of(written, NotatedDuration(NoteValue.WHOLE))
     }
 
@@ -245,9 +262,9 @@ private fun NoteHeader(state: LongToneUiState, detectedHighlightColor: Color) {
             reserveAccidentals = true,
             // Sized for every note of the exercise plus room around it, so neither a change of
             // presentation nor the heard note appearing beside the target moves the staff.
-            stepRange = reservedStepRange(writtenNotes),
+            stepRange = reservedWrittenStepRange(writtenNotes),
             // What the microphone is hearing, held up beside what was asked for.
-            secondaryNote = { detected.takeIf { it != written } },
+            secondaryWritten = { detected.takeIf { it?.note != written.note } },
             secondaryColor = detectedHighlightColor,
         )
     }
@@ -280,46 +297,20 @@ private fun SoundingLine(state: LongToneUiState) {
 @Composable
 private fun ExerciseSetup(
     state: LongToneUiState,
-    onSelectPattern: (ExercisePattern) -> Unit,
-    onSelectRootNote: (Note) -> Unit,
+    onOpenNotePicker: () -> Unit,
     onSelectBeats: (Beats) -> Unit,
     onSelectNoteDisplay: (NoteDisplay) -> Unit,
     onShowNextNote: (Boolean) -> Unit,
 ) {
     val selection = state.selection
 
-    SectionHeader("Exercise")
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
-    ) {
-        Column(modifier = Modifier.padding(Dimens.cardPadding)) {
-            state.patterns.forEach { pattern ->
-                SelectableRow(
-                    title = pattern.name,
-                    supportingText = pattern.notesFrom(selection.rootNote)
-                        .joinToString(" ") { state.writtenLabel(it) },
-                    selected = pattern == selection.pattern,
-                    onClick = { onSelectPattern(pattern) },
-                )
-            }
-        }
-    }
-
-    Spacer(Modifier.height(Dimens.spaceSm))
-    SectionHeader("Starting note")
-    // Wrapped at the edge of the screen rather than scrolled, so every note is in view at once.
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
-        state.selectableNotes.forEach { note ->
-            FilterChip(
-                selected = note == selection.rootNote,
-                onClick = { onSelectRootNote(note) },
-                label = { Text(state.writtenLabel(note)) },
-            )
-        }
-    }
+    SectionHeader("Notes")
+    NoteSelectionSummary(
+        title = state.noteSet.displayName,
+        detail = state.notesDetail,
+        names = selection.writtenNotes.joinToString(" ") { state.nameOf(it) },
+        onChoose = onOpenNotePicker,
+    )
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("How long")
@@ -444,7 +435,7 @@ private fun ColumnScope.RunningPanel(state: LongToneUiState) {
 @Composable
 private fun ExercisePositionRow(state: LongToneUiState, progress: ExerciseProgress) {
     Text(
-        text = state.selection.pattern.name,
+        text = state.noteSet.displayName,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.fillMaxWidth(),
@@ -531,7 +522,7 @@ private fun ResultCard(state: LongToneUiState, result: LongToneResult) {
                 MetricDisplay(
                     label = "Notes",
                     value = "${result.steps.count { it.completed }}/" +
-                        "${state.selection.pattern.noteCount}",
+                        "${state.selection.writtenNotes.size}",
                 )
                 MetricDisplay(
                     label = "Sounding",
@@ -671,22 +662,19 @@ private fun LongToneScreenPreview() {
         LongToneScreen(
             state = LongToneUiState(
                 selection = ExerciseSelection(
-                    pattern = SequenceCatalog.ascendingThirds,
-                    rootNote = SequenceCatalog.defaultRoot,
+                    writtenNotes = listOf("C4", "E4", "G4").mapNotNull { SpelledNote.parse(it) },
                     beatsPerNote = Beats.of(4),
                     tempo = Tempo(60),
-                ),
-                patterns = SequenceCatalog.patterns,
-                selectableNotes = Note.range(
-                    SequenceCatalog.defaultRoot.transposedBy(-12),
-                    SequenceCatalog.defaultRoot.transposedBy(3),
                 ),
                 beatOptions = listOf(Beats.of(2), Beats.of(4), Beats.of(8)),
                 transposition = Transposition.TENOR_B_FLAT,
                 instrumentName = "Tenor saxophone",
             ),
-            onSelectPattern = {},
-            onSelectRootNote = {},
+            onOpenNotePicker = {},
+            onNotePickerChange = {},
+            onNotePickerStartFrom = {},
+            onApplyNotePicker = {},
+            onCloseNotePicker = {},
             onSelectBeats = {},
             onSelectNoteDisplay = {},
             onShowNextNote = {},

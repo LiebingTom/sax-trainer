@@ -2,6 +2,8 @@
 
 package com.example.saxtrainer.feature.longtones
 
+import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.core.music.Beats
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -152,11 +154,18 @@ private fun LongTones(
                 onBack = {},
                 // The one place this trainer is configured from is its config, so the ViewModel is
                 // built here rather than left to the route's default: at the default sixty beats a
-                // minute a count-in and a five-beat note are nine seconds of browser test.
+                // minute a count-in and a held note are seconds of browser test. One note, not the
+                // beginner's eight, for the same reason - still on the setup screen, to be started.
                 viewModel = LongToneViewModel(
                     audioCapture = microphone,
                     settingsRepository = settings,
                     exerciseSetups = InMemoryExerciseSetupRepository(),
+                    preset = LongTonePreset(
+                        notes = listOfNotNull(SpelledNote.parse("A4")),
+                        beatsPerNote = Beats.of(4),
+                        autoStart = false,
+                        editable = true,
+                    ),
                     metronome = SilentMetronome(),
                     config = LongToneConfig(defaultTempo = Tempo(bpm)),
                 ),

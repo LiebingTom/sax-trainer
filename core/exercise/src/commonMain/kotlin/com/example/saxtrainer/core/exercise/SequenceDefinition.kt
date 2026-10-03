@@ -25,9 +25,8 @@ enum class SequenceCategory(val displayName: String) {
  * Notes are **written** pitch - what the player reads and fingers - so "C Major" is the same scale
  * on every saxophone. Sounding pitch is worked out only where a microphone is involved.
  *
- * This is not [ExercisePattern]. That models a transposable shape with one duration throughout,
- * which is right for long tones and wrong here: these are named keys with their own spelling and
- * their own rhythm. Both produce a [ToneSequence], which is the abstraction they actually share.
+ * Named keys with their own spelling and their own rhythm, produced as a [ToneSequence] - the
+ * abstraction every exercise shares.
  */
 data class SequenceDefinition(
     val id: String,

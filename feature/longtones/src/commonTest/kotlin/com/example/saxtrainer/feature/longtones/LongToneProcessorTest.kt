@@ -23,7 +23,8 @@ class LongToneProcessorTest {
     private val frameSize = config.capture.frameSize
     private val hopSize = config.capture.hopSize
 
-    private val targetNote = config.defaultRoot
+    // Concert A, in the middle of what the exercise listens for.
+    private val targetNote = Note(NoteName.A, 4)
     private val targetHz = targetNote.frequencyHz()
 
     private fun processor(targetFrequencyHz: Double = targetHz) =

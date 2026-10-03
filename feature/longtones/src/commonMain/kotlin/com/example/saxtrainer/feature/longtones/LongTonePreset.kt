@@ -1,7 +1,7 @@
 package com.example.saxtrainer.feature.longtones
 
 import com.example.saxtrainer.core.music.Beats
-import com.example.saxtrainer.core.music.Note
+import com.example.saxtrainer.core.music.SpelledNote
 
 /**
  * A fully decided exercise: everything the setup screen would otherwise ask the player.
@@ -10,15 +10,12 @@ import com.example.saxtrainer.core.music.Note
  * configuration is none of the trainer's business - a guided lesson, a shortcut and a saved
  * exercise all come through this same door - which is why nothing here mentions lessons.
  *
- * The pattern travels as its id and the root as a note, exactly as the stored setup writes them:
- * the pattern is the exercise the player chose rather than the notes it produced, and the root is a
- * sounding pitch, because this is the one trainer that measures concert pitch rather than what is
- * written.
+ * The notes are written notes, as every other practice takes them: what is read. What they sound
+ * as depends on the instrument, which is a setting and not part of the exercise.
  */
 data class LongTonePreset(
-    /** Id of a pattern in the catalog. One this build no longer has leaves the default selected. */
-    val patternId: String,
-    val rootNote: Note,
+    /** Held one after another, lowest first, each exactly as written. */
+    val notes: List<SpelledNote>,
     val beatsPerNote: Beats,
     /** Whether the note after this one is shown beside it, as its name. */
     val showNextNote: Boolean = true,
@@ -33,7 +30,7 @@ data class LongTonePreset(
     val editable: Boolean = false,
 ) {
     init {
-        require(patternId.isNotBlank()) { "a preset needs a pattern" }
+        require(notes.isNotEmpty()) { "a preset needs a note to hold" }
         require(beatsPerNote > Beats.ZERO) { "a note must be held for some time" }
     }
 }

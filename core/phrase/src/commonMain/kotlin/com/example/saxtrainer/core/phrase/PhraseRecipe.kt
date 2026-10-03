@@ -59,11 +59,9 @@ data class PhraseRecipe(
     /**
      * This recipe, played on [scale] from [root].
      *
-     * Each degree becomes `root.transposedBy(scale.semitoneOffset(degree))` - the same mechanism
-     * [com.example.saxtrainer.core.exercise.ExercisePattern] uses, applied directly here rather than
-     * through that type, which would pull a dependency on `core:exercise` into this module for no
-     * reason beyond one function call. The id carries the recipe, the scale and the root along with
-     * it, so two resolutions of the same recipe in different keys are never mistaken for each other.
+     * Each degree becomes `root.transposedBy(scale.semitoneOffset(degree))`. The id carries the
+     * recipe, the scale and the root along with it, so two resolutions of the same recipe in
+     * different keys are never mistaken for each other.
      */
     fun resolve(scale: Scale, root: Note, accidentalStyle: AccidentalStyle = AccidentalStyle.SHARPS): Phrase = Phrase(
         id = "${id}_${scale.id}_${root.midiNumber}",

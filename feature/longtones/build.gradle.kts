@@ -47,7 +47,9 @@ kotlin {
             implementation(project(":core:designsystem"))
             implementation(project(":core:dsp"))
             implementation(project(":core:exercise"))
+            implementation(project(":core:fingering"))
             implementation(project(":core:music"))
+            implementation(project(":core:phrase"))
             implementation(project(":core:settings"))
 
             implementation(libs.compose.runtime)

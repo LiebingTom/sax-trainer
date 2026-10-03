@@ -1,11 +1,15 @@
 package com.example.saxtrainer.feature.longtones
 
 import com.example.saxtrainer.core.audio.capture.AudioCaptureError
-import com.example.saxtrainer.core.exercise.ExercisePattern
+import com.example.saxtrainer.core.fingering.NotePickerState
+import com.example.saxtrainer.core.fingering.NoteSet
+import com.example.saxtrainer.core.fingering.notesDetailOf
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteNaming
 import com.example.saxtrainer.core.music.OctaveNumbering
+import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.core.music.spelledAs
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.Transposition
 import com.example.saxtrainer.core.settings.NoteDisplay
@@ -119,22 +123,22 @@ data class LongToneMeasurements(
 }
 
 /**
- * Everything the long tone screen renders. Notes are stored as concert pitch and only labelled
- * through [transposition], so a change of instrument never changes what is measured.
+ * What one run of the exercise holds: which notes, for how long each.
+ *
+ * The notes are written notes, chosen the way every other practice chooses them - what the player
+ * reads. What is measured is the pitch each sounds as on the instrument, which only the screen's
+ * state knows - see [LongToneUiState.concertNotes].
  */
 data class ExerciseSelection(
-    val pattern: ExercisePattern,
-    val rootNote: Note,
+    /** Held one after another, lowest first, each exactly as it is to be read. */
+    val writtenNotes: List<SpelledNote>,
     val beatsPerNote: Beats,
     /** Fixed: [LongToneConfig.defaultTempo]. Not the player's to set. */
     val tempo: Tempo,
 ) {
-    /** The notes this exercise will ask for, in concert pitch. */
-    val notes: List<Note> get() = pattern.notesFrom(rootNote)
-
     val secondsPerNote: Float get() = tempo.secondsFor(beatsPerNote).toFloat()
 
-    val totalSeconds: Float get() = secondsPerNote * pattern.noteCount
+    val totalSeconds: Float get() = secondsPerNote * writtenNotes.size
 }
 
 /** Where the player is in the exercise while it runs. */
@@ -171,14 +175,19 @@ data class ExerciseProgress(
 }
 
 /**
- * Everything the long tone screen renders. Notes are stored as concert pitch and only labelled
- * through [transposition], so a change of instrument never changes what is measured.
+ * Everything the long tone screen renders. Notes are chosen as written and measured as the concert
+ * pitch they sound as through [transposition], so a change of instrument keeps what is read and
+ * changes only what is listened for.
  */
 data class LongToneUiState(
     val phase: LongTonePhase = LongTonePhase.Idle,
     val selection: ExerciseSelection,
-    val patterns: List<ExercisePattern>,
-    val selectableNotes: List<Note>,
+    /** Every written note the player can choose from - each pitch once per way of writing it. */
+    val availableNotes: List<SpelledNote> = emptyList(),
+    val noteSet: NoteSet = NoteSet.BEGINNER,
+    val customNotes: Set<SpelledNote> = emptySet(),
+    /** Non-null while the note window is open; edits stay here until they are applied. */
+    val notePicker: NotePickerState? = null,
     val beatOptions: List<Beats>,
     val transposition: Transposition,
     val instrumentName: String,
@@ -217,9 +226,26 @@ data class LongToneUiState(
 ) {
     val isBusy: Boolean get() = phase is LongTonePhase.Running || phase is LongTonePhase.Countdown
 
+    /** The pitches the exercise listens for, in order: each written note as it sounds. */
+    val concertNotes: List<Note>
+        get() = selection.writtenNotes.map { transposition.concertFor(it.note) }
+
+    /** What the setup screen says about the notes: how many, and from where to where. */
+    val notesDetail: String get() = notesDetailOf(selection.writtenNotes, ::nameOf)
+
+    /** The name of a written note, as written, under the chosen naming. */
+    fun nameOf(note: SpelledNote): String = noteNaming.labelOf(note, octaveNumbering)
+
+    /**
+     * A sounding pitch as the player reads it on their instrument: spelled as the exercise writes
+     * it where it is one of the exercise's notes - an E flat chosen stays an E flat - and the usual
+     * way otherwise, as a note heard by the microphone may be anything.
+     */
+    fun writtenOf(note: Note): SpelledNote =
+        transposition.writtenFor(note).spelledAs(selection.writtenNotes)
+
     /** Note name as the player reads it on their instrument, under the chosen naming. */
-    fun writtenLabel(note: Note): String =
-        noteNaming.labelOf(transposition.writtenFor(note), octaves = octaveNumbering)
+    fun writtenLabel(note: Note): String = nameOf(writtenOf(note))
 
     /**
      * A sounding pitch, named the same way - but always numbered scientifically. Counting from the
@@ -229,5 +255,5 @@ data class LongToneUiState(
     fun soundingLabel(note: Note): String = noteNaming.labelOf(note)
 
     /** The note the player should be sounding right now, or the first one before the start. */
-    val currentNote: Note get() = progress?.currentNote ?: selection.notes.first()
+    val currentNote: Note get() = progress?.currentNote ?: concertNotes.first()
 }

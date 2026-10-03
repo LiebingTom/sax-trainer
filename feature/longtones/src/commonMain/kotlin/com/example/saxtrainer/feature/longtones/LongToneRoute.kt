@@ -1,5 +1,7 @@
 package com.example.saxtrainer.feature.longtones
 
+import com.example.saxtrainer.core.phrase.PatternLibrary
+import com.example.saxtrainer.core.phrase.PhraseLibrary
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -95,8 +97,13 @@ fun LongToneRoute(
 
     LongToneScreen(
         state = state,
-        onSelectPattern = viewModel::selectPattern,
-        onSelectRootNote = viewModel::selectRootNote,
+        onOpenNotePicker = viewModel::openNotePicker,
+        onNotePickerChange = viewModel::updateNotePicker,
+        onNotePickerStartFrom = viewModel::startNotePickerFrom,
+        onApplyNotePicker = viewModel::applyNotePicker,
+        onCloseNotePicker = viewModel::closeNotePicker,
+        phrases = PhraseLibrary.all,
+        patterns = PatternLibrary.all,
         onSelectBeats = viewModel::selectBeatsPerNote,
         onSelectNoteDisplay = viewModel::selectNoteDisplay,
         onShowNextNote = viewModel::setShowNextNote,

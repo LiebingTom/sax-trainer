@@ -305,9 +305,12 @@ class QuizViewModel(
      */
     private fun QuizUiState.withPreset(preset: QuizPreset): QuizUiState {
         val notes = preset.notes.filter { config.chart.supports(it.note) }
+        // Handed over to be edited, the notes become the set they are - Beginner stays Beginner -
+        // or the player's own, exactly as the note window would store them.
+        val set = if (preset.editable) NoteSets.matchingSet(notes, config.chart) else noteSet
         return copy(
-            noteSet = if (preset.editable) NoteSet.CUSTOM else noteSet,
-            customNotes = if (preset.editable) notes.toSet() else customNotes,
+            noteSet = set,
+            customNotes = if (preset.editable && set == NoteSet.CUSTOM) notes.toSet() else customNotes,
             activeNotes = notes,
             mode = preset.mode,
             allFingerings = preset.allFingerings,

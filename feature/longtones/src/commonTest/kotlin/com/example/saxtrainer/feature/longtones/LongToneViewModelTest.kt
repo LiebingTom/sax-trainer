@@ -6,7 +6,8 @@ import com.example.saxtrainer.core.audio.capture.AudioCaptureError
 import com.example.saxtrainer.core.audio.capture.AudioCaptureEvent
 import com.example.saxtrainer.core.audio.capture.AudioFrame
 import com.example.saxtrainer.core.exercise.MonotonicBeatClock
-import com.example.saxtrainer.core.exercise.SequenceCatalog
+import com.example.saxtrainer.core.fingering.NoteSet
+import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.Beats
 import com.example.saxtrainer.core.music.Tempo
 import com.example.saxtrainer.core.music.Note
@@ -41,6 +42,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import com.example.saxtrainer.core.settings.ExerciseSetup
+import com.example.saxtrainer.core.settings.exerciseSetup
 import kotlin.test.assertNull
 import kotlin.test.assertNotNull
 
@@ -103,7 +105,10 @@ class LongToneViewModelTest {
 
     private fun TestScope.viewModel(
         capture: AudioCapture,
-        settings: SettingsRepository = FakeSettingsRepository(),
+        // Concert pitch, so the notes chosen are the notes listened for and a test can say either.
+        settings: SettingsRepository = FakeSettingsRepository(
+            AppSettings(countInBeats = 0, instrument = Instrument.CONCERT),
+        ),
         setups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
         preset: LongTonePreset? = null,
         seed: Int = 1,
@@ -122,6 +127,17 @@ class LongToneViewModelTest {
         ),
     )
 
+    private fun written(token: String) = SpelledNote.parse(token)!!
+
+    private fun note(token: String) = written(token).note
+
+    /** Chooses exactly these notes in the note window and applies them, as the player would. */
+    private fun LongToneViewModel.selectOnly(vararg tokens: String) {
+        openNotePicker()
+        updateNotePicker { it.copy(chosen = tokens.map(::written).toSet()) }
+        applyNotePicker()
+    }
+
     private fun finishedResult(viewModel: LongToneViewModel): LongToneResult {
         val phase = viewModel.uiState.value.phase
         assertTrue(phase is LongTonePhase.Finished, "phase was $phase")
@@ -129,13 +145,29 @@ class LongToneViewModelTest {
     }
 
     @Test
-    fun `the default exercise is a single held note`() = runTest(dispatcher) {
+    fun `the default exercise is the beginner's notes, four beats each`() = runTest(dispatcher) {
         val state = viewModel(FakeAudioCapture(frameDurationMs)).uiState.value
 
-        assertEquals(SequenceCatalog.singleNote, state.selection.pattern)
-        assertEquals(Note(NoteName.A, 4), state.selection.rootNote)
-        assertEquals(Beats.of(5), state.selection.beatsPerNote)
-        assertEquals(5f, state.selection.secondsPerNote, 1e-3f)
+        assertEquals(NoteSet.BEGINNER, state.noteSet)
+        assertEquals(
+            listOf("C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"),
+            state.selection.writtenNotes.map { it.token },
+        )
+        assertEquals(Beats.of(4), state.selection.beatsPerNote)
+        assertEquals(4f, state.selection.secondsPerNote, 1e-3f)
+    }
+
+    @Test
+    fun `what is listened for is each written note as the instrument sounds it`() = runTest(dispatcher) {
+        val tenor = FakeSettingsRepository(AppSettings(countInBeats = 0, instrument = Instrument.TENOR_SAX))
+        val viewModel = viewModel(FakeAudioCapture(frameDurationMs), settings = tenor)
+        viewModel.selectOnly("C5", "Eb5")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        // A tenor sounds a ninth below what is written.
+        assertEquals(listOf(note("Bb3"), note("Db4")), state.concertNotes)
+        assertEquals(written("Eb5"), state.writtenOf(note("Db4")), "named as chosen, not as a D sharp")
     }
 
     @Test
@@ -143,6 +175,7 @@ class LongToneViewModelTest {
         runTest(dispatcher) {
             val capture = FakeAudioCapture(frameDurationMs)
             val viewModel = viewModel(capture)
+            viewModel.selectOnly("A4")
 
             viewModel.start()
             advanceUntilIdle()
@@ -151,18 +184,18 @@ class LongToneViewModelTest {
             assertTrue(result.completed)
             assertEquals(1, result.steps.size)
             assertEquals(Note(NoteName.A, 4), result.steps.single().note)
-            assertTrue(result.heldSeconds >= 5f, "held ${result.heldSeconds} s")
+            assertTrue(result.heldSeconds >= 4f, "held ${result.heldSeconds} s")
             // One frame of overshoot at most.
             val frameSeconds = config.capture.frameSize.toFloat() / config.capture.sampleRate
-            assertTrue(result.heldSeconds < 5f + frameSeconds, "held ${result.heldSeconds} s")
+            assertTrue(result.heldSeconds < 4f + frameSeconds, "held ${result.heldSeconds} s")
             assertTrue(capture.released, "capture was not released")
         }
 
     @Test
-    fun `a multi note exercise walks every note of the pattern in order`() = runTest(dispatcher) {
+    fun `a multi note exercise walks every note chosen, lowest first`() = runTest(dispatcher) {
         val capture = FakeAudioCapture(frameDurationMs)
         val viewModel = viewModel(capture)
-        viewModel.selectPattern(SequenceCatalog.ascendingThirds)
+        viewModel.selectOnly("A4", "C4", "E4", "G4", "D4", "F4")
 
         viewModel.start()
         advanceUntilIdle()
@@ -170,7 +203,7 @@ class LongToneViewModelTest {
         val result = finishedResult(viewModel)
         assertTrue(result.completed)
         assertEquals(
-            SequenceCatalog.ascendingThirds.notesFrom(Note(NoteName.A, 4)),
+            listOf("C4", "D4", "E4", "F4", "G4", "A4").map(::note),
             result.steps.map { it.note },
         )
         assertTrue(result.steps.all { it.completed })
@@ -183,7 +216,7 @@ class LongToneViewModelTest {
     @Test
     fun `each note lasts its own musical length`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
-        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+        viewModel.selectOnly("A4", "B4", "C5", "D5")
 
         viewModel.start()
         advanceUntilIdle()
@@ -199,21 +232,21 @@ class LongToneViewModelTest {
     @Test
     fun `tempo decides how long a note lasts`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs), fixedTempo = Tempo(120))
-        viewModel.selectPattern(SequenceCatalog.singleNote)
+        viewModel.selectOnly("A4")
 
         viewModel.start()
         advanceUntilIdle()
 
-        // Five beats at 120 BPM is 2.5 seconds.
+        // Four beats at 120 BPM is two seconds.
         val result = finishedResult(viewModel)
-        assertTrue(result.heldSeconds >= 2.5f, "held ${result.heldSeconds} s")
-        assertTrue(result.heldSeconds < 3f, "held ${result.heldSeconds} s")
+        assertTrue(result.heldSeconds >= 2f, "held ${result.heldSeconds} s")
+        assertTrue(result.heldSeconds < 2.5f, "held ${result.heldSeconds} s")
     }
 
     @Test
     fun `progress reports the position and what comes next`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
-        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+        viewModel.selectOnly("A4", "B4", "C5", "D5")
 
         viewModel.start()
         advanceTimeBy(countInMs + 1_000L)
@@ -241,7 +274,7 @@ class LongToneViewModelTest {
     @Test
     fun `a paused attempt analyses nothing, so its note keeps its place`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
-        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+        viewModel.selectOnly("A4", "B4", "C5", "D5")
 
         viewModel.start()
         advanceTimeBy(countInMs + 1_000L)
@@ -264,7 +297,7 @@ class LongToneViewModelTest {
     @Test
     fun `continuing carries the sequence on from the note it was held on`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
-        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+        viewModel.selectOnly("A4", "B4", "C5", "D5")
 
         viewModel.start()
         advanceTimeBy(countInMs + 1_000L)
@@ -288,7 +321,7 @@ class LongToneViewModelTest {
     @Test
     fun `pausing publishes no result, and stopping still does`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
-        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+        viewModel.selectOnly("A4", "B4", "C5", "D5")
 
         viewModel.start()
         advanceTimeBy(countInMs + 1_000L)
@@ -309,7 +342,7 @@ class LongToneViewModelTest {
         runTest(dispatcher) {
             val capture = FakeAudioCapture(frameDurationMs)
             val viewModel = viewModel(capture)
-            viewModel.selectPattern(SequenceCatalog.ascendingThirds)
+            viewModel.selectOnly("C4", "E4", "G4", "B4", "D5", "F5")
 
             viewModel.start()
             advanceTimeBy(countInMs + 10_000L) // two notes of four beats done, into the third
@@ -413,37 +446,35 @@ class LongToneViewModelTest {
     @Test
     fun `the exercise cannot be changed while it is running`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
-        viewModel.selectPattern(SequenceCatalog.fifth)
+        viewModel.selectOnly("A4", "E5")
 
         viewModel.start()
         advanceTimeBy(countInMs + 1_000L)
 
-        viewModel.selectPattern(SequenceCatalog.repeat)
-        viewModel.selectRootNote(Note(NoteName.C, 4))
+        viewModel.selectOnly("C4")
         viewModel.selectBeatsPerNote(Beats.of(8))
 
-        val selection = viewModel.uiState.value.selection
-        assertEquals(SequenceCatalog.fifth, selection.pattern)
-        assertEquals(Note(NoteName.A, 4), selection.rootNote)
-        assertEquals(Beats.of(4), selection.beatsPerNote)
+        val state = viewModel.uiState.value
+        assertEquals(listOf(written("A4"), written("E5")), state.selection.writtenNotes)
+        assertEquals(Beats.of(4), state.selection.beatsPerNote)
+        assertNull(state.notePicker, "the note window does not open mid-run")
 
         viewModel.stop()
         advanceUntilIdle()
     }
 
     @Test
-    fun `choosing an exercise adopts its natural note length`() = runTest(dispatcher) {
+    fun `choosing notes keeps the note length`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs))
-
-        viewModel.selectPattern(SequenceCatalog.repeat)
-        assertEquals(Beats.of(4), viewModel.uiState.value.selection.beatsPerNote)
-
-        viewModel.selectPattern(SequenceCatalog.singleNote)
-        assertEquals(Beats.of(5), viewModel.uiState.value.selection.beatsPerNote)
-
-        // An explicit choice still wins.
         viewModel.selectBeatsPerNote(Beats.of(8))
+
+        viewModel.selectOnly("G4")
+        viewModel.openNotePicker()
+        viewModel.startNotePickerFrom(NoteSet.CHROMATIC)
+        viewModel.applyNotePicker()
+
         assertEquals(Beats.of(8), viewModel.uiState.value.selection.beatsPerNote)
+        assertEquals(NoteSet.CHROMATIC, viewModel.uiState.value.noteSet)
     }
 
     @Test
@@ -491,7 +522,7 @@ class LongToneViewModelTest {
         val settings = FakeSettingsRepository()
         settings.setNoteDisplayFor(TrainingTool.LONG_TONES, NoteDisplay.RANDOM)
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs), settings)
-        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+        viewModel.selectOnly("A4", "B4", "C5", "D5")
 
         viewModel.start()
         advanceTimeBy(countInMs + 1_000L)
@@ -513,7 +544,7 @@ class LongToneViewModelTest {
         val settings = FakeSettingsRepository()
         settings.setNoteDisplayFor(TrainingTool.LONG_TONES, NoteDisplay.RANDOM)
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs), settings)
-        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+        viewModel.selectOnly("A4", "B4", "C5", "D5")
 
         viewModel.start()
         advanceTimeBy(countInMs + 500L)
@@ -535,7 +566,7 @@ class LongToneViewModelTest {
         val settings = FakeSettingsRepository()
         settings.setNoteDisplayFor(TrainingTool.LONG_TONES, NoteDisplay.RANDOM)
         val viewModel = viewModel(FakeAudioCapture(frameDurationMs), settings)
-        viewModel.selectPattern(SequenceCatalog.stepwiseUp)
+        viewModel.selectOnly("A4", "B4", "C5", "D5")
 
         viewModel.start()
         advanceTimeBy(countInMs + 1_000L)
@@ -571,18 +602,17 @@ class LongToneViewModelTest {
     @Test
     fun `the notes chosen are kept without waiting for a run to be started`() = runTest(dispatcher) {
         // Going back throws the ViewModel away, so a choice not written down by then is lost. The
-        // notes this exercise practises are its pattern and the note it starts from; both are here.
+        // notes are kept as written, so an E flat chosen comes back an E flat.
         val setups = InMemoryExerciseSetupRepository()
         val chosen = viewModel(FakeAudioCapture(frameDurationMs), setups = setups)
-        chosen.selectPattern(SequenceCatalog.stepwiseUp)
-        chosen.selectRootNote(Note(NoteName.D, 4))
+        chosen.selectOnly("D4", "Eb4", "F4")
         chosen.selectBeatsPerNote(Beats.of(8))
         chosen.setShowNextNote(false)
 
         val opened = viewModel(FakeAudioCapture(frameDurationMs), setups = setups).uiState.value
 
-        assertEquals(SequenceCatalog.stepwiseUp, opened.selection.pattern)
-        assertEquals(Note(NoteName.D, 4), opened.selection.rootNote)
+        assertEquals(NoteSet.CUSTOM, opened.noteSet)
+        assertEquals(listOf("D4", "Eb4", "F4").map(::written), opened.selection.writtenNotes)
         assertEquals(Beats.of(8), opened.selection.beatsPerNote)
         assertFalse(opened.showNextNote)
     }
@@ -590,14 +620,12 @@ class LongToneViewModelTest {
     @Test
     fun `a new selection replaces the one before it`() = runTest(dispatcher) {
         val setups = InMemoryExerciseSetupRepository()
-        viewModel(FakeAudioCapture(frameDurationMs), setups = setups)
-            .selectRootNote(Note(NoteName.D, 4))
-        viewModel(FakeAudioCapture(frameDurationMs), setups = setups)
-            .selectRootNote(Note(NoteName.G, 4))
+        viewModel(FakeAudioCapture(frameDurationMs), setups = setups).selectOnly("D4")
+        viewModel(FakeAudioCapture(frameDurationMs), setups = setups).selectOnly("G4")
 
         val opened = viewModel(FakeAudioCapture(frameDurationMs), setups = setups).uiState.value
 
-        assertEquals(Note(NoteName.G, 4), opened.selection.rootNote)
+        assertEquals(listOf(written("G4")), opened.selection.writtenNotes)
     }
 
     @Test
@@ -642,8 +670,7 @@ class LongToneViewModelTest {
     @Test
     fun `every choice survives being written down and started again`() = runTest(dispatcher) {
         val configured = viewModel(FakeAudioCapture(frameDurationMs))
-        configured.selectPattern(SequenceCatalog.stepwiseUp)
-        configured.selectRootNote(Note(NoteName.G, 4))
+        configured.selectOnly("G4", "Ab4", "B4")
         configured.selectBeatsPerNote(Beats.of(8))
         configured.setShowNextNote(false)
         val written = configured.uiState.value.toSetup()
@@ -655,8 +682,18 @@ class LongToneViewModelTest {
     }
 
     @Test
-    fun `a setup naming no pattern is not an exercise that can be started`() = runTest(dispatcher) {
-        assertNull(longTonePresetOf(ExerciseSetup()))
+    fun `a setup that never narrowed the notes down starts on the beginner's notes`() = runTest(dispatcher) {
+        // As one written when this exercise was a pattern from a starting note is: neither is read.
+        val old = exerciseSetup {
+            put("pattern", "single-note")
+            put("root_note", 69)
+        }
+        val preset = assertNotNull(longTonePresetOf(old))
+
+        assertEquals(
+            listOf("C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"),
+            preset.notes.map { it.token },
+        )
     }
 
 

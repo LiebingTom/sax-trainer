@@ -536,6 +536,18 @@ class NoteTrainerViewModelTest {
     }
 
     @Test
+    fun `a saved ready-made set reopened to be edited is still that set`() = trainerTest {
+        val configured = viewModel()
+        configured.selectNoteSet(NoteSet.BEGINNER_PLUS)
+        val saved = configured.uiState.value.toSetup()
+
+        val edited = viewModel(preset = assertNotNull(noteTrainerPresetOf(saved, editable = true))).uiState.value
+
+        assertEquals(NoteSet.BEGINNER_PLUS, edited.noteSet, "not turned into the player's own selection")
+        assertEquals(configured.uiState.value.activeNotes, edited.activeNotes)
+    }
+
+    @Test
     fun `a setup saved before spellings were kept opens with the usual spellings`() = trainerTest {
         val old = exerciseSetup {
             put("note_set", "CUSTOM")

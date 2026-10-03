@@ -12,11 +12,11 @@ import kotlin.test.assertTrue
 
 class SequenceRunnerTest {
 
-    private val threeNotes = SequenceCatalog.stepwiseUp.build(
-        root = Note(NoteName.A, 4),
-    ).let { ToneSequence(it.steps.take(3)) }
+    private fun held(vararg notes: Note) = ToneSequence(notes.map { ToneStep(it, Beats.of(4)) })
 
-    private val singleNote = SequenceCatalog.singleNote.build(Note(NoteName.A, 4))
+    private val threeNotes = held(Note(NoteName.A, 4), Note(NoteName.B, 4), Note(NoteName.C, 5))
+
+    private val singleNote = held(Note(NoteName.A, 4))
 
     @Test
     fun `a new runner sits on the first note`() {

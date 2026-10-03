@@ -47,7 +47,7 @@ core/designsystem      theme, typography, shapes, Dimens, reusable components, t
                        the icons as ImageVector code
 core/music             Note, NoteName, Transposition, Cents, TrebleStaff placement,
                        Beats/Tempo/TimeSignature, ToneStep/ToneSequence
-core/exercise          SequenceRunner (passive cursor), ExercisePattern, SequenceCatalog,
+core/exercise          SequenceRunner (passive cursor),
                        BeatClock, PauseSwitch, count-in, NoteOrder/practiceOrder
 core/fingering         SaxKey, Fingering, FingeringChart, SaxophoneFingerings, NoteSet
 core/learning          Curriculum, LearningUnit, Lesson, LessonStep, progress
@@ -261,9 +261,10 @@ on a real dispatcher and gives the thread back.
   even when a harmonic is louder. `core:dsp` reports frequency and confidence only; cent arithmetic
   lives in `core:music` and the two are combined in the feature. Estimates below the signal gate or
   below the confidence threshold are dropped rather than displayed or averaged.
-- **Exercises are relative patterns**: a `SequenceCatalog` entry is a list of semitone offsets from
-  a root note, so transposing is a different root rather than a second definition, and "repeat" is
-  simply ten identical steps rather than a special kind of sequence.
+- **Note practices share one note selection**: Note Trainer, Note Quiz and Long Tones choose their
+  written notes in the same full-screen picker - ready-made sets, keys, library phrases and scale
+  patterns to preselect from - so a shape like ascending thirds is a scale pattern, not a catalog of
+  its own.
 - **Fingerings are keyed by written note**, which is why one chart serves the whole saxophone family.
   `core:fingering` says which keys are pressed, `SaxophoneKeyLayout` says where they are drawn, and
   `SaxophoneFingeringView` draws them - no image per note, and no visual data in the model. No two

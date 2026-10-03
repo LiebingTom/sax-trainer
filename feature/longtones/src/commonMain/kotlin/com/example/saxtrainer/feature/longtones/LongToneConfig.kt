@@ -3,12 +3,10 @@ package com.example.saxtrainer.feature.longtones
 import com.example.saxtrainer.core.audio.capture.AudioCaptureConfig
 import com.example.saxtrainer.core.dsp.pitch.YinConfig
 import com.example.saxtrainer.core.dsp.spectrum.SpectrumConfig
-import com.example.saxtrainer.core.exercise.ExercisePattern
 import com.example.saxtrainer.core.exercise.HeldNote
-import com.example.saxtrainer.core.exercise.SequenceCatalog
+import com.example.saxtrainer.core.fingering.FingeringChart
+import com.example.saxtrainer.core.fingering.SaxophoneFingerings
 import com.example.saxtrainer.core.music.Beats
-import com.example.saxtrainer.core.music.Note
-import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.Tempo
 
 /**
@@ -46,11 +44,11 @@ data class LongToneConfig(
     val offTargetCents: Float = 100f,
     /** Half width of the cents meter. */
     val centsDisplayRange: Float = 50f,
-    /** Range offered as a starting note; the exercise itself may reach above it. */
-    val lowestNote: Note = Note(NoteName.C, 3),
-    val highestNote: Note = Note(NoteName.C, 5),
-    val defaultRoot: Note = SequenceCatalog.defaultRoot,
-    val defaultPattern: ExercisePattern = SequenceCatalog.singleNote,
+    /** Which notes can be chosen to hold at all: the ones the horn has a fingering for. */
+    val chart: FingeringChart = SaxophoneFingerings,
 ) {
     val beatChoices: List<Beats> get() = beatOptions.map(Beats::of)
+
+    /** How long each note is held until the player chooses otherwise: the shortest choice. */
+    val defaultBeatsPerNote: Beats get() = beatChoices.first()
 }

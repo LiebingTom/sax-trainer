@@ -82,50 +82,77 @@ private fun noteGroupUnit(
 
 /**
  * The three ways a set of notes is learned, in order: name and grip them, play them, hold them.
- * Every unit built on a set of notes starts with these, the blues units included.
+ * Every unit built on a set of notes starts with these, or with its own choice of them.
  */
 internal fun noteLessons(id: String, notes: List<SpelledNote>): List<Lesson> = listOf(
-        Lesson(
-            id = LessonId("$id-quiz"),
-            title = "Name and grip them",
-            subtitle = "$QUIZ_QUESTIONS questions: the name and the fingering",
-            steps = listOf(
-                noteQuizStep(
-                    QuizPreset(
-                        notes = notes,
-                        mode = QuizMode.NOTE_AND_FINGERING,
-                        questionCount = QUIZ_QUESTIONS,
-                    ),
-                ),
+    quizLesson(id, notes),
+    playLesson(id, notes),
+    holdLesson(id, notes),
+)
+
+/** Name and grip [notes]: a quiz of [QUIZ_QUESTIONS] questions. */
+internal fun quizLesson(
+    id: String,
+    notes: List<SpelledNote>,
+    lessonId: String = "$id-quiz",
+    title: String = "Name and grip them",
+    subtitle: String = "$QUIZ_QUESTIONS questions: the name and the fingering",
+) = Lesson(
+    id = LessonId(lessonId),
+    title = title,
+    subtitle = subtitle,
+    steps = listOf(
+        noteQuizStep(
+            QuizPreset(
+                notes = notes,
+                mode = QuizMode.NOTE_AND_FINGERING,
+                questionCount = QUIZ_QUESTIONS,
             ),
         ),
-        Lesson(
-            id = LessonId("$id-play"),
-            title = "Play them",
-            subtitle = "$TRAINER_ROUNDS rounds, each note held for 2 beats",
-            steps = listOf(
-                noteTrainerStep(
-                    NoteTrainerPreset(
-                        notes = notes,
-                        order = NoteOrder.RANDOM,
-                        rounds = TRAINER_ROUNDS,
-                        showFingeringHint = false,
-                        holdBeats = TRAINER_HOLD,
-                    ),
-                ),
+    ),
+)
+
+/** Play [notes] in the trainer, in random order, [rounds] times through. */
+internal fun playLesson(
+    id: String,
+    notes: List<SpelledNote>,
+    lessonId: String = "$id-play",
+    title: String = "Play them",
+    rounds: Int = TRAINER_ROUNDS,
+    subtitle: String = "$rounds rounds, each note held for 2 beats",
+) = Lesson(
+    id = LessonId(lessonId),
+    title = title,
+    subtitle = subtitle,
+    steps = listOf(
+        noteTrainerStep(
+            NoteTrainerPreset(
+                notes = notes,
+                order = NoteOrder.RANDOM,
+                rounds = rounds,
+                showFingeringHint = false,
+                holdBeats = TRAINER_HOLD,
             ),
         ),
-        Lesson(
-            id = LessonId("$id-long-tones"),
-            title = "Hold them",
-            subtitle = "One round of long tones, each note held for 8 beats",
-            steps = listOf(
-                longToneStep(
-                    LongTonePreset(
-                        notes = notes,
-                        beatsPerNote = LONG_TONE_BEATS,
-                    ),
-                ),
+    ),
+)
+
+/** Hold each of [notes] once as a long tone. */
+internal fun holdLesson(
+    id: String,
+    notes: List<SpelledNote>,
+    title: String = "Hold them",
+    subtitle: String = "One round of long tones, each note held for 8 beats",
+) = Lesson(
+    id = LessonId("$id-long-tones"),
+    title = title,
+    subtitle = subtitle,
+    steps = listOf(
+        longToneStep(
+            LongTonePreset(
+                notes = notes,
+                beatsPerNote = LONG_TONE_BEATS,
             ),
         ),
+    ),
 )

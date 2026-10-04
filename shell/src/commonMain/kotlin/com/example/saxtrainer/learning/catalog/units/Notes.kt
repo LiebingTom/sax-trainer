@@ -49,7 +49,16 @@ internal val CHROMATIC_SHARPS: List<SpelledNote> = CHROMATIC_RANGE
  * The same pitches, every black key written both ways - C sharp and D flat, D sharp and E flat - as
  * two notes to read. White keys are written plain, never as E sharp or C flat.
  */
-internal val CHROMATIC_SHARPS_AND_FLATS: List<SpelledNote> = CHROMATIC_RANGE
+internal val CHROMATIC_SHARPS_AND_FLATS: List<SpelledNote> = bothSpellings(CHROMATIC_RANGE)
+
+/**
+ * Every half step from C4 to C6 and no further, the black keys written both ways: what the blues
+ * keys after A need, whose blue notes are D flat and A flat as often as C sharp and G sharp.
+ */
+internal val HALF_STEPS_TWO_OCTAVES: List<SpelledNote> = bothSpellings(Note.range(LOW_C, TOP_C))
+
+/** [pitches] with every black key written as a sharp and as a flat, white keys plain, low to high. */
+private fun bothSpellings(pitches: List<Note>): List<SpelledNote> = pitches
     .flatMap { pitch ->
         listOf(SpelledNote.of(pitch, AccidentalStyle.SHARPS), SpelledNote.of(pitch, AccidentalStyle.FLATS)).distinct()
     }

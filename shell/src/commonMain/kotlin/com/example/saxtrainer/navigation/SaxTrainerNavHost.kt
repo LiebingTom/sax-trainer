@@ -2,8 +2,11 @@ package com.example.saxtrainer.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
@@ -24,7 +27,7 @@ import com.example.saxtrainer.core.learning.LessonStep
 import com.example.saxtrainer.core.learning.TrainerId
 import com.example.saxtrainer.core.settings.Exercise
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
-import com.example.saxtrainer.core.settings.InMemoryExerciseSetupRepository
+import com.example.saxtrainer.core.settings.ScopedExerciseSetups
 import com.example.saxtrainer.feature.learning.LearningRoute
 import com.example.saxtrainer.feature.longtones.LongToneRoute
 import com.example.saxtrainer.feature.lexicon.LexiconRoute
@@ -57,6 +60,7 @@ import com.example.saxtrainer.learning.catalog.steps.phraseTrainerPresetOf
 import com.example.saxtrainer.learning.catalog.steps.sequenceOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.sequencePresetOf
 import com.example.saxtrainer.learning.savedLessonIdOf
+import com.example.saxtrainer.learning.lessonStepOf
 import com.example.saxtrainer.learning.userUnitsOf
 
 /**
@@ -91,9 +95,11 @@ fun SaxTrainerNavHost(
     }
 
     // A lesson opened to be edited is played the player's way without being changed: the edits
-    // live here, and only "Add to your lessons" turns them into something kept. Held by the graph
-    // rather than by the trainer's destination, because that is the screen the edits are read from.
-    val lessonEdits = remember { InMemoryExerciseSetupRepository() }
+    // live here, one setup per lesson step, and only "Add to your lessons" turns them into
+    // something kept. Held by the graph rather than by the trainer's destination, so the lesson's
+    // own card starts with them too until Home is reached again; saveable, so they outlast the app
+    // being closed in the background while the phone is locked.
+    val lessonEdits = rememberSaveable(saver = LessonEditsSaver) { ScopedExerciseSetups() }
 
     NavHost(
         navController = navController,
@@ -101,6 +107,8 @@ fun SaxTrainerNavHost(
         modifier = modifier,
     ) {
         composable(SaxTrainerDestination.HOME) {
+            // Back home is leaving the lessons: edits made to try a lesson differently end here.
+            LaunchedEffect(Unit) { lessonEdits.clear() }
             // Read straight off the settings rather than through a view model of its own: what is
             // starred is one set that every screen showing it has to agree about, and it is already
             // kept where every other preference is.
@@ -169,7 +177,7 @@ fun SaxTrainerNavHost(
             } else {
                 AddToLessonsScreen(
                     book = book,
-                    setup = (if (edited) lessonEdits else container.exerciseSetups).setupOf(exercise),
+                    setup = (if (edited) lessonEdits.latestByExercise else container.exerciseSetups).setupOf(exercise),
                     trainerId = trainerFor(exercise).name,
                     onSave = { updated ->
                         container.userLessons.write(updated)
@@ -417,6 +425,8 @@ private fun NavHostController.editLesson(curriculum: Curriculum, id: LessonId) {
  */
 private class LessonStepScope(
     val lesson: Lesson?,
+    /** The step being run: as the lesson writes it, or as the player last edited it. */
+    val step: LessonStep?,
     val stepIndex: Int,
     val editing: Boolean,
     /**
@@ -434,7 +444,7 @@ private class LessonStepScope(
 ) {
     /** The step being run, as one trainer's own configuration. */
     fun <T> stepOf(presetOf: (LessonStep) -> T?): T? =
-        lesson?.stepAt(stepIndex)?.let(presetOf)
+        step?.let(presetOf)
 
     /**
      * Where "Add to your lessons" goes, or null where it has no business being offered: a lesson
@@ -469,7 +479,7 @@ private fun NavGraphBuilder.lessonStep(
     pattern: String,
     container: AppContainer,
     curriculum: Curriculum,
-    lessonEdits: ExerciseSetupRepository,
+    lessonEdits: ScopedExerciseSetups,
     navController: NavHostController,
     content: @Composable (LessonStepScope) -> Unit,
 ) {
@@ -499,7 +509,14 @@ private fun NavGraphBuilder.lessonStep(
         val currentRoute = entry.destination.route ?: pattern
         val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
 
-        val setups = if (editing) lessonEdits else container.exerciseSetups
+        // The step as the player last edited it, where they did: the lesson's card starts with
+        // those edits as well, but a run of them is a try rather than an attempt, as in editing.
+        val scope = lessonId?.let { editScopeOf(it, stepIndex) }
+        val written = lesson?.stepAt(stepIndex)
+        val edited = scope?.let(lessonEdits::setupOf)?.takeUnless { it.isEmpty }
+            ?.let { setup -> written?.let { lessonStepOf(it.trainerId, setup)?.copy(title = it.title) } }
+            ?.takeIf { it != written }
+        val setups = if (editing && scope != null) lessonEdits.repositoryFor(scope) else container.exerciseSetups
 
         // Every screen of the step says which lesson it belongs to; the trainer draws it without
         // knowing it is in one.
@@ -508,6 +525,7 @@ private fun NavGraphBuilder.lessonStep(
             content(
                 LessonStepScope(
                     lesson = lesson,
+                    step = edited ?: written,
                     stepIndex = stepIndex,
                     editing = editing,
                     exerciseSetups = setups,
@@ -515,7 +533,7 @@ private fun NavGraphBuilder.lessonStep(
                 ) { outcome ->
                     // An edited lesson is a try rather than an attempt: it was not the lesson as it
                     // is written, so it says nothing about whether the lesson was done.
-                    if (!editing && lessonId != null && lesson != null) {
+                    if (!editing && edited == null && lessonId != null && lesson != null) {
                         navController.finishStep(
                             container = container,
                             lesson = lesson,
@@ -590,3 +608,12 @@ private fun routeForStep(lesson: Lesson, stepIndex: Int, edit: Boolean = false):
         TrainerId.FINGERING_LEXICON -> SaxTrainerDestination.FINGERING_LEXICON
         null -> null
     }
+
+/** Where the edits to one step of one lesson are kept. */
+private fun editScopeOf(lessonId: LessonId, stepIndex: Int): String = "${lessonId.value}#$stepIndex"
+
+/** Carries the lesson edits across the app being recreated, as the platform keeps saved state. */
+private val LessonEditsSaver: Saver<ScopedExerciseSetups, ArrayList<String>> = Saver(
+    save = { it.save() },
+    restore = { ScopedExerciseSetups.restore(it) },
+)

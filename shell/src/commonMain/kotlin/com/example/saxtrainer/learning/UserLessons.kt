@@ -79,8 +79,15 @@ private fun lessonOf(saved: UserLesson): Lesson? {
 
 private fun stepOf(saved: UserLesson): LessonStep? {
     val trainer = TrainerId.entries.firstOrNull { it.name == saved.trainerId } ?: return null
-    val setup: ExerciseSetup = saved.setup
+    return lessonStepOf(trainer, saved.setup)
+}
 
+/**
+ * A stored setup as a step of [trainer], or null where it does not describe one this build can
+ * run. How a saved practice becomes a lesson, and how a lesson step the player edited is run again
+ * the way they left it.
+ */
+fun lessonStepOf(trainer: TrainerId, setup: ExerciseSetup): LessonStep? {
     return when (trainer) {
         TrainerId.NOTE_TRAINER -> noteTrainerPresetOf(setup)?.let(::noteTrainerStep)
         TrainerId.NOTE_QUIZ -> quizPresetOf(setup)?.let(::noteQuizStep)

@@ -7,6 +7,7 @@ import com.example.saxtrainer.core.settings.UserLessonBook
 import com.example.saxtrainer.core.settings.exerciseSetup
 import com.example.saxtrainer.core.settings.plusGroup
 import com.example.saxtrainer.core.settings.plusLesson
+import com.example.saxtrainer.feature.notequiz.QuizMode
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
 import kotlin.test.Test
@@ -188,4 +189,20 @@ class UserLessonsTest {
         }
     }
 
+    @Test
+    fun `an edited lesson step is run again as it was edited`() {
+        // What the quiz's setup screen writes when the player switches to naming the note and
+        // allows alternate fingerings - the edit that used to be lost after the app was closed.
+        val edited = exerciseSetup {
+            put("note_set", "CUSTOM")
+            putInts("custom_notes", listOf(60, 62, 64))
+            put("mode", QuizMode.NOTE_TO_NAME.name)
+            put("all_fingerings", true)
+        }
+
+        val preset = assertNotNull(noteQuizPresetOf(assertNotNull(lessonStepOf(TrainerId.NOTE_QUIZ, edited))))
+
+        assertEquals(QuizMode.NOTE_TO_NAME, preset.mode)
+        assertTrue(preset.allFingerings)
+    }
 }

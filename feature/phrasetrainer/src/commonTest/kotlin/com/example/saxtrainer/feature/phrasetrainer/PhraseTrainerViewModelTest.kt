@@ -303,6 +303,50 @@ class PhraseTrainerViewModelTest {
     }
 
     @Test
+    fun `every round of a repeated run has a unit to show`() = trainerTest {
+        val viewModel = viewModel()
+        viewModel.selectScaleChoice("c_major")
+        viewModel.selectPattern(TestPatterns.WALK_ID)
+        viewModel.selectRepeats(3)
+
+        viewModel.start()
+        val state = viewModel.uiState.value
+        viewModel.stop()
+
+        // The screen looks a shown or played unit up by its index in the run, and the run is three
+        // passes long: every index of every round has to find one, not only the first pass's.
+        assertEquals(state.units.size * 3, state.runUnits.size)
+        assertEquals(state.units + state.units + state.units, state.runUnits)
+    }
+
+    @Test
+    fun `a mixed run shows the unit that is being played`() = trainerTest {
+        val microphone = FakeMicrophone(FRAME_DURATION_MS)
+        val viewModel = viewModel(microphone = microphone, random = Random(7))
+        viewModel.selectScaleChoice("c_major")
+        viewModel.selectPattern(TestPatterns.WALK_ID)
+        viewModel.selectRepeats(2)
+        viewModel.setMixed(true)
+
+        viewModel.start()
+        advanceTimeBy(5_000) // past the count-in and the first unit's showing
+
+        val state = viewModel.uiState.value
+        viewModel.stop()
+
+        assertEquals(state.units.size * 2, state.runUnits.size)
+        assertEquals(
+            (state.units + state.units).groupingBy { it }.eachCount(),
+            state.runUnits.groupingBy { it }.eachCount(),
+            "a mixed run is the same units in another order",
+        )
+        val progress = assertNotNull(state.progress)
+        val phrase = assertNotNull(state.phrase)
+        val shown = phrase.toneSequenceOf(state.runUnits[progress.unitIndex]).steps.mapNotNull { it.note }
+        assertEquals(shown.first(), progress.currentNote?.note, "the note asked for is the shown unit's")
+    }
+
+    @Test
     fun `the preview time is clamped to the offered range`() = trainerTest {
         val viewModel = viewModel()
 

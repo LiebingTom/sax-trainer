@@ -310,7 +310,7 @@ private fun SourceButton(text: String, selected: Boolean, onClick: () -> Unit, m
 @Composable
 private fun ShowingSubject(state: PhraseTrainerUiState, phase: PhraseTrainerPhase.Showing) {
     val phrase = state.phrase ?: return
-    val unit = state.units.getOrNull(phase.unitIndex) ?: return
+    val unit = state.runUnits.getOrNull(phase.unitIndex) ?: return
     BoundedMusicalPage(
         sequence = phrase.toneSequenceOf(unit),
         modifier = Modifier.fillMaxWidth(),
@@ -328,7 +328,7 @@ private fun ShowingSubject(state: PhraseTrainerUiState, phase: PhraseTrainerPhas
 @Composable
 private fun PlayingSubject(state: PhraseTrainerUiState) {
     val phrase = state.phrase ?: return
-    val unit = state.progress?.let { state.units.getOrNull(it.unitIndex) } ?: return
+    val unit = state.progress?.let { state.runUnits.getOrNull(it.unitIndex) } ?: return
     BoundedMusicalPage(
         sequence = phrase.toneSequenceOf(unit),
         modifier = Modifier.fillMaxWidth(),

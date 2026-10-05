@@ -173,7 +173,7 @@ class PhraseTrainerViewModel(
         rememberSetup(state)
         pause.resume()
         skipRequested = false
-        _uiState.value = _uiState.value.copy(isPaused = false)
+        _uiState.value = _uiState.value.copy(isPaused = false, runUnits = units)
         exerciseJob = viewModelScope.launch(processingDispatcher) { runExercise(units) }
     }
 

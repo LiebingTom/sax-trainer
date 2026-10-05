@@ -129,6 +129,12 @@ data class PhraseTrainerUiState(
     val noteNaming: NoteNaming = NoteNaming.INTERNATIONAL,
     val octaveNumbering: OctaveNumbering = OctaveNumbering.SCIENTIFIC,
     val progress: PhraseTrainerProgress? = null,
+    /**
+     * The units of the run being played, in the order they come: [units] repeated, and shuffled
+     * when [mixed]. What a unit index in [PhraseTrainerPhase.Showing] or [progress] counts into -
+     * not [units], which is one pass through the phrase in order.
+     */
+    val runUnits: List<PracticeUnit> = emptyList(),
     /** Set only by a preset that is not being edited: the phrase to run, bypassing setup entirely. */
     val presetPhrase: Phrase? = null,
     /** True when a lesson handed the trainer a ready-made run, so there is no setup to show. */

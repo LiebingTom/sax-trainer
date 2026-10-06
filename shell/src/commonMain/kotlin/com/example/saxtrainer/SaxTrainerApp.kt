@@ -13,6 +13,8 @@ import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.settings.ThemeMode
 import com.example.saxtrainer.feature.settings.seed
 import com.example.saxtrainer.navigation.SaxTrainerNavHost
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 /**
  * The whole application, from the theme down.
@@ -31,6 +33,8 @@ fun SaxTrainerApp(
     container: AppContainer,
     modifier: Modifier = Modifier,
     onAppearanceChanged: (darkTheme: Boolean, background: Color) -> Unit = { _, _ -> },
+    /** Requests from outside the screens to open the reed logbook - see [SaxTrainerNavHost]. */
+    reedLogbookRequests: Flow<Unit> = emptyFlow(),
 ) {
     val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
     val darkTheme = when (settings.themeMode) {
@@ -44,6 +48,10 @@ fun SaxTrainerApp(
         val notify by rememberUpdatedState(onAppearanceChanged)
         LaunchedEffect(darkTheme, background) { notify(darkTheme, background) }
 
-        SaxTrainerNavHost(container = container, modifier = modifier)
+        SaxTrainerNavHost(
+            container = container,
+            modifier = modifier,
+            reedLogbookRequests = reedLogbookRequests,
+        )
     }
 }

@@ -96,8 +96,8 @@ fun lessonStepOf(trainer: TrainerId, setup: ExerciseSetup): LessonStep? {
         TrainerId.PHRASE_QUIZ -> phraseQuizPresetOf(setup)?.let(::phraseQuizStep)
         TrainerId.PHRASE_TRAINER -> phraseTrainerPresetOf(setup)?.let(::phraseTrainerStep)
         // A tempo is not a practice, so the metronome is not something to save - and a lookup
-        // even less so.
-        TrainerId.METRONOME, TrainerId.FINGERING_LEXICON -> null
+        // or a logbook even less so.
+        TrainerId.METRONOME, TrainerId.FINGERING_LEXICON, TrainerId.REED_LOGBOOK -> null
     }
 }
 
@@ -119,6 +119,7 @@ private fun subtitleOf(trainer: TrainerId): String = when (trainer) {
     TrainerId.PHRASE_QUIZ -> "Phrase Quiz"
     TrainerId.PHRASE_TRAINER -> "Phrase Trainer"
     TrainerId.FINGERING_LEXICON -> "Fingering Lexicon"
+    TrainerId.REED_LOGBOOK -> "Reed Logbook"
 }
 
 /** How a group of saved practices describes itself, on its card and as a unit. */

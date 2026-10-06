@@ -69,6 +69,14 @@ additional/icons/arrow_drop_down.svg -> core/designsystem/src/commonMain/kotlin/
 # The phrase quiz's option grid: takes back the last note placed.
 additional/icons/undo.svg -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Undo.kt
 
+# The Reed Logbook: add a reed, every reed so far, export the logbook, a reed's details.
+additional/icons/add_item.svg -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Add.kt
+additional/icons/history.svg  -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/History.kt
+additional/icons/export.svg   -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Export.kt
+additional/icons/info.svg     -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Info.kt
+# A stand-in for the Reed Logbook's own icon until a reed is drawn.
+additional/icons/timer_24dp_1F1F1F_FILL1_wght400_GRAD0_opsz24.svg -> core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Reeds.kt
+
 # Still hand-drawn, waiting for an SVG source. Their path data was written by hand and now
 # lives directly in the generated-looking files below; add a line above to replace one.
 #   core/designsystem/src/commonMain/kotlin/com/example/saxtrainer/core/designsystem/icon/Fingering.kt

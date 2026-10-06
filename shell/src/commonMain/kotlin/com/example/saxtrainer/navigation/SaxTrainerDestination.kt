@@ -21,6 +21,25 @@ object SaxTrainerDestination {
     /** Every note's grips, looked up rather than practised. */
     const val FINGERING_LEXICON = "lexicon"
 
+    /** The reeds in rotation, and a session to time on one. */
+    const val REED_LOGBOOK = "reeds"
+
+    /** Every reed there has been. */
+    const val REED_HISTORY = "reeds-history"
+
+    /** Adding a reed. */
+    const val REED_ADD = "reeds-add"
+
+    /** One reed and its sessions, e.g. `reed/7f3c…` - by the reed's generated id, never its number. */
+    const val REED_DETAIL = "reed/{$REED_ID_ARG}"
+
+    /** Describing one reed again. */
+    const val REED_EDIT = "reed/{$REED_ID_ARG}/edit"
+
+    fun reedDetail(reedId: String): String = "reed/$reedId"
+
+    fun reedEdit(reedId: String): String = "reed/$reedId/edit"
+
     /** The whole catalogue of practice tools, and the only place a tool can be starred. */
     const val PRACTICE = "practice"
 
@@ -106,6 +125,7 @@ object SaxTrainerDestination {
 
 const val UNIT_ID_ARG = "unitId"
 const val GROUP_ID_ARG = "groupId"
+const val REED_ID_ARG = "reedId"
 const val LESSON_ARG = "lesson"
 const val STEP_ARG = "step"
 const val EXERCISE_ARG = "exercise"

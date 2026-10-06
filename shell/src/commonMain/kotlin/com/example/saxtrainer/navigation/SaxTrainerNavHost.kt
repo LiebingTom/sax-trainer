@@ -17,6 +17,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.savedstate.read
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import com.example.saxtrainer.AppContainer
 import com.example.saxtrainer.core.designsystem.component.LocalScreenTrail
 import com.example.saxtrainer.core.learning.Curriculum
@@ -31,6 +33,11 @@ import com.example.saxtrainer.core.settings.ScopedExerciseSetups
 import com.example.saxtrainer.feature.learning.LearningRoute
 import com.example.saxtrainer.feature.longtones.LongToneRoute
 import com.example.saxtrainer.feature.lexicon.LexiconRoute
+import com.example.saxtrainer.feature.reedlogbook.ReedDetailRoute
+import com.example.saxtrainer.feature.reedlogbook.ReedEditRoute
+import com.example.saxtrainer.feature.reedlogbook.ReedHistoryRoute
+import com.example.saxtrainer.feature.reedlogbook.ReedLogbookRoute
+import com.example.saxtrainer.feature.reedlogbook.ReedSessionTileRoute
 import com.example.saxtrainer.feature.metronome.MetronomeRoute
 import com.example.saxtrainer.feature.metronome.MetronomeSetupRoute
 import com.example.saxtrainer.feature.notequiz.QuizRoute
@@ -47,6 +54,7 @@ import com.example.saxtrainer.home.MyLessonsScreen
 import com.example.saxtrainer.home.PracticeScreen
 import com.example.saxtrainer.home.learningEntriesOf
 import com.example.saxtrainer.home.practiceIconOf
+import com.example.saxtrainer.home.showsReedSessionTile
 import com.example.saxtrainer.learning.catalog.steps.longToneOutcomeOf
 import com.example.saxtrainer.learning.catalog.steps.longTonePresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizOutcomeOf
@@ -84,8 +92,19 @@ fun SaxTrainerNavHost(
     container: AppContainer,
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
+    /**
+     * Asks for the reed logbook to be opened from outside the app's screens - the running session's
+     * notification being tapped. Each value is one request.
+     */
+    reedLogbookRequests: Flow<Unit> = emptyFlow(),
 ) {
     val book by container.userLessons.book.collectAsStateWithLifecycle()
+
+    LaunchedEffect(reedLogbookRequests) {
+        reedLogbookRequests.collect {
+            navController.navigate(SaxTrainerDestination.REED_LOGBOOK) { launchSingleTop = true }
+        }
+    }
 
     // One curriculum for everything the app can teach, whoever wrote it. Built here rather than
     // held in the container because the player's half of it changes while the app is running, and
@@ -113,9 +132,21 @@ fun SaxTrainerNavHost(
             // starred is one set that every screen showing it has to agree about, and it is already
             // kept where every other preference is.
             val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
+            val reeds by container.reedLogbook.logbook.collectAsStateWithLifecycle()
+            val showReedTile = showsReedSessionTile(settings.favorites, reeds.runningSession != null)
             HomeScreen(
                 onEntryClick = { route -> navController.navigate(route) },
                 favorites = settings.favorites,
+                favoritesTile = if (!showReedTile) null else {
+                    {
+                        ReedSessionTileRoute(
+                            repository = container.reedLogbook,
+                            sessions = container.reedSessions,
+                            onOpen = { navController.navigate(SaxTrainerDestination.REED_LOGBOOK) },
+                            onAdd = { navController.navigate(SaxTrainerDestination.REED_ADD) },
+                        )
+                    }
+                },
             )
         }
         composable(SaxTrainerDestination.PRACTICE) {
@@ -194,6 +225,64 @@ fun SaxTrainerNavHost(
                 isFavorite = TrainerId.METRONOME.name in settings.favorites,
                 onToggleFavorite = { wanted -> container.star(TrainerId.METRONOME, wanted) },
                 onStart = { navController.navigate(SaxTrainerDestination.METRONOME) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(SaxTrainerDestination.REED_LOGBOOK) {
+            val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
+            ReedLogbookRoute(
+                repository = container.reedLogbook,
+                sessions = container.reedSessions,
+                onAdd = { navController.navigate(SaxTrainerDestination.REED_ADD) },
+                onHistory = { navController.navigate(SaxTrainerDestination.REED_HISTORY) },
+                onOpenReed = { id -> navController.navigate(SaxTrainerDestination.reedDetail(id)) },
+                isFavorite = TrainerId.REED_LOGBOOK.name in settings.favorites,
+                onToggleFavorite = { wanted -> container.star(TrainerId.REED_LOGBOOK, wanted) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(SaxTrainerDestination.REED_HISTORY) {
+            ReedHistoryRoute(
+                repository = container.reedLogbook,
+                onOpenReed = { id -> navController.navigate(SaxTrainerDestination.reedDetail(id)) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(SaxTrainerDestination.REED_ADD) {
+            ReedEditRoute(
+                repository = container.reedLogbook,
+                reedId = null,
+                // The new reed's page in place of the form, so Back from it returns to the logbook.
+                onSaved = { id ->
+                    navController.navigate(SaxTrainerDestination.reedDetail(id)) {
+                        popUpTo(SaxTrainerDestination.REED_ADD) { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = SaxTrainerDestination.REED_DETAIL,
+            arguments = listOf(navArgument(REED_ID_ARG) { type = NavType.StringType }),
+        ) { entry ->
+            val reedId = entry.arguments?.read { getStringOrNull(REED_ID_ARG) }.orEmpty()
+            ReedDetailRoute(
+                repository = container.reedLogbook,
+                sessions = container.reedSessions,
+                reedId = reedId,
+                onEdit = { navController.navigate(SaxTrainerDestination.reedEdit(reedId)) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = SaxTrainerDestination.REED_EDIT,
+            arguments = listOf(navArgument(REED_ID_ARG) { type = NavType.StringType }),
+        ) { entry ->
+            val reedId = entry.arguments?.read { getStringOrNull(REED_ID_ARG) }.orEmpty()
+            ReedEditRoute(
+                repository = container.reedLogbook,
+                reedId = reedId,
+                onSaved = { navController.popBackStack() },
                 onBack = { navController.popBackStack() },
             )
         }
@@ -606,6 +695,7 @@ private fun routeForStep(lesson: Lesson, stepIndex: Int, edit: Boolean = false):
         // is simply opened.
         TrainerId.METRONOME -> SaxTrainerDestination.METRONOME
         TrainerId.FINGERING_LEXICON -> SaxTrainerDestination.FINGERING_LEXICON
+        TrainerId.REED_LOGBOOK -> SaxTrainerDestination.REED_LOGBOOK
         null -> null
     }
 

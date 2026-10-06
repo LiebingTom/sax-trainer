@@ -11,6 +11,7 @@ import com.example.saxtrainer.core.designsystem.icon.MyLessons
 import com.example.saxtrainer.core.designsystem.icon.NoteQuiz
 import com.example.saxtrainer.core.designsystem.icon.NoteTrainer
 import com.example.saxtrainer.core.designsystem.icon.Practice
+import com.example.saxtrainer.core.designsystem.icon.Reeds
 import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
 import com.example.saxtrainer.core.designsystem.icon.Sequence
 import com.example.saxtrainer.core.designsystem.icon.Settings
@@ -138,6 +139,16 @@ private val fingeringLexicon = HomeEntry(
     trainerId = TrainerId.FINGERING_LEXICON,
 )
 
+private val reedLogbook = HomeEntry(
+    id = "reeds",
+    title = "Reed Logbook",
+    description = "Which reed, how long, and what became of it.",
+    // A stand-in until a reed icon is drawn.
+    icon = IconSource.Vector(SaxTrainerIcons.Reeds),
+    route = SaxTrainerDestination.REED_LOGBOOK,
+    trainerId = TrainerId.REED_LOGBOOK,
+)
+
 /**
  * The practice tools, grouped by the skill they train.
  *
@@ -150,6 +161,7 @@ val practiceGroups: List<HomeGroup> = listOf(
     HomeGroup("Play your notes", listOf(noteTrainer, longTones)),
     HomeGroup("Play in time", listOf(sequence, metronome)),
     HomeGroup("Play a phrase", listOf(phraseTrainer, phraseQuiz)),
+    HomeGroup("Look after your reeds", listOf(reedLogbook)),
 )
 
 /**
@@ -175,6 +187,20 @@ fun favoriteEntriesOf(
 ): List<HomeEntry> = practice
     .flatMap { it.entries }
     .filter { it.trainerId != null && it.trainerId.name in favorites }
+
+/**
+ * The starred tools drawn as squares: all of them but the reed logbook, which is drawn as its
+ * session tile instead - see [showsReedSessionTile].
+ */
+fun squareFavoritesOf(starred: List<HomeEntry>): List<HomeEntry> =
+    starred.filterNot { it.trainerId == TrainerId.REED_LOGBOOK }
+
+/**
+ * Whether the landing page shows the reed session tile: when the logbook is starred, and whenever a
+ * session is running, starred or not - a clock that is running is never hidden.
+ */
+fun showsReedSessionTile(favorites: Set<String>, sessionRunning: Boolean): Boolean =
+    sessionRunning || TrainerId.REED_LOGBOOK.name in favorites
 
 /** The two lists and the settings: everything the landing page offers besides a starred tool. */
 val appEntries: List<HomeEntry> = listOf(

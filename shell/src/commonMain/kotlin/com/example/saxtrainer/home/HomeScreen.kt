@@ -27,6 +27,10 @@ import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
  * then the catalogue, the curriculum and the settings. [favorites] holds the names of the starred
  * tools and is resolved against the catalogue here, so the cards can only ever be tools that exist.
  *
+ * [favoritesTile] is drawn above the squares, the width of the page: the reed session, when there is
+ * one to show. A slot rather than a feature of this screen, so the landing page knows nothing about
+ * reeds.
+ *
  * No permission is requested here - the microphone is only requested inside the tool that needs it.
  */
 @Composable
@@ -36,8 +40,9 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     practice: List<HomeGroup> = practiceGroups,
     app: List<HomeEntry> = appEntries,
+    favoritesTile: (@Composable () -> Unit)? = null,
 ) {
-    val starred = favoriteEntriesOf(favorites, practice)
+    val starred = squareFavoritesOf(favoriteEntriesOf(favorites, practice))
 
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         LazyColumn(
@@ -51,11 +56,12 @@ fun HomeScreen(
         ) {
             item { HomeHeader() }
             item { SectionHeader("Favorites") }
-            if (starred.isEmpty()) {
+            if (favoritesTile != null) item { favoritesTile() }
+            if (starred.isEmpty() && favoritesTile == null) {
                 // One line rather than an empty card: nothing starred is an ordinary state on a
                 // fresh install, and it should cost a sentence, not a screenful.
                 item { FavoritesHint() }
-            } else {
+            } else if (starred.isNotEmpty()) {
                 // Squares, icon only: these are the tools the player reaches for daily and knows
                 // by sight, so a row of them says more at a glance than a list of cards.
                 item {

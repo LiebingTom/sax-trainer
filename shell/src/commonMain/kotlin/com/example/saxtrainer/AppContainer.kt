@@ -11,6 +11,9 @@ import com.example.saxtrainer.core.phrase.PatternCatalog
 import com.example.saxtrainer.core.phrase.PatternLibrary
 import com.example.saxtrainer.core.phrase.PhraseCatalog
 import com.example.saxtrainer.core.phrase.PhraseLibrary
+import com.example.saxtrainer.core.reed.InMemoryReedLogbookRepository
+import com.example.saxtrainer.core.reed.ReedLogbookRepository
+import com.example.saxtrainer.core.reed.ReedSessions
 import com.example.saxtrainer.core.settings.ExerciseSetupRepository
 import com.example.saxtrainer.core.settings.InMemoryUserLessonRepository
 import com.example.saxtrainer.core.settings.SettingsRepository
@@ -45,8 +48,19 @@ class AppContainer(
     val phraseCatalog: PhraseCatalog = PhraseLibrary,
     /** Where a stored scale pattern is looked up by id, for the same two trainers. */
     val patternCatalog: PatternCatalog = PatternLibrary,
+    /**
+     * The player's reeds and every session played on them. Defaulted like [userLessons]: without a
+     * store the logbook works and forgets when the app closes.
+     */
+    val reedLogbook: ReedLogbookRepository = InMemoryReedLogbookRepository(),
 ) {
     val curriculum: Curriculum = curriculum
+
+    /**
+     * The one way a reed session is started and stopped - by the logbook, the tile on the landing
+     * page and, on Android, the notification alike.
+     */
+    val reedSessions: ReedSessions = ReedSessions(reedLogbook)
 
     /**
      * Progress lasts as long as the app runs. A persistent implementation belongs beside whatever

@@ -72,6 +72,7 @@ include(":core:fingering")
 include(":core:learning")
 include(":core:audio")
 include(":core:settings")
+include(":core:reed")
 include(":core:testing")
 include(":feature:metronome")
 include(":feature:lexicon")
@@ -85,6 +86,7 @@ include(":feature:notetrainer")
 include(":feature:phrasequiz")
 include(":feature:phrasetrainer")
 include(":feature:settings")
+include(":feature:reedlogbook")
 
 // The web audio bench: a developer page over the production :core:audio web chain, for putting a
 // real instrument through it. Not part of the app; see probe/build.gradle.kts.

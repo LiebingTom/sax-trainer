@@ -64,4 +64,18 @@ class FavoriteEntriesTest {
         // so cannot be reached by a favorite whatever is stored.
         assertTrue(appEntries.all { it.trainerId == null })
     }
+
+    @Test
+    fun `a starred reed logbook is drawn as its session tile rather than a square`() {
+        val starred = favoriteEntriesOf(setOf(TrainerId.REED_LOGBOOK.name, TrainerId.NOTE_QUIZ.name))
+
+        assertEquals(listOf(TrainerId.NOTE_QUIZ), squareFavoritesOf(starred).map { it.trainerId })
+        assertTrue(showsReedSessionTile(setOf(TrainerId.REED_LOGBOOK.name), sessionRunning = false))
+    }
+
+    @Test
+    fun `a running reed session is shown whether the logbook is starred or not`() {
+        assertTrue(showsReedSessionTile(emptySet(), sessionRunning = true))
+        assertEquals(false, showsReedSessionTile(emptySet(), sessionRunning = false))
+    }
 }

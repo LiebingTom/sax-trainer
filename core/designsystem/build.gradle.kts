@@ -33,8 +33,8 @@ kotlin {
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         compilerOptions {
-            // KeepScreenOn.wasmJs.kt is the only JavaScript interop in this module; opting in once
-            // beats annotating every declaration. The marker does not exist on the Android target,
+            // KeepScreenOn.wasmJs.kt and TextFileSaver.wasmJs.kt are the only JavaScript interop in
+            // this module; opting in once beats annotating every declaration. The marker does not exist on the Android target,
             // so it is set on this one rather than on both - see :core:audio for the same choice.
             optIn.add("kotlin.js.ExperimentalWasmJsInterop")
         }
@@ -72,6 +72,10 @@ kotlin {
             // preview imports are the same ones the module already had. Not `api`: the previews
             // are this module's own, not part of what it offers.
             implementation(libs.compose.ui.tooling.preview)
+        }
+        androidMain.dependencies {
+            // The system's save dialog, for TextFileSaver - and nothing else.
+            implementation(libs.androidx.activity.compose)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

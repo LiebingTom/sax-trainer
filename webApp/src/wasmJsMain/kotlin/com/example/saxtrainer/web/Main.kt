@@ -9,6 +9,7 @@ import com.example.saxtrainer.SaxTrainerApp
 import com.example.saxtrainer.core.audio.capture.WebAudioCapture
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
 import com.example.saxtrainer.core.audio.metronome.WebMetronome
+import com.example.saxtrainer.core.reed.LocalStorageReedLogbookRepository
 import com.example.saxtrainer.core.settings.LocalStorageExerciseSetupRepository
 import com.example.saxtrainer.core.settings.LocalStorageSettingsRepository
 import com.example.saxtrainer.core.settings.LocalStorageUserLessonRepository
@@ -39,6 +40,7 @@ internal fun webContainer(): AppContainer = AppContainer(
     audioCapture = WebAudioCapture(),
     newMetronome = MetronomeFactory { WebMetronome() },
     userLessons = LocalStorageUserLessonRepository(),
+    reedLogbook = LocalStorageReedLogbookRepository(),
 )
 
 /**

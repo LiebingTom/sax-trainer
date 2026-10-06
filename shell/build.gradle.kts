@@ -52,6 +52,8 @@ kotlin {
             api(project(":core:audio"))
             api(project(":core:learning"))
             api(project(":core:settings"))
+            // The reed logbook's store: an entry point hands the container its platform's one.
+            api(project(":core:reed"))
             implementation(project(":core:designsystem"))
             implementation(project(":core:exercise"))
             implementation(project(":core:music"))
@@ -68,6 +70,7 @@ kotlin {
             implementation(project(":feature:learning"))
             implementation(project(":feature:metronome"))
             implementation(project(":feature:lexicon"))
+            implementation(project(":feature:reedlogbook"))
             implementation(project(":feature:settings"))
 
             implementation(libs.compose.runtime)

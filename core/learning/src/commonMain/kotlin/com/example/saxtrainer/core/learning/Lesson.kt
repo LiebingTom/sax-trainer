@@ -17,6 +17,9 @@ enum class TrainerId {
     PHRASE_TRAINER,
     PHRASE_QUIZ,
     FINGERING_LEXICON,
+
+    /** Not a trainer either: here so the reed logbook can be starred like one. */
+    REED_LOGBOOK,
 }
 
 /** Identifies a lesson everywhere: in the catalog, in a navigation route, in stored progress. */

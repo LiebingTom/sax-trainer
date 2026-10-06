@@ -1,5 +1,6 @@
 package com.example.saxtrainer
 
+import android.content.Intent
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -8,14 +9,46 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val container = (application as SaxTrainerApplication).container
+        // Opened from the reed session's notification: straight to the logbook. Not on a restore,
+        // which brings back whatever screen was open instead.
+        if (savedInstanceState == null) requestReedLogbookIfAsked(intent)
         setContent {
-            SaxTrainerApp(container = container, onAppearanceChanged = ::applyAppearance)
+            SaxTrainerApp(
+                container = container,
+                onAppearanceChanged = ::applyAppearance,
+                reedLogbookRequests = reedLogbookOpens,
+            )
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        requestReedLogbookIfAsked(intent)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // A session left running while the app was closed in the background gets its notification
+        // back now that the app is in front, where Android allows starting it.
+        (application as SaxTrainerApplication).reedSessionSync.refresh()
+    }
+
+    /** Held until the app's navigation is there to take it. */
+    private val reedLogbookRequests = Channel<Unit>(Channel.CONFLATED)
+    private val reedLogbookOpens = reedLogbookRequests.receiveAsFlow()
+
+    private fun requestReedLogbookIfAsked(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_REED_LOGBOOK, false) == true) {
+            intent.removeExtra(EXTRA_OPEN_REED_LOGBOOK)
+            reedLogbookRequests.trySend(Unit)
         }
     }
 
@@ -38,7 +71,10 @@ class MainActivity : ComponentActivity() {
         window.setBackgroundDrawable(ColorDrawable(background.toArgb()))
     }
 
-    private companion object {
-        const val NAVIGATION_SCRIM_ALPHA = 0.8f
+    companion object {
+        /** Set by the reed session's notification: open the reed logbook. */
+        const val EXTRA_OPEN_REED_LOGBOOK = "com.example.saxtrainer.extra.OPEN_REED_LOGBOOK"
+
+        private const val NAVIGATION_SCRIM_ALPHA = 0.8f
     }
 }

@@ -1,0 +1,105 @@
+{
+  "id": "blues_2_blue_note_lick",
+  "name": "Blues 2 blue note lick",
+  "description": "Eighths circling the blue note, then up to the top and all the way down. On the Blues scale in A: D E♭ E E♭ D | C A | D E♭ E G A | G E E♭ D C A.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "quarter"
+        },
+        {
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "quarter"
+        },
+        {
+          "degree": 1,
+          "duration": "quarter"
+        },
+        {
+          "duration": "half"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 6,
+          "duration": "eighth"
+        },
+        {
+          "degree": 7,
+          "duration": "quarter"
+        },
+        {
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 6,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "quarter."
+        }
+      ]
+    }
+  ]
+}

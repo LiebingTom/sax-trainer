@@ -10,19 +10,33 @@ import com.example.saxtrainer.learning.catalog.steps.longTonePresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteQuizPresetOf
 import com.example.saxtrainer.learning.catalog.steps.noteTrainerPresetOf
 import com.example.saxtrainer.learning.catalog.steps.phraseTrainerPresetOf
+import com.example.saxtrainer.feature.phrasetrainer.PhraseTrainerUiState
 import com.example.saxtrainer.learning.catalog.units.BLUES_1_UNIT_ID
+import com.example.saxtrainer.learning.catalog.units.BLUES_2_UNIT_ID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 
-/** What the first blues unit teaches, built from the scale and pattern content files. */
+/** What the blues units teach, built from the scale and pattern content files. */
 class BluesUnitsTest {
 
     private val unit = assertNotNull(SaxTrainerCurriculum.unitOf(BLUES_1_UNIT_ID), "no unit $BLUES_1_UNIT_ID")
+    private val unit2 = assertNotNull(SaxTrainerCurriculum.unitOf(BLUES_2_UNIT_ID), "no unit $BLUES_2_UNIT_ID")
 
     private fun lesson(suffix: String): Lesson =
         assertNotNull(unit.lessons.firstOrNull { it.id.value == "$BLUES_1_UNIT_ID-$suffix" }, "no lesson $suffix")
+
+    private fun lesson2(suffix: String): Lesson =
+        assertNotNull(unit2.lessons.firstOrNull { it.id.value == "$BLUES_2_UNIT_ID-$suffix" }, "no lesson $suffix")
+
+    private val melodies = listOf(
+        "melody" to "blues_1_melody",
+        "riff" to "blues_2_riff",
+        "up-to-the-top" to "blues_2_up_to_the_top",
+        "falling-line" to "blues_2_falling_line",
+        "blue-note-lick" to "blues_2_blue_note_lick",
+    )
 
     private val aBlues = listOf("A4", "C5", "D5", "Eb5", "E5", "G5", "A5")
     private val gBlues = listOf("G4", "Bb4", "C5", "Db5", "D5", "F5", "G5")
@@ -38,26 +52,39 @@ class BluesUnitsTest {
     )
 
     @Test
-    fun `blues 1 comes after the basics`() {
-        assertEquals(BLUES_1_UNIT_ID, SaxTrainerCurriculum.units.last().id)
+    fun `blues 1 and blues 2 come after the basics`() {
+        assertEquals(listOf(BLUES_1_UNIT_ID, BLUES_2_UNIT_ID), SaxTrainerCurriculum.units.takeLast(2).map { it.id })
         assertEquals("Blues 1", unit.title)
+        assertEquals("Blues 2", unit2.title)
     }
 
     @Test
-    fun `the half steps come first, then the notes, then each key's scale and melody`() {
+    fun `the half steps come first, then the notes, then each key's scale`() {
         assertEquals(
             listOf(
                 "half-steps-quiz", "half-steps-play", "play", "long-tones",
-                "a-scale", "a-melody", "g-scale", "g-melody", "d-scale", "d-melody",
+                "a-scale", "g-scale", "d-scale",
             ).map { "$BLUES_1_UNIT_ID-$it" },
             unit.lessons.map { it.id.value },
         )
         assertEquals(
             listOf(TrainerId.NOTE_QUIZ, TrainerId.NOTE_TRAINER, TrainerId.NOTE_TRAINER, TrainerId.LONG_TONES) +
-                List(6) { TrainerId.PHRASE_TRAINER },
+                List(3) { TrainerId.PHRASE_TRAINER },
             unit.lessons.map { it.firstStep.trainerId },
         )
         unit.lessons.forEach { assertEquals(1, it.stepCount, "${it.title} runs more than one practice") }
+    }
+
+    @Test
+    fun `blues 2 plays every melody in A, then G, then D`() {
+        assertEquals(
+            listOf("a", "g", "d").flatMap { key -> melodies.map { "$BLUES_2_UNIT_ID-$key-${it.first}" } },
+            unit2.lessons.map { it.id.value },
+        )
+        unit2.lessons.forEach {
+            assertEquals(TrainerId.PHRASE_TRAINER, it.firstStep.trainerId)
+            assertEquals(1, it.stepCount, "${it.title} runs more than one practice")
+        }
     }
 
     @Test
@@ -90,18 +117,21 @@ class BluesUnitsTest {
     }
 
     @Test
-    fun `the scale and the melody are played in A, G and D, octave 4, three times through`() {
+    fun `the scale and every melody are played in A, G and D, octave 4, three times through, shown throughout`() {
         val keys = listOf("a" to NoteName.A, "g" to NoteName.G, "d" to NoteName.D)
 
         keys.forEach { (key, root) ->
-            listOf("scale" to "scale_up_and_down", "melody" to "blues_1_melody").forEach { (kind, patternId) ->
-                val preset = assertNotNull(phraseTrainerPresetOf(lesson("$key-$kind").firstStep))
+            (listOf(Triple("scale", "scale_up_and_down", lesson("$key-scale"))) +
+                melodies.map { (kind, patternId) -> Triple(kind, patternId, lesson2("$key-$kind")) }
+            ).forEach { (kind, patternId, lesson) ->
+                val preset = assertNotNull(phraseTrainerPresetOf(lesson.firstStep))
                 val source = assertIs<PhraseSource.ScalePattern>(preset.source)
                 assertEquals(patternId, source.patternId)
                 assertEquals("blues", source.scale.id)
                 assertEquals(root, source.root)
                 assertEquals(setOf(4), source.octaves)
                 assertEquals(3, preset.repeats)
+                assertEquals(PhraseTrainerUiState.SHOW_THROUGHOUT, preset.showSeconds, "$key $kind hides its notes")
                 assertNotNull(source.resolve(PhraseLibrary, PatternLibrary), "$key $kind does not resolve")
             }
         }
@@ -110,13 +140,15 @@ class BluesUnitsTest {
     @Test
     fun `each scale plays its own key's notes and each melody stays on them`() {
         listOf("a" to aBlues, "g" to gBlues, "d" to dBlues).forEach { (key, scaleNotes) ->
-            fun notesOf(kind: String) = assertNotNull(
-                phraseTrainerPresetOf(lesson("$key-$kind").firstStep)?.source?.resolve(PhraseLibrary, PatternLibrary),
+            fun notesOf(lesson: Lesson) = assertNotNull(
+                phraseTrainerPresetOf(lesson.firstStep)?.source?.resolve(PhraseLibrary, PatternLibrary),
             ).distinctWrittenNotes().map { it.token }
 
-            assertEquals(scaleNotes, notesOf("scale"))
-            val melody = notesOf("melody")
-            assertEquals(melody, melody.filter { it in scaleNotes }, "the $key melody leaves its scale")
+            assertEquals(scaleNotes, notesOf(lesson("$key-scale")))
+            melodies.forEach { (kind, _) ->
+                val melody = notesOf(lesson2("$key-$kind"))
+                assertEquals(melody, melody.filter { it in scaleNotes }, "the $key $kind leaves its scale")
+            }
         }
     }
 }

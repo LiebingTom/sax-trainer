@@ -1,0 +1,74 @@
+{
+  "id": "blues_2_up_to_the_top",
+  "name": "Blues 2 up to the top",
+  "description": "Starts after a rest on beat one, climbs to the root an octave up, comes back down and lands home. On the Blues scale in A: E G A | A G E | E♭ E G E | A.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "duration": "quarter"
+        },
+        {
+          "degree": 5,
+          "duration": "quarter"
+        },
+        {
+          "degree": 6,
+          "duration": "quarter"
+        },
+        {
+          "degree": 7,
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 7,
+          "duration": "half"
+        },
+        {
+          "degree": 6,
+          "duration": "quarter"
+        },
+        {
+          "degree": 5,
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 6,
+          "duration": "quarter"
+        },
+        {
+          "degree": 5,
+          "duration": "quarter"
+        },
+        {
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "whole"
+        }
+      ]
+    }
+  ]
+}

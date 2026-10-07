@@ -9,7 +9,7 @@ package com.example.saxtrainer.core.phrase
  * See `tools/generate_phrase_library.py` for why this is generated rather than hand-written, and
  * [PatternCatalog] for the seam a real file-backed catalog would use instead.
  */
-object PatternLibrary : PatternCatalog by InMemoryPatternCatalog(parsePatterns(listOf(BLUES_1_MELODY_JSON, SCALE_UP_AND_DOWN_JSON)))
+object PatternLibrary : PatternCatalog by InMemoryPatternCatalog(parsePatterns(listOf(BLUES_1_MELODY_JSON, BLUES_2_BLUE_NOTE_LICK_JSON, BLUES_2_FALLING_LINE_JSON, BLUES_2_RIFF_JSON, BLUES_2_UP_TO_THE_TOP_JSON, SCALE_UP_AND_DOWN_JSON)))
 
 @Suppress("ktlint")
 private val BLUES_1_MELODY_JSON = """
@@ -75,6 +75,363 @@ private val BLUES_1_MELODY_JSON = """
         },
         {
           "degree": 2,
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "whole"
+        }
+      ]
+    }
+  ]
+}
+""".trimIndent()
+
+@Suppress("ktlint")
+private val BLUES_2_BLUE_NOTE_LICK_JSON = """
+{
+  "id": "blues_2_blue_note_lick",
+  "name": "Blues 2 blue note lick",
+  "description": "Eighths circling the blue note, then up to the top and all the way down. On the Blues scale in A: D E♭ E E♭ D | C A | D E♭ E G A | G E E♭ D C A.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "quarter"
+        },
+        {
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "quarter"
+        },
+        {
+          "degree": 1,
+          "duration": "quarter"
+        },
+        {
+          "duration": "half"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 6,
+          "duration": "eighth"
+        },
+        {
+          "degree": 7,
+          "duration": "quarter"
+        },
+        {
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 6,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "quarter."
+        }
+      ]
+    }
+  ]
+}
+""".trimIndent()
+
+@Suppress("ktlint")
+private val BLUES_2_FALLING_LINE_JSON = """
+{
+  "id": "blues_2_falling_line",
+  "name": "Blues 2 falling line",
+  "description": "Long-short, down from the top root, with a rest after each half. On the Blues scale in A: A G E E♭ D | D | C A C D | A.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "degree": 7,
+          "duration": "quarter."
+        },
+        {
+          "degree": 6,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "quarter"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 3,
+          "duration": "half"
+        },
+        {
+          "duration": "half"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "quarter."
+        },
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "quarter"
+        },
+        {
+          "degree": 3,
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "half"
+        },
+        {
+          "duration": "half"
+        }
+      ]
+    }
+  ]
+}
+""".trimIndent()
+
+@Suppress("ktlint")
+private val BLUES_2_RIFF_JSON = """
+{
+  "id": "blues_2_riff",
+  "name": "Blues 2 riff",
+  "description": "A short riff that grows by a note each time, with rests to count between. On the Blues scale in A: A C A | A C D | A C D E♭ E | C A.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "quarter"
+        },
+        {
+          "duration": "half"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "quarter"
+        },
+        {
+          "duration": "half"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "quarter"
+        },
+        {
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "quarter"
+        },
+        {
+          "degree": 1,
+          "duration": "quarter"
+        },
+        {
+          "duration": "half"
+        }
+      ]
+    }
+  ]
+}
+""".trimIndent()
+
+@Suppress("ktlint")
+private val BLUES_2_UP_TO_THE_TOP_JSON = """
+{
+  "id": "blues_2_up_to_the_top",
+  "name": "Blues 2 up to the top",
+  "description": "Starts after a rest on beat one, climbs to the root an octave up, comes back down and lands home. On the Blues scale in A: E G A | A G E | E♭ E G E | A.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "duration": "quarter"
+        },
+        {
+          "degree": 5,
+          "duration": "quarter"
+        },
+        {
+          "degree": 6,
+          "duration": "quarter"
+        },
+        {
+          "degree": 7,
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 7,
+          "duration": "half"
+        },
+        {
+          "degree": 6,
+          "duration": "quarter"
+        },
+        {
+          "degree": 5,
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 6,
+          "duration": "quarter"
+        },
+        {
+          "degree": 5,
+          "duration": "quarter"
+        },
+        {
           "duration": "quarter"
         }
       ]

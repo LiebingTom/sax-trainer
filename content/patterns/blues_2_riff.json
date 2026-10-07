@@ -1,0 +1,88 @@
+{
+  "id": "blues_2_riff",
+  "name": "Blues 2 riff",
+  "description": "A short riff that grows by a note each time, with rests to count between. On the Blues scale in A: A C A | A C D | A C D E♭ E | C A.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "quarter"
+        },
+        {
+          "duration": "half"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "quarter"
+        },
+        {
+          "duration": "half"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "quarter"
+        },
+        {
+          "duration": "quarter"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "quarter"
+        },
+        {
+          "degree": 1,
+          "duration": "quarter"
+        },
+        {
+          "duration": "half"
+        }
+      ]
+    }
+  ]
+}

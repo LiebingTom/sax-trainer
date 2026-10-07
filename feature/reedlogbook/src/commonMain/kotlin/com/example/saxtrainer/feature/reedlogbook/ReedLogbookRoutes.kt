@@ -128,6 +128,7 @@ fun ReedEditRoute(
         onProduct = viewModel::selectProduct,
         onStrength = viewModel::selectStrength,
         onNumber = viewModel::selectNumber,
+        onPrice = viewModel::typePrice,
         onSave = { viewModel.save()?.let(onSaved) },
         onBack = onBack,
         modifier = modifier,

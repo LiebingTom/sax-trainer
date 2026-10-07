@@ -43,6 +43,26 @@ internal object ReedText {
         }
     }
 
+    /** "€4.50". */
+    fun priceOf(cents: Long): String = "€${priceInputOf(cents)}"
+
+    /** "4.50" - a price as the edit field shows it. */
+    fun priceInputOf(cents: Long): String = "${cents / 100}.${(cents % 100).toString().padStart(2, '0')}"
+
+    /**
+     * A typed price in cents: "4.50", "4,50", "4", "€ 4.5". Null for anything else, including
+     * nothing typed - and for more than two decimals, which no price has.
+     */
+    fun parsePrice(text: String): Long? {
+        val cleaned = text.trim().removePrefix("€").removeSuffix("€").trim().replace(',', '.')
+        val match = PRICE.matchEntire(cleaned) ?: return null
+        val euros = match.groupValues[1].toLongOrNull() ?: return null
+        val cents = match.groupValues[2].padEnd(2, '0').ifEmpty { "00" }.toLong()
+        return euros * 100 + cents
+    }
+
+    private val PRICE = Regex("""(\d{1,5})(?:\.(\d{1,2}))?""")
+
     /** "Mon 5 Oct 2026". */
     fun dayOf(instant: Instant, zone: TimeZone): String = dayOf(instant.toLocalDateTime(zone).date)
 

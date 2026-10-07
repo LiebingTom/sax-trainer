@@ -23,6 +23,7 @@ object ReedLogbookCsv {
         "product_id",
         "product",
         "strength",
+        "price_eur",
         "status",
         "reed_created_at",
         "reed_status_changed_at",
@@ -57,6 +58,7 @@ object ReedLogbookCsv {
         reed.productId,
         ReedCatalog.productNameOf(reed.productId),
         reed.strength,
+        reed.priceCents?.let(::euros).orEmpty(),
         reed.status.name,
         timeOf(reed.createdAt),
         reed.statusChangedAt?.let(::timeOf).orEmpty(),
@@ -70,6 +72,9 @@ object ReedLogbookCsv {
     )
 
     private fun timeOf(instant: Instant): String = instant.toString()
+
+    /** "4.50" - a plain decimal with a point, which every spreadsheet and script reads as a number. */
+    private fun euros(cents: Long): String = "${cents / 100}.${(cents % 100).toString().padStart(2, '0')}"
 
     private fun quoted(field: String): String =
         if (field.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) {

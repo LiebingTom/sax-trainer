@@ -1,7 +1,11 @@
 package com.example.saxtrainer.feature.reedlogbook
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,6 +34,7 @@ import com.example.saxtrainer.core.reed.ReedLogbook
 import com.example.saxtrainer.core.reed.ReedSession
 import com.example.saxtrainer.core.reed.plusReed
 import com.example.saxtrainer.core.reed.started
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 /**
@@ -75,6 +80,8 @@ fun ReedLogbookScreen(
             null
         },
         actions = {
+            TotalsBanner(logbook, now)
+            Spacer(Modifier.height(Dimens.spaceSm))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
@@ -115,6 +122,33 @@ fun ReedLogbookScreen(
                 onOpen = { onOpenReed(reed.id) },
             )
         }
+    }
+}
+
+/**
+ * The logbook in one line, just above Start and Stop: how long all the reeds together have been
+ * played, and how many reeds there have been.
+ */
+@Composable
+private fun TotalsBanner(logbook: ReedLogbook, now: Instant) {
+    val count = logbook.reeds.size
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.medium)
+            .padding(horizontal = Dimens.spaceMd, vertical = Dimens.spaceSm),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "Total played: " + logbook.totalPlayedTime(now).let { if (it == Duration.ZERO) "0 min" else ReedText.lengthOf(it) },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = if (count == 1) "1 reed" else "$count reeds",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

@@ -10,7 +10,7 @@ import kotlin.time.Instant
  * line, fields separated by `|`:
  *
  * ```
- * R|<id>|<number>|<manufacturerId>|<productId>|<strength>|<STATUS>|<createdAt ms>|<statusChangedAt ms or empty>
+ * R|<id>|<number>|<manufacturerId>|<productId>|<strength>|<STATUS>|<createdAt ms>|<statusChangedAt ms or empty>|<price cents or empty>
  * S|<id>|<reedId>|<start ms>|<end ms or empty>
  * X|<selectedReedId>
  * ```
@@ -46,6 +46,7 @@ internal object StoredReedLogbook {
                 reed.status.name,
                 reed.createdAt.toEpochMilliseconds().toString(),
                 reed.statusChangedAt?.toEpochMilliseconds()?.toString().orEmpty(),
+                reed.priceCents?.toString().orEmpty(),
             ).joinToString(FIELD_SEPARATOR) { it.storable() }
         }
         logbook.sessions.forEach { session ->
@@ -101,6 +102,8 @@ internal object StoredReedLogbook {
             status = status,
             createdAt = createdAt,
             statusChangedAt = instantOf(fields[8]),
+            // Added later: a reed written before there was a price simply has none.
+            priceCents = fields.getOrNull(9)?.toLongOrNull()?.takeIf { it >= 0 },
         )
     }
 

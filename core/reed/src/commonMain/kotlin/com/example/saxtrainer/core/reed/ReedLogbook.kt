@@ -40,6 +40,11 @@ data class Reed(
     val createdAt: Instant,
     /** When [status] last changed; null while the reed has never left its first status. */
     val statusChangedAt: Instant? = null,
+    /**
+     * What the reed cost, in euro cents - whole cents so nothing is lost to rounding when costs are
+     * added up. Null when the player did not say.
+     */
+    val priceCents: Long? = null,
 ) {
     val isActive: Boolean get() = status == ReedStatus.ACTIVE
 }
@@ -96,6 +101,10 @@ data class ReedLogbook(
     fun playedTime(reedId: String, now: Instant): Duration =
         sessions.filter { it.reedId == reedId }.fold(Duration.ZERO) { total, it -> total + it.durationAt(now) }
 
+    /** How long every reed together has been played, up to [now] for a session still running. */
+    fun totalPlayedTime(now: Instant): Duration =
+        sessions.fold(Duration.ZERO) { total, it -> total + it.durationAt(now) }
+
     /** One reed's sessions, the newest first. */
     fun sessionsOf(reedId: String): List<ReedSession> =
         sessions.filter { it.reedId == reedId }.sortedByDescending { it.start }
@@ -142,6 +151,7 @@ fun ReedLogbook.plusReed(
     productId: String,
     strength: String,
     createdAt: Instant,
+    priceCents: Long? = null,
 ): ReedLogbook {
     if (!isNumberFree(number) || reedOf(id) != null) return this
     val reed = Reed(
@@ -152,12 +162,13 @@ fun ReedLogbook.plusReed(
         strength = strength,
         status = ReedStatus.ACTIVE,
         createdAt = createdAt,
+        priceCents = priceCents?.takeIf { it >= 0 },
     )
     return copy(reeds = reeds + reed, selectedReedId = id)
 }
 
 /**
- * The same reed, described differently: what make, model and strength it is.
+ * The same reed, described differently: what make, model and strength it is, and what it cost.
  *
  * Its number is changed through [renumbered], which has a rule of its own to keep.
  */
@@ -166,9 +177,20 @@ fun ReedLogbook.withDetails(
     manufacturerId: String,
     productId: String,
     strength: String,
+    // No default: leaving it out would quietly wipe a price already entered.
+    priceCents: Long?,
 ): ReedLogbook = copy(
     reeds = reeds.map {
-        if (it.id == id) it.copy(manufacturerId = manufacturerId, productId = productId, strength = strength) else it
+        if (it.id != id) {
+            it
+        } else {
+            it.copy(
+                manufacturerId = manufacturerId,
+                productId = productId,
+                strength = strength,
+                priceCents = priceCents?.takeIf { cents -> cents >= 0 },
+            )
+        }
     },
 )
 

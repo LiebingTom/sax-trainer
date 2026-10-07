@@ -106,4 +106,17 @@ class ReedEditViewModelTest {
         assertTrue(viewModel.uiState.value.numbers.isEmpty())
         assertTrue(viewModel.uiState.value.canSave)
     }
+
+    @Test
+    fun `a price is saved in cents, and something that is no price cannot be saved`() {
+        val (viewModel, repository) = adding(threeReeds)
+
+        viewModel.typePrice("4.5x")
+        assertEquals(false, viewModel.uiState.value.canSave)
+
+        viewModel.typePrice("4,50")
+        viewModel.save()
+
+        assertEquals(450L, repository.logbook.value.reedOf("new")?.priceCents)
+    }
 }

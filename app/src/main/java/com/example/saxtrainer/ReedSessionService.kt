@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -96,7 +97,13 @@ class ReedSessionService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
+            // Shown in full on the lock screen - which reed, the clock and Stop - like a stopwatch.
+            // Nothing in it is private.
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            // Asks Android 16 and later to show it as a Live Update: a chip in the status bar and a
+            // place at the top of the lock screen. Older versions ignore the extra.
+            .addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true) })
             .setContentIntent(open)
             .addAction(0, "Stop", stop)
             .build()
@@ -105,17 +112,29 @@ class ReedSessionService : Service() {
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java)
+        // The first channel was a low-importance one, which Android keeps off the lock screen as a
+        // silent notification. A channel's importance cannot be changed once made, so it goes.
+        manager.deleteNotificationChannel(OLD_CHANNEL_ID)
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Reed session", NotificationManager.IMPORTANCE_LOW).apply {
+            // Default importance so it is shown on the lock screen and can be promoted - but without
+            // a sound or a buzz: it only ever appears because the player just pressed Start.
+            NotificationChannel(CHANNEL_ID, "Reed session", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "The reed being played and for how long, while a session runs."
+                setSound(null, null)
+                enableVibration(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 setShowBadge(false)
             },
         )
     }
 
     companion object {
-        private const val CHANNEL_ID = "reed_session"
+        private const val CHANNEL_ID = "reed_session_live"
+        private const val OLD_CHANNEL_ID = "reed_session"
+
+        /** `Notification.EXTRA_REQUEST_PROMOTED_ONGOING`, spelled out: it is newer than androidx.core here. */
+        private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
         private const val NOTIFICATION_ID = 1
         private const val ACTION_STOP = "com.example.saxtrainer.action.STOP_REED_SESSION"
 

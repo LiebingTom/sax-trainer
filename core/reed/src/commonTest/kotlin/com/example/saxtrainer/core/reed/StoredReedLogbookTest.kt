@@ -15,7 +15,7 @@ class StoredReedLogbookTest {
     @Test
     fun `a logbook survives being written down and read back`() {
         val logbook = ReedLogbook()
-            .plusReed("a", 1, "daddario", "daddario-royal", "2.5", t0)
+            .plusReed("a", 1, "daddario", "daddario-royal", "2.5", t0, priceCents = 450)
             .plusReed("b", 2, "vandoren", "vandoren-java", "3", t0 + 1.minutes)
             .started("s1", "a", t0 + 2.minutes)
             .stopped(t0 + 30.minutes)
@@ -92,5 +92,21 @@ class StoredReedLogbookTest {
         val restored = StoredReedLogbook.decode(StoredReedLogbook.encode(logbook))
 
         assertEquals("2 5 H", restored.reedOf("a")?.strength)
+    }
+
+    @Test
+    fun `a reed written before there was a price keeps everything, its sessions too`() {
+        // Exactly what the first version wrote: no price field at the end of the reed.
+        val stored = listOf(
+            "R|a|1|daddario|daddario-royal|2.5|ACTIVE|1790000000000|",
+            "S|s1|a|1790000000000|1790000060000",
+            "X|a",
+        ).joinToString("\n")
+
+        val logbook = StoredReedLogbook.decode(stored)
+
+        assertNull(logbook.reedOf("a")?.priceCents)
+        assertEquals(listOf("s1"), logbook.sessionsOf("a").map { it.id })
+        assertEquals("a", logbook.selectedReedId)
     }
 }

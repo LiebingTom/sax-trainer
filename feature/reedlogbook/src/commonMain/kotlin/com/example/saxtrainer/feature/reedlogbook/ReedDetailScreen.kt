@@ -113,6 +113,7 @@ fun ReedDetailScreen(
             Property("Manufacturer", ReedCatalog.manufacturerNameOf(reed.manufacturerId))
             Property("Product", ReedCatalog.productNameOf(reed.productId))
             Property("Strength", reed.strength)
+            Property("Price", reed.priceCents?.let(ReedText::priceOf) ?: "Not given")
             Property("Played", ReedText.playedOf(logbook.playedTime(reed.id, now)))
             Property("Status", ReedText.statusOf(reed.status))
             Property("Added", "${ReedText.dayOf(reed.createdAt, zone)}, ${ReedText.timeOf(reed.createdAt, zone)}")

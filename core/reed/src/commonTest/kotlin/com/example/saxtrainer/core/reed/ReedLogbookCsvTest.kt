@@ -32,9 +32,9 @@ class ReedLogbookCsvTest {
         assertEquals(
             listOf(
                 ReedLogbookCsv.HEADER.joinToString(","),
-                "a,1,daddario,D'Addario,daddario-royal,Royal,2.5,INACTIVE,2026-10-05T14:00:00Z," +
+                "a,1,daddario,D'Addario,daddario-royal,Royal,2.5,,INACTIVE,2026-10-05T14:00:00Z," +
                     "2026-10-05T14:50:00Z,s1,2026-10-05T14:10:00Z,2026-10-05T14:40:00Z,1800",
-                "b,2,vandoren,Vandoren,vandoren-java,Java,3,ACTIVE,2026-10-05T14:01:00Z,,,,,",
+                "b,2,vandoren,Vandoren,vandoren-java,Java,3,,ACTIVE,2026-10-05T14:01:00Z,,,,,",
             ),
             rows,
         )
@@ -47,7 +47,7 @@ class ReedLogbookCsvTest {
             .started("s1", "a", t0 + 10.minutes)
 
         assertEquals(
-            "a,1,daddario,D'Addario,daddario-royal,Royal,2.5,ACTIVE,2026-10-05T14:00:00Z,,s1,2026-10-05T14:10:00Z,,",
+            "a,1,daddario,D'Addario,daddario-royal,Royal,2.5,,ACTIVE,2026-10-05T14:00:00Z,,s1,2026-10-05T14:10:00Z,,",
             rowsOf(logbook)[1],
         )
     }
@@ -59,9 +59,19 @@ class ReedLogbookCsvTest {
         val row = rowsOf(logbook)[1]
 
         assertEquals(
-            "a,1,\"someone, else\",\"someone, else\",\"a \"\"special\"\" cut\",\"a \"\"special\"\" cut\",3,ACTIVE," +
+            "a,1,\"someone, else\",\"someone, else\",\"a \"\"special\"\" cut\",\"a \"\"special\"\" cut\",3,,ACTIVE," +
                 "2026-10-05T14:00:00Z,,,,,",
             row,
+        )
+    }
+
+    @Test
+    fun `a price is written in euros with a point`() {
+        val logbook = ReedLogbook().plusReed("a", 1, "daddario", "daddario-royal", "2.5", t0, priceCents = 450)
+
+        assertEquals(
+            "a,1,daddario,D'Addario,daddario-royal,Royal,2.5,4.50,ACTIVE,2026-10-05T14:00:00Z,,,,,",
+            rowsOf(logbook)[1],
         )
     }
 }

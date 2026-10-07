@@ -44,4 +44,15 @@ class ReedTextTest {
         assertEquals("2 h 05 min played", ReedText.playedOf(2.hours + 5.minutes))
         assertEquals("14 h played", ReedText.playedOf(14.hours + 20.minutes))
     }
+
+    @Test
+    fun `a price is read however it is typed, and written back in euros`() {
+        assertEquals(450L, ReedText.parsePrice("4.50"))
+        assertEquals(450L, ReedText.parsePrice("4,5"))
+        assertEquals(400L, ReedText.parsePrice(" € 4 "))
+        assertEquals(null, ReedText.parsePrice(""))
+        assertEquals(null, ReedText.parsePrice("4.555"))
+        assertEquals(null, ReedText.parsePrice("cheap"))
+        assertEquals("€4.50", ReedText.priceOf(450))
+    }
 }

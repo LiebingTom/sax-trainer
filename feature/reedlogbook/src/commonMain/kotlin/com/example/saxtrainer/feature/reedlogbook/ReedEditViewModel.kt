@@ -22,6 +22,8 @@ data class ReedDraft(
     val productId: String,
     val strength: String,
     val number: Int,
+    /** The price as typed, in euros - "4.50", "4,50" or nothing at all. */
+    val price: String = "",
 )
 
 /**
@@ -47,7 +49,14 @@ data class ReedEditUiState(
             return if (draft.strength in scale) scale else scale + draft.strength
         }
 
-    val canSave: Boolean get() = draft.strength.isNotBlank() && (numbers.isEmpty() || draft.number in numbers)
+    /** The typed price in cents; null when nothing is typed or it is not a price. */
+    val priceCents: Long? get() = ReedText.parsePrice(draft.price)
+
+    /** Nothing typed is fine - the price is optional - but something typed has to be a price. */
+    val isPriceValid: Boolean get() = draft.price.isBlank() || priceCents != null
+
+    val canSave: Boolean
+        get() = draft.strength.isNotBlank() && isPriceValid && (numbers.isEmpty() || draft.number in numbers)
 }
 
 /**
@@ -84,6 +93,8 @@ class ReedEditViewModel(
 
     fun selectNumber(number: Int) = edit { it.copy(number = number) }
 
+    fun typePrice(text: String) = edit { it.copy(price = text) }
+
     /**
      * Writes the reed and returns its id, or null when the logbook refused it - a number taken in
      * the meantime, say. Nothing is written then.
@@ -98,11 +109,11 @@ class ReedEditViewModel(
         val after: ReedLogbook
         if (reedId == null) {
             id = newId()
-            after = before.plusReed(id, d.number, d.manufacturerId, d.productId, d.strength, now())
+            after = before.plusReed(id, d.number, d.manufacturerId, d.productId, d.strength, now(), state.priceCents)
             if (after.reedOf(id) == null) return null
         } else {
             id = reedId
-            val described = before.withDetails(id, d.manufacturerId, d.productId, d.strength)
+            val described = before.withDetails(id, d.manufacturerId, d.productId, d.strength, state.priceCents)
             val reed = described.reedOf(id) ?: return null
             after = if (reed.isActive && reed.number != d.number) described.renumbered(id, d.number) else described
             if (reed.isActive && after.reedOf(id)?.number != d.number) return null
@@ -134,6 +145,7 @@ class ReedEditViewModel(
                 productId = previous?.productId ?: ReedCatalog.defaultProduct.id,
                 strength = previous?.strength ?: ReedCatalog.DEFAULT_STRENGTH,
                 number = logbook.nextFreeNumber(),
+                price = previous?.priceCents?.let(ReedText::priceInputOf).orEmpty(),
             )
             return ReedEditUiState(isNew = true, draft = draft, numbers = logbook.freeNumbers())
         }
@@ -142,7 +154,13 @@ class ReedEditViewModel(
         } else {
             emptyList()
         }
-        val draft = ReedDraft(existing.manufacturerId, existing.productId, existing.strength, existing.number)
+        val draft = ReedDraft(
+            manufacturerId = existing.manufacturerId,
+            productId = existing.productId,
+            strength = existing.strength,
+            number = existing.number,
+            price = existing.priceCents?.let(ReedText::priceInputOf).orEmpty(),
+        )
         return ReedEditUiState(isNew = false, draft = draft, numbers = numbers)
     }
 }

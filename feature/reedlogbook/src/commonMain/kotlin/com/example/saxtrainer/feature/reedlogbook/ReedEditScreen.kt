@@ -6,11 +6,14 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
@@ -32,6 +35,7 @@ fun ReedEditScreen(
     onProduct: (String) -> Unit,
     onStrength: (String) -> Unit,
     onNumber: (Int) -> Unit,
+    onPrice: (String) -> Unit,
     onSave: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -107,6 +111,21 @@ fun ReedEditScreen(
             }
         }
         Spacer(Modifier.height(Dimens.spaceLg))
+
+        SectionHeader("Price")
+        Hint("What the reed cost, if you want to keep track. Leave it empty otherwise.")
+        OutlinedTextField(
+            value = state.draft.price,
+            onValueChange = onPrice,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Price in €") },
+            placeholder = { Text("4.50") },
+            isError = !state.isPriceValid,
+            supportingText = if (state.isPriceValid) null else { { Text("A price like 4.50 or 4,50") } },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        )
+        Spacer(Modifier.height(Dimens.spaceLg))
     }
 }
 
@@ -134,6 +153,7 @@ private fun ReedEditScreenPreview() {
             onProduct = {},
             onStrength = {},
             onNumber = {},
+            onPrice = {},
             onSave = {},
             onBack = {},
         )

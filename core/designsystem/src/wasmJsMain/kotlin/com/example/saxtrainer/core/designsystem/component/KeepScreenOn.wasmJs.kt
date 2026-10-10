@@ -11,10 +11,15 @@ import androidx.compose.runtime.DisposableEffect
 @Composable
 actual fun KeepScreenOn(keepAwake: Boolean) {
     DisposableEffect(keepAwake) {
-        if (keepAwake) requestWakeLock()
-        onDispose { releaseWakeLock() }
+        if (!keepAwake) return@DisposableEffect onDispose {}
+        // Counted, so a screen leaving never releases the lock the screen arriving has taken.
+        if (awakeHolders++ == 0) requestWakeLock()
+        onDispose { if (--awakeHolders == 0) releaseWakeLock() }
     }
 }
+
+/** How many screens are asking for the screen to stay on right now. */
+private var awakeHolders = 0
 
 @JsFun(
     """() => {

@@ -5,6 +5,8 @@ import com.example.saxtrainer.core.exercise.MonotonicBeatClock
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.NoteName
 import com.example.saxtrainer.core.music.SpelledNote
+import com.example.saxtrainer.core.music.ToneStep
+import com.example.saxtrainer.core.music.soundedNote
 import com.example.saxtrainer.core.phrase.InMemoryPhraseCatalog
 import com.example.saxtrainer.core.phrase.PhraseCatalog
 import com.example.saxtrainer.core.phrase.parsePhrases
@@ -95,7 +97,11 @@ class PhraseTrainerViewModelTest {
 
     /** The library's default phrase, and its own first practice unit - two bars, eight notes. */
     private val defaultPhrase = PhraseLibrary.all.first()
-    private val firstUnitNotes = defaultPhrase.toneSequenceOf(defaultPhrase.units.first()).steps.mapNotNull { it.note }
+    private val firstUnitSteps = defaultPhrase.toneSequenceOf(defaultPhrase.units.first()).steps.filterNot { it.isRest }
+    private val firstUnitNotes = firstUnitSteps.mapNotNull { it.note }
+
+    /** A step's written length at the trainer's default 80 bpm, plus a little to land on it. */
+    private fun heldMs(step: ToneStep): Long = (step.duration.value * QUARTER_MS).toLong() + LANDING_MS
 
     // --- setup ------------------------------------------------------------------------------
 
@@ -200,9 +206,9 @@ class PhraseTrainerViewModelTest {
         // Past the count-in and the brief showing of the first unit.
         advanceTimeBy(5_000)
 
-        firstUnitNotes.forEach { note ->
-            microphone.frequencyHz = soundingFrequencyOf(note)
-            advanceTimeBy(700)
+        firstUnitSteps.forEach { step ->
+            microphone.frequencyHz = soundingFrequencyOf(step.soundedNote)
+            advanceTimeBy(heldMs(step))
         }
 
         // Stopped before asserting: viewModelScope's coroutine is not a child of this test's
@@ -234,7 +240,7 @@ class PhraseTrainerViewModelTest {
         microphone.frequencyHz = soundingFrequencyOf(decoy)
         advanceTimeBy(FRAME_DURATION_MS)
         microphone.frequencyHz = soundingFrequencyOf(expected)
-        advanceTimeBy(FRAME_DURATION_MS + 500)
+        advanceTimeBy(heldMs(firstUnitSteps.first()))
 
         val progress = viewModel.uiState.value.progress
         viewModel.stop()
@@ -414,6 +420,12 @@ class PhraseTrainerViewModelTest {
 
     private companion object {
         const val FRAME_DURATION_MS = 40L
+
+        /** A quarter note at the default 80 bpm. */
+        const val QUARTER_MS = 750L
+
+        /** Time to hear a note land and move on, on top of its written length. */
+        const val LANDING_MS = 200L
     }
 
     // --- written spelling ---------------------------------------------------------------------
@@ -460,6 +472,103 @@ class PhraseTrainerViewModelTest {
             viewModel.stop()
         }
 
+    // --- timing: a note stays up for its written length --------------------------------------
+
+    /** A half note and then two quarters: one bar, one unit. */
+    private val longNote = InMemoryPhraseCatalog(
+        parsePhrases(
+            listOf(
+                """
+                {"id": "long", "name": "Long", "bars": [ { "steps": [
+                  { "note": "C4", "duration": "half" },
+                  { "note": "E4", "duration": "quarter" }, { "note": "G4", "duration": "quarter" }
+                ] } ] }
+                """.trimIndent(),
+            ),
+        ),
+    )
+
+    @Test
+    fun `a long note is held out for its written length, even without the length check`() = trainerTest {
+        val microphone = FakeMicrophone(FRAME_DURATION_MS)
+        val viewModel = viewModel(microphone = microphone, phrases = longNote)
+        viewModel.setShowSeconds(PhraseTrainerUiState.SHOW_THROUGHOUT)
+        viewModel.start()
+        advanceTimeBy(1_000)
+
+        microphone.frequencyHz = soundingFrequencyOf(Note(NoteName.C, 4))
+        advanceTimeBy(QUARTER_MS) // half of the half note: recognised long ago, not over yet
+        val midway = viewModel.uiState.value.progress
+        advanceTimeBy(QUARTER_MS + LANDING_MS)
+        val after = viewModel.uiState.value.progress
+        viewModel.stop()
+
+        assertEquals(written("C4"), midway?.currentNote)
+        assertEquals(true, midway?.landed, "counted already, just not finished")
+        assertEquals(written("E4"), after?.currentNote)
+    }
+
+    @Test
+    fun `letting go of a counted note early moves on without the length check`() = trainerTest {
+        val microphone = FakeMicrophone(FRAME_DURATION_MS)
+        val viewModel = viewModel(microphone = microphone, phrases = longNote)
+        viewModel.setShowSeconds(PhraseTrainerUiState.SHOW_THROUGHOUT)
+        viewModel.start()
+        advanceTimeBy(1_000)
+
+        microphone.frequencyHz = soundingFrequencyOf(Note(NoteName.C, 4))
+        advanceTimeBy(300)
+        microphone.frequencyHz = null
+        advanceTimeBy(LANDING_MS)
+        val progress = viewModel.uiState.value.progress
+        viewModel.stop()
+
+        assertEquals(written("E4"), progress?.currentNote)
+    }
+
+    @Test
+    fun `with the length check, letting go early does not count`() = trainerTest {
+        val microphone = FakeMicrophone(FRAME_DURATION_MS)
+        val viewModel = viewModel(microphone = microphone, phrases = longNote)
+        viewModel.setShowSeconds(PhraseTrainerUiState.SHOW_THROUGHOUT)
+        viewModel.setCheckDuration(true)
+        viewModel.start()
+        advanceTimeBy(1_000)
+
+        microphone.frequencyHz = soundingFrequencyOf(Note(NoteName.C, 4))
+        advanceTimeBy(300)
+        microphone.frequencyHz = null
+        advanceTimeBy(2 * QUARTER_MS)
+        val progress = viewModel.uiState.value.progress
+        viewModel.stop()
+
+        assertEquals(written("C4"), progress?.currentNote)
+        assertEquals(false, progress?.landed)
+    }
+
+    @Test
+    fun `skipping a note while it is held out still counts it`() = trainerTest {
+        val microphone = FakeMicrophone(FRAME_DURATION_MS)
+        val viewModel = viewModel(microphone = microphone, phrases = longNote)
+        viewModel.setShowSeconds(PhraseTrainerUiState.SHOW_THROUGHOUT)
+        viewModel.start()
+        advanceTimeBy(1_000)
+
+        microphone.frequencyHz = soundingFrequencyOf(Note(NoteName.C, 4))
+        advanceTimeBy(300)
+        viewModel.skip()
+        listOf(NoteName.E, NoteName.G).forEach { name ->
+            microphone.frequencyHz = soundingFrequencyOf(Note(name, 4))
+            advanceTimeBy(QUARTER_MS + LANDING_MS)
+        }
+        advanceTimeBy(1_000)
+        val phase = viewModel.uiState.value.phase
+        viewModel.stop()
+
+        assertTrue(phase is PhraseTrainerPhase.Finished, "phase was $phase")
+        assertTrue(phase.result.attempts.single().correct)
+    }
+
     // --- what the counter counts, and a unit shown throughout ---------------------------------
 
     /** One bar with a rest in it: three notes to play, four steps. */
@@ -485,7 +594,8 @@ class PhraseTrainerViewModelTest {
 
         val first = viewModel.uiState.value.progress
         microphone.frequencyHz = soundingFrequencyOf(Note(NoteName.C, 4))
-        advanceTimeBy(700)
+        // The C's quarter, then the rest's: the E comes in time, not straight after the C.
+        advanceTimeBy(2 * QUARTER_MS + LANDING_MS)
         val second = viewModel.uiState.value.progress
         viewModel.stop()
 

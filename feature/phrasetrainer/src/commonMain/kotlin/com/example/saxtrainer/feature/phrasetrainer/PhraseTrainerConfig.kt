@@ -21,8 +21,6 @@ data class PhraseTrainerConfig(
     val requiredCorrectSeconds: Double = 0.2,
     /** How long a wrong note has to sound before it is called one, rather than an unsettled attack. */
     val wrongPitchSeconds: Double = 0.15,
-    /** How long a landed note stays green before the next one. */
-    val successSeconds: Double = 0.4,
     val capture: AudioCaptureConfig = AudioCaptureConfig(),
     val listening: NoteListener.ListeningSettings = NoteListener.ListeningSettings(),
 )

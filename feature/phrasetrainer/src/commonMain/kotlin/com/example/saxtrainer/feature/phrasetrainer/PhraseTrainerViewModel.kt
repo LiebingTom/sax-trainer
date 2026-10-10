@@ -58,7 +58,8 @@ import kotlinx.coroutines.launch
  * *held* for its written length is a separate, later question - [PhraseTrainerUiState.checkDuration]
  * only changes how long the floor timer has to run, never how the pitch comparison itself works.
  *
- * A rest needs nothing played and is stepped over without listening for it.
+ * Timing is kept whether or not length is checked: a note stays up for its written length and a rest
+ * is waited out for its own, so the next note comes in time. A rest needs nothing played.
  */
 class PhraseTrainerViewModel(
     private val settingsRepository: SettingsRepository,
@@ -264,7 +265,7 @@ class PhraseTrainerViewModel(
         }
     }
 
-    /** Plays every step of one unit in turn, rests included - stepped over rather than listened for. */
+    /** Plays every step of one unit in turn, rests included - waited out rather than listened for. */
     private suspend fun playUnit(
         unitIndex: Int,
         unitCount: Int,
@@ -279,6 +280,7 @@ class PhraseTrainerViewModel(
             // Asked for as written: the phrase's own E flat, not whichever spelling its pitch has.
             val note = sequence.writtenAt(stepIndex)
             if (note == null) {
+                restFor(step.duration, heard)
                 StepAttempt(note = null, played = true)
             } else {
                 // What is heard is a pitch. It is written as the note asked for when it is that
@@ -314,11 +316,16 @@ class PhraseTrainerViewModel(
         // The duration check is a floor on top of the pitch comparison, never a change to it: a
         // note that is never right is never right regardless of how long it would have had to be
         // held. Turning the check off simply asks for less time on top of the same comparison.
+        val writtenSeconds = state.tempo.secondsFor(duration)
         val requiredSeconds = if (state.checkDuration) {
-            maxOf(config.requiredCorrectSeconds, state.tempo.secondsFor(duration))
+            maxOf(config.requiredCorrectSeconds, writtenSeconds)
         } else {
             config.requiredCorrectSeconds
         }
+        // Timing is kept either way: a note stays up for its written length, so a long note at the
+        // end of a phrase is held out rather than cut off the moment it is recognised. Without the
+        // check, letting go early still counts - it just moves on sooner.
+        val holdSeconds = maxOf(requiredSeconds, writtenSeconds)
         skipRequested = false
 
         var correctSince: Double? = null
@@ -360,7 +367,9 @@ class PhraseTrainerViewModel(
             }
 
             val heldSeconds = correctSince?.let { now - it }
-            played = heldSeconds != null && heldSeconds >= requiredSeconds
+            if (heldSeconds != null && heldSeconds >= requiredSeconds) played = true
+            // Done once held for its whole length, or once a counted note is let go of.
+            val done = played && (heldSeconds == null || heldSeconds >= holdSeconds)
 
             publish(
                 unitIndex = unitIndex,
@@ -380,17 +389,31 @@ class PhraseTrainerViewModel(
             )
 
             emit(Unit)
-            !played && !skipRequested
+            !done && !skipRequested
         }.collect { }
 
-        if (skipRequested) {
-            skipRequested = false
-            return StepAttempt(note, played = false)
-        }
+        // Skipping a note already counted, while it is held out, still counts it.
+        skipRequested = false
+        return StepAttempt(note, played = played)
+    }
 
-        // A moment on the green note before the next one, so the player sees it landed.
-        delay((config.successSeconds * MILLIS_PER_SECOND).toLong())
-        return StepAttempt(note, played = true)
+    /**
+     * Waits out a rest for its written length at the tempo, so the note after it comes in time -
+     * nothing is listened for. Paused time does not count, and a skip ends it.
+     */
+    private suspend fun restFor(duration: Beats, heard: SharedFlow<Hearing>) {
+        val restSeconds = _uiState.value.tempo.secondsFor(duration)
+        var elapsed = 0.0
+        var last = seconds()
+        skipRequested = false
+        heard.transformWhile {
+            val now = seconds()
+            if (!pause.paused) elapsed += now - last
+            last = now
+            emit(Unit)
+            elapsed < restSeconds && !skipRequested
+        }.collect { }
+        skipRequested = false
     }
 
     /** Counts the player in, silently: this trainer makes no click of its own to keep. */

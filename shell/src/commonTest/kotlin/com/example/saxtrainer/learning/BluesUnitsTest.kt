@@ -53,7 +53,9 @@ class BluesUnitsTest {
 
     @Test
     fun `blues 1 and blues 2 come after the basics`() {
-        assertEquals(listOf(BLUES_1_UNIT_ID, BLUES_2_UNIT_ID), SaxTrainerCurriculum.units.takeLast(2).map { it.id })
+        val ids = SaxTrainerCurriculum.units.map { it.id }
+        assertEquals(ids.indexOf(BLUES_1_UNIT_ID) + 1, ids.indexOf(BLUES_2_UNIT_ID))
+        assertEquals(4, ids.indexOf(BLUES_1_UNIT_ID))
         assertEquals("Blues 1", unit.title)
         assertEquals("Blues 2", unit2.title)
     }

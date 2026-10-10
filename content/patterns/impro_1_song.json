@@ -1,0 +1,160 @@
+{
+  "id": "impro_1_song",
+  "name": "Impro 1 song",
+  "description": "Eight bars on the major pentatonic, three eighths and a long note: 1 2 3 5 | 6 5 3 2 | 1 2 3 5 | 2 2 3 2 | 1 5. 6. 1 | 2 5. 6. 2 | 3 1 | 2 1 6. 1 - a dot after a number is the octave below.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": -1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 0,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": -1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 0,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 3,
+          "duration": "half"
+        },
+        {
+          "degree": 1,
+          "duration": "half"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 0,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "half+eighth"
+        }
+      ]
+    }
+  ]
+}

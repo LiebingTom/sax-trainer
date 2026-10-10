@@ -1,5 +1,6 @@
 package com.example.saxtrainer.feature.phrasetrainer
 
+import com.example.saxtrainer.core.designsystem.component.NotationStyle
 import com.example.saxtrainer.core.phrase.PatternCatalog
 import com.example.saxtrainer.core.phrase.PatternLibrary
 import com.example.saxtrainer.core.phrase.PhraseCatalog
@@ -26,6 +27,7 @@ internal fun PhraseTrainerUiState.toSetup(): ExerciseSetup = exerciseSetup {
     patternId?.let { put(KEY_PATTERN_ID, it) }
     put(KEY_SHOW_SECONDS, showSeconds)
     put(KEY_CHECK_DURATION, checkDuration)
+    put(KEY_NOTATION, notation)
     put(KEY_REPEATS, repeats)
     put(KEY_MIXED, mixed)
 }
@@ -64,6 +66,7 @@ internal fun PhraseTrainerUiState.withSetup(
         patternId = patternId,
         showSeconds = setup.double(KEY_SHOW_SECONDS, showSeconds).coerceAtLeast(0.0),
         checkDuration = setup.boolean(KEY_CHECK_DURATION, checkDuration),
+        notation = setup.enum(KEY_NOTATION, NotationStyle.entries, notation),
         repeats = setup.int(KEY_REPEATS, repeats).coerceIn(repeatRange),
         mixed = setup.boolean(KEY_MIXED, mixed),
     )
@@ -98,6 +101,7 @@ internal fun PhraseTrainerUiState.withPreset(
         patternId = scalePattern?.patternId ?: patternId,
         showSeconds = preset.showSeconds,
         checkDuration = preset.checkDuration,
+        notation = preset.notation,
         repeats = preset.repeats.coerceIn(repeatRange),
         mixed = preset.mixed,
         presetPhrase = if (preset.editable) null else resolved,
@@ -146,6 +150,7 @@ fun phraseTrainerPresetOf(
         source = source,
         showSeconds = setup.double(KEY_SHOW_SECONDS, DEFAULT_SHOW_SECONDS).coerceAtLeast(0.0),
         checkDuration = setup.boolean(KEY_CHECK_DURATION, false),
+        notation = setup.enum(KEY_NOTATION, NotationStyle.entries, NotationStyle.STAFF),
         repeats = setup.int(KEY_REPEATS, DEFAULT_REPEATS).coerceAtLeast(1),
         mixed = setup.boolean(KEY_MIXED, false),
         autoStart = autoStart,
@@ -165,3 +170,4 @@ private const val KEY_SHOW_SECONDS = "show_seconds"
 private const val KEY_CHECK_DURATION = "check_duration"
 private const val KEY_REPEATS = "repeats"
 private const val KEY_MIXED = "mixed"
+private const val KEY_NOTATION = "notation"

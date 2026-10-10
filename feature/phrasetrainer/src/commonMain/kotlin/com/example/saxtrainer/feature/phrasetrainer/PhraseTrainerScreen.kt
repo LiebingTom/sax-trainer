@@ -17,8 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import com.example.saxtrainer.core.designsystem.component.BoundedMusicalPage
+import com.example.saxtrainer.core.designsystem.component.BoundedNotationPage
 import com.example.saxtrainer.core.designsystem.component.CheckableRow
+import com.example.saxtrainer.core.designsystem.component.NotationStyle
 import com.example.saxtrainer.core.designsystem.component.PhraseLibraryWindow
 import com.example.saxtrainer.core.designsystem.component.PracticeTitleActions
 import com.example.saxtrainer.core.designsystem.component.PrimaryButton
@@ -36,6 +37,7 @@ import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.phrase.Phrase
 import com.example.saxtrainer.core.phrase.PhraseSourceType
+import com.example.saxtrainer.core.phrase.PracticeUnit
 
 /**
  * The phrase trainer, stateless.
@@ -59,6 +61,7 @@ fun PhraseTrainerScreen(
     onSetMixed: (Boolean) -> Unit,
     onShowSecondsChange: (Double) -> Unit,
     onCheckDurationChange: (Boolean) -> Unit,
+    onShowNumbersChange: (Boolean) -> Unit,
     onStart: () -> Unit,
     onTogglePause: () -> Unit,
     onSkip: () -> Unit,
@@ -109,6 +112,7 @@ fun PhraseTrainerScreen(
                     onSetMixed = onSetMixed,
                     onShowSecondsChange = onShowSecondsChange,
                     onCheckDurationChange = onCheckDurationChange,
+                    onShowNumbersChange = onShowNumbersChange,
                 )
             }
 
@@ -176,6 +180,7 @@ private fun Setup(
     onSetMixed: (Boolean) -> Unit,
     onShowSecondsChange: (Double) -> Unit,
     onCheckDurationChange: (Boolean) -> Unit,
+    onShowNumbersChange: (Boolean) -> Unit,
 ) {
     SectionHeader("Source")
     Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm)) {
@@ -195,6 +200,15 @@ private fun Setup(
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SelectionSummary(state)
+    if (state.canShowNumbers) {
+        CheckableRow(
+            title = "Show numbers instead",
+            supportingText = "Each note as its degree in ${state.keyLabel ?: "the key"} - 1 2 3 5 - " +
+                "to learn the distances for improvising.",
+            checked = state.notation == NotationStyle.NUMBERS,
+            onCheckedChange = onShowNumbersChange,
+        )
+    }
 
     Spacer(Modifier.height(Dimens.spaceSm))
     SectionHeader("How much")
@@ -311,9 +325,17 @@ private fun SourceButton(text: String, selected: Boolean, onClick: () -> Unit, m
 private fun ShowingSubject(state: PhraseTrainerUiState, phase: PhraseTrainerPhase.Showing) {
     val phrase = state.phrase ?: return
     val unit = state.runUnits.getOrNull(phase.unitIndex) ?: return
-    BoundedMusicalPage(
+    UnitPage(state, phrase, unit)
+}
+
+/** A unit drawn whole, as notes or as numbers - whichever the player chose and the phrase allows. */
+@Composable
+private fun UnitPage(state: PhraseTrainerUiState, phrase: Phrase, unit: PracticeUnit) {
+    BoundedNotationPage(
         sequence = phrase.toneSequenceOf(unit),
+        style = state.effectiveNotation,
         modifier = Modifier.fillMaxWidth(),
+        keyLabel = state.keyLabel,
         naming = state.noteNaming,
         octaves = state.octaveNumbering,
         color = MaterialTheme.colorScheme.primary,
@@ -329,14 +351,7 @@ private fun ShowingSubject(state: PhraseTrainerUiState, phase: PhraseTrainerPhas
 private fun PlayingSubject(state: PhraseTrainerUiState) {
     val phrase = state.phrase ?: return
     val unit = state.progress?.let { state.runUnits.getOrNull(it.unitIndex) } ?: return
-    BoundedMusicalPage(
-        sequence = phrase.toneSequenceOf(unit),
-        modifier = Modifier.fillMaxWidth(),
-        naming = state.noteNaming,
-        octaves = state.octaveNumbering,
-        color = MaterialTheme.colorScheme.primary,
-        staffColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    UnitPage(state, phrase, unit)
 }
 
 /** What is being listened for right now, in words and colour - below the notes, or instead of them. */
@@ -362,7 +377,7 @@ private fun ListeningPanel(state: PhraseTrainerUiState) {
             Listening.WAITING -> "Listening..." to MaterialTheme.colorScheme.onSurfaceVariant
             Listening.UNCLEAR -> "..." to MaterialTheme.colorScheme.onSurfaceVariant
             Listening.WRONG_PITCH -> {
-                val heard = progress.detectedNote?.let(state::nameOf)
+                val heard = progress.detectedNote?.let(state::heardNameOf)
                 (if (heard != null) "Heard $heard" else "Not quite") to FeedbackColors.incorrect
             }
             Listening.CORRECT -> (if (progress.landed) "Got it!" else "Keep going...") to FeedbackColors.correct
@@ -490,7 +505,12 @@ private fun headerOf(state: PhraseTrainerUiState): ScreenHeader = when (state.ph
     is PhraseTrainerPhase.CountIn -> ScreenHeader.Question("Get ready")
     is PhraseTrainerPhase.Showing -> ScreenHeader.Question("Listen and watch")
     is PhraseTrainerPhase.Listening -> ScreenHeader.Question(
-        if (state.showsThroughout) "Play what you see" else "Play it back from memory",
+        when {
+            state.effectiveNotation == NotationStyle.NUMBERS && state.keyLabel != null ->
+                "Play the numbers in ${state.keyLabel}"
+            state.showsThroughout -> "Play what you see"
+            else -> "Play it back from memory"
+        },
     )
     is PhraseTrainerPhase.Finished -> ScreenHeader.Question("How did that go?")
     PhraseTrainerPhase.Idle -> ScreenHeader.Description(
@@ -519,6 +539,7 @@ private fun PhraseTrainerSetupPreview() {
             onSetMixed = {},
             onShowSecondsChange = {},
             onCheckDurationChange = {},
+            onShowNumbersChange = {},
             onStart = {},
             onTogglePause = {},
             onSkip = {},

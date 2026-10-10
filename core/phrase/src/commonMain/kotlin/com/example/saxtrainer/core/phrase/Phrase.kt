@@ -53,7 +53,15 @@ data class Phrase(
     val units: List<PracticeUnit>
         get() = bars.indices.chunked(trainingBars).map { PracticeUnit(it.first()..it.last()) }
 
-    /** The whole phrase, flattened into the flat sequence type everything else plays and reads. */
+    /**
+     * Whether every note knows its degree in a key, so the phrase can be shown as numbers: true for
+     * a resolved scale pattern, false for a library phrase written out note by note.
+     */
+    val hasDegrees: Boolean
+        get() = bars.flatMap { it.steps }.filterNot { it.isRest }.let { notes ->
+            notes.isNotEmpty() && notes.all { it.degree != null }
+        }
+
     /**
      * Every note the phrase asks for, each once and exactly as written, lowest first - what it is
      * made of, with its order, rhythm and rests left behind.
@@ -61,6 +69,7 @@ data class Phrase(
     fun distinctWrittenNotes(): List<SpelledNote> =
         toneSequence().writtenNotes.distinct().sortedWith(SpelledNote.PITCH_ORDER)
 
+    /** The whole phrase, flattened into the flat sequence type everything else plays and reads. */
     fun toneSequence(): ToneSequence = ToneSequence(
         steps = bars.flatMap { it.steps },
         timeSignature = timeSignature,

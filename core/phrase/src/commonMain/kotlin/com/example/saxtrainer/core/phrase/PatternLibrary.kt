@@ -9,7 +9,7 @@ package com.example.saxtrainer.core.phrase
  * See `tools/generate_phrase_library.py` for why this is generated rather than hand-written, and
  * [PatternCatalog] for the seam a real file-backed catalog would use instead.
  */
-object PatternLibrary : PatternCatalog by InMemoryPatternCatalog(parsePatterns(listOf(BLUES_1_MELODY_JSON, BLUES_2_BLUE_NOTE_LICK_JSON, BLUES_2_FALLING_LINE_JSON, BLUES_2_RIFF_JSON, BLUES_2_UP_TO_THE_TOP_JSON, SCALE_UP_AND_DOWN_JSON)))
+object PatternLibrary : PatternCatalog by InMemoryPatternCatalog(parsePatterns(listOf(BLUES_1_MELODY_JSON, BLUES_2_BLUE_NOTE_LICK_JSON, BLUES_2_FALLING_LINE_JSON, BLUES_2_RIFF_JSON, BLUES_2_UP_TO_THE_TOP_JSON, IMPRO_1_SONG_JSON, IMPRO_1_SONG_HIGH_JSON, SCALE_UP_AND_DOWN_JSON)))
 
 @Suppress("ktlint")
 private val BLUES_1_MELODY_JSON = """
@@ -441,6 +441,334 @@ private val BLUES_2_UP_TO_THE_TOP_JSON = """
         {
           "degree": 1,
           "duration": "whole"
+        }
+      ]
+    }
+  ]
+}
+""".trimIndent()
+
+@Suppress("ktlint")
+private val IMPRO_1_SONG_JSON = """
+{
+  "id": "impro_1_song",
+  "name": "Impro 1 song",
+  "description": "Eight bars on the major pentatonic, three eighths and a long note: 1 2 3 5 | 6 5 3 2 | 1 2 3 5 | 2 2 3 2 | 1 5. 6. 1 | 2 5. 6. 2 | 3 1 | 2 1 6. 1 - a dot after a number is the octave below.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": -1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 0,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": -1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 0,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 3,
+          "duration": "half"
+        },
+        {
+          "degree": 1,
+          "duration": "half"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 0,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "half+eighth"
+        }
+      ]
+    }
+  ]
+}
+""".trimIndent()
+
+@Suppress("ktlint")
+private val IMPRO_1_SONG_HIGH_JSON = """
+{
+  "id": "impro_1_song_high",
+  "name": "Impro 1 song, high turn",
+  "description": "The Impro 1 song with bars five and six turned upward, for a key whose low 5 is under the saxophone: 1 5 6 1 | 2 5 6 2 in place of 1 5. 6. 1 | 2 5. 6. 2.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 3,
+          "duration": "half"
+        },
+        {
+          "degree": 1,
+          "duration": "half"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 0,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "half+eighth"
         }
       ]
     }

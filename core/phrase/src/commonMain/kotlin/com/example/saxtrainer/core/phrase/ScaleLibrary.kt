@@ -9,7 +9,7 @@ package com.example.saxtrainer.core.phrase
  * See `tools/generate_phrase_library.py` for why this is generated rather than hand-written, and
  * [ScaleCatalog] for the seam a real file-backed catalog would use instead.
  */
-object ScaleLibrary : ScaleCatalog by InMemoryScaleCatalog(parseScales(listOf(BLUES_JSON, MAJOR_JSON, MINOR_JSON)))
+object ScaleLibrary : ScaleCatalog by InMemoryScaleCatalog(parseScales(listOf(BLUES_JSON, MAJOR_JSON, MAJOR_PENTATONIC_JSON, MINOR_JSON)))
 
 @Suppress("ktlint")
 private val BLUES_JSON = """
@@ -48,6 +48,28 @@ private val MAJOR_JSON = """
     7,
     9,
     11
+  ]
+}
+""".trimIndent()
+
+@Suppress("ktlint")
+private val MAJOR_PENTATONIC_JSON = """
+{
+  "id": "major_pentatonic",
+  "name": "Major pentatonic",
+  "intervals": [
+    0,
+    2,
+    4,
+    7,
+    9
+  ],
+  "letters": [
+    0,
+    1,
+    2,
+    4,
+    5
   ]
 }
 """.trimIndent()

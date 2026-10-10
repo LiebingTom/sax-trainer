@@ -1,0 +1,160 @@
+{
+  "id": "impro_1_song_high",
+  "name": "Impro 1 song, high turn",
+  "description": "The Impro 1 song with bars five and six turned upward, for a key whose low 5 is under the saxophone: 1 5 6 1 | 2 5 6 2 in place of 1 5. 6. 1 | 2 5. 6. 2.",
+  "trainingBars": 2,
+  "bars": [
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 3,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 4,
+          "duration": "eighth"
+        },
+        {
+          "degree": 5,
+          "duration": "eighth"
+        },
+        {
+          "degree": 2,
+          "duration": "half+eighth"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 3,
+          "duration": "half"
+        },
+        {
+          "degree": 1,
+          "duration": "half"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "degree": 2,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "eighth"
+        },
+        {
+          "degree": 0,
+          "duration": "eighth"
+        },
+        {
+          "degree": 1,
+          "duration": "half+eighth"
+        }
+      ]
+    }
+  ]
+}

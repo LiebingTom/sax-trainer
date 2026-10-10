@@ -1,5 +1,6 @@
 package com.example.saxtrainer.feature.phrasetrainer
 
+import com.example.saxtrainer.core.designsystem.component.NotationStyle
 import com.example.saxtrainer.core.phrase.PhraseSource
 
 /**
@@ -20,6 +21,8 @@ data class PhraseTrainerPreset(
      * they were written to last.
      */
     val checkDuration: Boolean = false,
+    /** Notes on the staff, or numbers in the key - numbers only where the phrase knows its degrees. */
+    val notation: NotationStyle = NotationStyle.STAFF,
     /** How many times through the whole run. */
     val repeats: Int = 1,
     /** Whether every repeat's units are drawn from one shuffled pool instead of one pass at a time. */

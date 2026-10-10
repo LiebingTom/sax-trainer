@@ -1,5 +1,7 @@
 package com.example.saxtrainer.feature.phrasetrainer
 
+import com.example.saxtrainer.core.designsystem.component.NotationStyle
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.saxtrainer.core.audio.capture.AudioCapture
@@ -145,6 +147,10 @@ class PhraseTrainerViewModel(
 
     /** Whether note length is also checked while playing, not just which notes were played. */
     fun setCheckDuration(check: Boolean) = updateSetup { it.copy(checkDuration = check) }
+
+    /** Whether a unit is shown as numbers in its key rather than as notes on the staff. */
+    fun setShowNumbers(show: Boolean) =
+        updateSetup { it.copy(notation = if (show) NotationStyle.NUMBERS else NotationStyle.STAFF) }
 
     /** Called by the screen when the microphone was asked for and refused. */
     fun onMicrophoneUnavailable() {

@@ -54,6 +54,9 @@ class ContentError(Exception):
 
 
 def beats_for(duration: str, beat_unit: int) -> float:
+    # Values joined by "+" are tied into one note: "half+eighth" lasts two and a half beats.
+    if "+" in duration:
+        return sum(beats_for(part.strip(), beat_unit) for part in duration.split("+"))
     match = DURATION_PATTERN.match(duration)
     if not match:
         raise ValueError(f"'{duration}' is not a note value this app draws")
@@ -81,8 +84,9 @@ def validate_step(step: dict, path: str, is_phrase: bool) -> None:
         if note is not None and not NOTE_PATTERN.match(note):
             raise ContentError(f"{path}: '{note}' is not a note like 'C4' or 'F#3'")
     else:
-        if degree is not None and (not isinstance(degree, int) or degree < 1):
-            raise ContentError(f"{path}: degree must be a positive whole number, got {degree!r}")
+        # 1 is the root; past the scale wraps up an octave, 0 and below wrap down one.
+        if degree is not None and not isinstance(degree, int):
+            raise ContentError(f"{path}: degree must be a whole number, got {degree!r}")
 
 
 def validate_bars(bars: list, beats_per_bar: int, beat_unit: int, path: str, is_phrase: bool) -> None:

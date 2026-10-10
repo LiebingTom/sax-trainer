@@ -160,8 +160,14 @@ internal fun parseWrittenNote(token: String): SpelledNote? = SpelledNote.parse(t
 /** The pitch [parseWrittenNote] reads: "Cb4" sounds as B3, "B#3" as C4. */
 internal fun parseNote(token: String): Note? = parseWrittenNote(token)?.note
 
-/** "quarter", "eighth.", and so on - a note value, dotted or not, read the way a musician says it. */
-internal fun durationOf(token: String, timeSignature: TimeSignature): Beats? {
+/**
+ * "quarter", "eighth.", and so on - a note value, dotted or not, read the way a musician says it.
+ * Values joined by "+" are tied into one note: "half+eighth" lasts two and a half beats.
+ */
+internal fun durationOf(token: String, timeSignature: TimeSignature): Beats? =
+    token.split("+").fold(Beats.ZERO) { total, part -> total + (noteValueOf(part.trim(), timeSignature) ?: return null) }
+
+private fun noteValueOf(token: String, timeSignature: TimeSignature): Beats? {
     val dots = token.count { it == '.' }
     val value = NOTE_VALUES[token.trimEnd('.').lowercase()] ?: return null
     return NotatedDuration(value, dots).beats(timeSignature.beatUnit)

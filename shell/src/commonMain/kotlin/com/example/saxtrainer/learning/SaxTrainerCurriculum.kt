@@ -7,6 +7,7 @@ import com.example.saxtrainer.learning.catalog.units.cMajorTwoOctavesUnit
 import com.example.saxtrainer.learning.catalog.units.chromaticSharpsAndFlatsUnit
 import com.example.saxtrainer.learning.catalog.units.chromaticSharpsUnit
 import com.example.saxtrainer.learning.catalog.units.dMajorNotesUnit
+import com.example.saxtrainer.learning.catalog.units.impro1Unit
 
 /**
  * Everything the app teaches, as units of a topic.
@@ -20,7 +21,8 @@ import com.example.saxtrainer.learning.catalog.units.dMajorNotesUnit
  * The four note groups are one ladder: each holds every pitch of the one before it, and the last
  * two are the same pitches written two ways - sharps only, then every black key as a sharp and as a
  * flat. After them the blues - its notes and scale, then melodies on it - built from the scale and
- * pattern content files. The units this replaced are kept, unbuilt, in `shell/archive/learning`.
+ * pattern content files - and then Impro, songs on the major pentatonic read as numbers. The
+ * units this replaced are kept, unbuilt, in `shell/archive/learning`.
  *
  * The [Curriculum] checks itself as it is built, so a mistake in the lesson data shows up the first
  * time the app starts rather than when a player taps a level.
@@ -33,5 +35,6 @@ val SaxTrainerCurriculum: Curriculum = Curriculum(
         chromaticSharpsAndFlatsUnit,
         blues1Unit,
         blues2Unit,
+        impro1Unit,
     ),
 )

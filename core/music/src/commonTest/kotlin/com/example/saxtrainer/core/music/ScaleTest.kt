@@ -29,8 +29,10 @@ class ScaleTest {
     }
 
     @Test
-    fun degreeBelowOneIsRejected() {
-        assertFailsWith<IllegalArgumentException> { MAJOR.semitoneOffset(0) }
+    fun degreeBelowOneWrapsIntoTheOctaveBelow() {
+        assertEquals(-1, MAJOR.semitoneOffset(0))
+        assertEquals(-3, MAJOR.semitoneOffset(-1))
+        assertEquals(-12, MAJOR.semitoneOffset(-6))
     }
 
     @Test

@@ -110,6 +110,7 @@ fun PhraseTrainerRoute(
         onSetMixed = viewModel::setMixed,
         onShowSecondsChange = viewModel::setShowSeconds,
         onCheckDurationChange = viewModel::setCheckDuration,
+        onShowNumbersChange = viewModel::setShowNumbers,
         onStart = start,
         onTogglePause = viewModel::togglePause,
         onSkip = viewModel::skip,

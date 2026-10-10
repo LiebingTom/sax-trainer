@@ -1,5 +1,6 @@
 package com.example.saxtrainer.feature.phrasetrainer
 
+import com.example.saxtrainer.core.designsystem.component.NotationStyle
 import com.example.saxtrainer.core.music.Note
 import com.example.saxtrainer.core.music.SpelledNote
 import com.example.saxtrainer.core.music.NoteNaming
@@ -119,6 +120,8 @@ data class PhraseTrainerUiState(
     val mixed: Boolean = false,
     /** Whether a note also has to be held for its written length - see [PhraseTrainerPreset]. */
     val checkDuration: Boolean = false,
+    /** How a unit is shown, as the player chose it - see [effectiveNotation] for what is drawn. */
+    val notation: NotationStyle = NotationStyle.STAFF,
     val tempo: Tempo = Tempo(80),
     val microphoneUnavailable: Boolean = false,
     val isPaused: Boolean = false,
@@ -144,6 +147,28 @@ data class PhraseTrainerUiState(
 
     /** Running or about to be: either way the setup is no longer the player's to change. */
     val isBusy: Boolean get() = isRunning || phase is PhraseTrainerPhase.CountIn
+
+    /** Whether the current phrase can be shown as numbers: every note knows its degree in a key. */
+    val canShowNumbers: Boolean get() = phrase?.hasDegrees == true
+
+    /** How a unit is actually drawn: numbers only where they are asked for and can be shown. */
+    val effectiveNotation: NotationStyle
+        get() = if (notation == NotationStyle.NUMBERS && canShowNumbers) NotationStyle.NUMBERS else NotationStyle.STAFF
+
+    /**
+     * The key the numbers count in, as it is said: "G major", "A blues". Null for a library phrase,
+     * which has no key of its own here.
+     */
+    val keyLabel: String?
+        get() = scaleChoice?.displayName?.takeIf { sourceType == PhraseSourceType.SCALE_PATTERN }
+
+    /** A heard written note named as the player reads the unit: its degree in the key with numbers, else its name. */
+    fun heardNameOf(note: SpelledNote): String {
+        val choice = scaleChoice
+        if (effectiveNotation != NotationStyle.NUMBERS || choice == null) return nameOf(note)
+        val semitones = note.note.midiNumber - choice.root.semitonesFromC
+        return choice.scale.degreeOf(semitones).label
+    }
 
     /** Whether the unit stays on screen while it is played rather than being taken away. */
     val showsThroughout: Boolean get() = showSeconds.isInfinite()

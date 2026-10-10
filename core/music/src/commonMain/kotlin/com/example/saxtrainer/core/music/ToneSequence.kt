@@ -17,9 +17,15 @@ data class ToneStep(
      * leaves it to the sequence's [ToneSequence.accidentalStyle]; see [ToneSequence.writtenAt].
      */
     val written: SpelledNote? = null,
+    /**
+     * The note counted from the root of its key - "♭3", "5" - where the material knows its key, as
+     * a scale pattern does. Null where it does not; a rest never has one.
+     */
+    val degree: ScaleDegree? = null,
 ) {
     init {
         require(duration > Beats.ZERO) { "a step must last at least some beats" }
+        require(note != null || degree == null) { "a rest has no degree" }
         require(written == null || written.note == note) {
             "$written is not a way of writing $note"
         }

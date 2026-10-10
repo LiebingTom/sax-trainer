@@ -49,11 +49,3 @@ internal fun RowsCard(content: @Composable ColumnScope.() -> Unit) {
         Column(modifier = Modifier.padding(Dimens.cardPadding), content = content)
     }
 }
-
-/**
- * Asks once for leave to show the running session's notification, where the platform needs that
- * asked - Android 13 and later. Starting a session works either way; without leave it simply has
- * no notification.
- */
-@Composable
-expect fun rememberNotificationPermissionAsker(): () -> Unit

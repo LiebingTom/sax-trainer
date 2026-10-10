@@ -1,6 +1,7 @@
 package com.example.saxtrainer
 
 import com.example.saxtrainer.core.audio.capture.AudioCapture
+import com.example.saxtrainer.core.audio.metronome.ActiveMetronome
 import com.example.saxtrainer.core.audio.metronome.MetronomeFactory
 import com.example.saxtrainer.core.learning.Curriculum
 import com.example.saxtrainer.core.learning.InMemoryLessonProgressRepository
@@ -53,6 +54,12 @@ class AppContainer(
      * store the logbook works and forgets when the app closes.
      */
     val reedLogbook: ReedLogbookRepository = InMemoryReedLogbookRepository(),
+    /**
+     * Whether the metronome plays on with the app in the background and the phone locked. Only a
+     * platform that shows it while it does - Android's notification - says yes; elsewhere it stops
+     * when the app is hidden, so it is never left ticking where it cannot be seen and stopped.
+     */
+    val metronomePlaysInBackground: Boolean = false,
 ) {
     val curriculum: Curriculum = curriculum
 
@@ -61,6 +68,9 @@ class AppContainer(
      * page and, on Android, the notification alike.
      */
     val reedSessions: ReedSessions = ReedSessions(reedLogbook)
+
+    /** The metronome open on its screen, if any - shown and stopped from outside it on Android. */
+    val activeMetronome: ActiveMetronome = ActiveMetronome()
 
     /**
      * Progress lasts as long as the app runs. A persistent implementation belongs beside whatever

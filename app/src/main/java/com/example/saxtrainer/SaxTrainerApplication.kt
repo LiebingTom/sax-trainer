@@ -12,8 +12,8 @@ import kotlinx.coroutines.MainScope
 
 /**
  * Where the Android app is assembled: the things `AppContainer` cannot build for itself, each of
- * them the Android implementation of an interface in a core module - and the one thing only Android
- * has, the running reed session's notification.
+ * them the Android implementation of an interface in a core module - and the two things only Android
+ * has, the notifications of the running reed session and of the open metronome.
  */
 class SaxTrainerApplication : Application() {
     lateinit var container: AppContainer
@@ -21,6 +21,10 @@ class SaxTrainerApplication : Application() {
 
     /** Keeps the reed session's notification in step with the logbook, for the life of the process. */
     lateinit var reedSessionSync: ReedSessionSync
+        private set
+
+    /** Keeps the open metronome's notification in step with it, for the life of the process. */
+    lateinit var metronomeSync: MetronomeSync
         private set
 
     override fun onCreate() {
@@ -32,7 +36,10 @@ class SaxTrainerApplication : Application() {
             newMetronome = MetronomeFactory { MetronomeEngine() },
             userLessons = SharedPreferencesUserLessonRepository(this),
             reedLogbook = SharedPreferencesReedLogbookRepository(this),
+            // Shown and stopped from its own notification while it does: see MetronomeService.
+            metronomePlaysInBackground = true,
         )
         reedSessionSync = ReedSessionSync(this, container.reedLogbook).also { it.start(MainScope()) }
+        metronomeSync = MetronomeSync(this, container.activeMetronome).also { it.start(MainScope()) }
     }
 }

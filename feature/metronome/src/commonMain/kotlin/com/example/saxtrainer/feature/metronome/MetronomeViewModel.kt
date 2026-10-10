@@ -2,6 +2,7 @@ package com.example.saxtrainer.feature.metronome
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.saxtrainer.core.audio.metronome.ActiveMetronome
 import com.example.saxtrainer.core.audio.metronome.Metronome
 import com.example.saxtrainer.core.exercise.monotonicNanos
 import com.example.saxtrainer.core.audio.metronome.MetronomeEngineState
@@ -46,9 +47,15 @@ class MetronomeViewModel(
     private val exerciseSetups: ExerciseSetupRepository = InMemoryExerciseSetupRepository(),
     private val tapTempo: TapTempo = TapTempo(),
     private val nanoTime: () -> Long = monotonicNanos,
+    /**
+     * Where this screen's click is shown outside it - on Android, the notification that keeps it
+     * playing with the phone locked. Attached for exactly as long as this screen exists.
+     */
+    private val active: ActiveMetronome? = null,
 ) : ViewModel() {
 
     init {
+        active?.attach(engine)
         // Before the state flow below reads the engine, so the screen opens on the remembered
         // tempo, time signature and accent rather than on the defaults and then a correction. The
         // latter two are the settings screen's own choices; this only carries them into the click.
@@ -94,7 +101,7 @@ class MetronomeViewModel(
         }
     }
 
-    /** Called when the screen is no longer visible; practising should not continue in the background. */
+    /** Stops the click: when the screen is left, or hidden where it may not play on in the background. */
     fun pause() {
         engine.stop()
     }
@@ -112,6 +119,10 @@ class MetronomeViewModel(
     }
 
     override fun onCleared() {
+        // Stopped and let go of before it is released, so nothing outside this screen is left
+        // showing - or able to start - a click that is going away.
+        engine.stop()
+        active?.detach(engine)
         engine.release()
         super.onCleared()
     }

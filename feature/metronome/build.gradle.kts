@@ -61,6 +61,9 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+            // A stand-in engine, so the view model can be driven without a sound.
+            implementation(project(":core:testing"))
         }
         wasmJsTest.dependencies {
             // Runs the metronome screen in a browser, over a stand-in engine.

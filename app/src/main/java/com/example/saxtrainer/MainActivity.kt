@@ -19,19 +19,20 @@ class MainActivity : ComponentActivity() {
         val container = (application as SaxTrainerApplication).container
         // Opened from the reed session's notification: straight to the logbook. Not on a restore,
         // which brings back whatever screen was open instead.
-        if (savedInstanceState == null) requestReedLogbookIfAsked(intent)
+        if (savedInstanceState == null) requestScreensIfAsked(intent)
         setContent {
             SaxTrainerApp(
                 container = container,
                 onAppearanceChanged = ::applyAppearance,
                 reedLogbookRequests = reedLogbookOpens,
+                metronomeRequests = metronomeOpens,
             )
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        requestReedLogbookIfAsked(intent)
+        requestScreensIfAsked(intent)
     }
 
     override fun onStart() {
@@ -41,14 +42,28 @@ class MainActivity : ComponentActivity() {
         (application as SaxTrainerApplication).reedSessionSync.refresh()
     }
 
+    override fun onStop() {
+        super.onStop()
+        // The last guard against a click ticking on unseen: playing on in the background is only
+        // allowed while its notification is up, and it may not be - refused, or not started yet.
+        (application as SaxTrainerApplication).metronomeSync.stopIfUnseen()
+    }
+
     /** Held until the app's navigation is there to take it. */
     private val reedLogbookRequests = Channel<Unit>(Channel.CONFLATED)
     private val reedLogbookOpens = reedLogbookRequests.receiveAsFlow()
 
-    private fun requestReedLogbookIfAsked(intent: Intent?) {
+    private val metronomeRequests = Channel<Unit>(Channel.CONFLATED)
+    private val metronomeOpens = metronomeRequests.receiveAsFlow()
+
+    private fun requestScreensIfAsked(intent: Intent?) {
         if (intent?.getBooleanExtra(EXTRA_OPEN_REED_LOGBOOK, false) == true) {
             intent.removeExtra(EXTRA_OPEN_REED_LOGBOOK)
             reedLogbookRequests.trySend(Unit)
+        }
+        if (intent?.getBooleanExtra(EXTRA_OPEN_METRONOME, false) == true) {
+            intent.removeExtra(EXTRA_OPEN_METRONOME)
+            metronomeRequests.trySend(Unit)
         }
     }
 
@@ -74,6 +89,9 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** Set by the reed session's notification: open the reed logbook. */
         const val EXTRA_OPEN_REED_LOGBOOK = "com.example.saxtrainer.extra.OPEN_REED_LOGBOOK"
+
+        /** Set by the metronome's notification: show the open metronome. */
+        const val EXTRA_OPEN_METRONOME = "com.example.saxtrainer.extra.OPEN_METRONOME"
 
         private const val NAVIGATION_SCRIM_ALPHA = 0.8f
     }

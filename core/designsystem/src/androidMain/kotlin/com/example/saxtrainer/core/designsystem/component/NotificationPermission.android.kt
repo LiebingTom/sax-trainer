@@ -1,4 +1,4 @@
-package com.example.saxtrainer.feature.reedlogbook
+package com.example.saxtrainer.core.designsystem.component
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -14,7 +14,7 @@ import androidx.core.content.ContextCompat
 @Composable
 actual fun rememberNotificationPermissionAsker(): () -> Unit {
     val context = LocalContext.current
-    // Whatever the answer, the session runs; there is nothing to do with it here.
+    // Whatever the answer, what asked for it runs; there is nothing to do with it here.
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     return remember(launcher) {
         {

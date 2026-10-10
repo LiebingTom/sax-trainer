@@ -97,12 +97,22 @@ fun SaxTrainerNavHost(
      * notification being tapped. Each value is one request.
      */
     reedLogbookRequests: Flow<Unit> = emptyFlow(),
+    /** Asks for the open metronome to be shown - its notification being tapped. */
+    metronomeRequests: Flow<Unit> = emptyFlow(),
 ) {
     val book by container.userLessons.book.collectAsStateWithLifecycle()
 
     LaunchedEffect(reedLogbookRequests) {
         reedLogbookRequests.collect {
             navController.navigate(SaxTrainerDestination.REED_LOGBOOK) { launchSingleTop = true }
+        }
+    }
+    LaunchedEffect(metronomeRequests) {
+        metronomeRequests.collect {
+            // Back to the metronome that is open, not a second one on top of it.
+            if (!navController.popBackStack(SaxTrainerDestination.METRONOME, inclusive = false)) {
+                navController.navigate(SaxTrainerDestination.METRONOME) { launchSingleTop = true }
+            }
         }
     }
 
@@ -300,6 +310,8 @@ fun SaxTrainerNavHost(
                 newMetronome = container.newMetronome,
                 exerciseSetups = container.exerciseSetups,
                 onBack = { navController.popBackStack() },
+                active = container.activeMetronome,
+                playsInBackground = container.metronomePlaysInBackground,
             )
         }
         lessonStep(

@@ -35,6 +35,8 @@ fun SaxTrainerApp(
     onAppearanceChanged: (darkTheme: Boolean, background: Color) -> Unit = { _, _ -> },
     /** Requests from outside the screens to open the reed logbook - see [SaxTrainerNavHost]. */
     reedLogbookRequests: Flow<Unit> = emptyFlow(),
+    /** Requests from outside the screens to show the open metronome - see [SaxTrainerNavHost]. */
+    metronomeRequests: Flow<Unit> = emptyFlow(),
 ) {
     val settings by container.settingsRepository.settings.collectAsStateWithLifecycle()
     val darkTheme = when (settings.themeMode) {
@@ -52,6 +54,7 @@ fun SaxTrainerApp(
             container = container,
             modifier = modifier,
             reedLogbookRequests = reedLogbookRequests,
+            metronomeRequests = metronomeRequests,
         )
     }
 }

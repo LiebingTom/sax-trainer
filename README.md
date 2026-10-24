@@ -299,3 +299,8 @@ on a real dispatcher and gives the thread back.
   It is a constant offset rather than drift.
 - **Kotlin/Wasm is single-threaded**, so a slow frame in the browser is a UI hitch. It can never be
   a glitch in the recording: the worklet runs on the browser's own audio thread.
+
+## License
+
+MIT, see `LICENSE`. Icons from Material Symbols (Apache 2.0) and notation glyphs from Bravura
+(SIL Open Font License 1.1) are listed in `THIRD_PARTY_NOTICES.md`.

@@ -28,10 +28,9 @@ import com.example.saxtrainer.core.music.NoteName
 /**
  * Tenor saxophone fingerings, written B flat 3 up to F sharp 6.
  *
- * Transcribed from the chart the app was given, and treated as the authoritative source: the
- * entries below are a faithful copy of it, alternates included, rather than anything derived. Notes
- * are written pitch, so the same grips serve the rest of the saxophone family; only what sounds
- * differs.
+ * The standard tenor saxophone grips, alternates included, written out key by key and treated as
+ * the authoritative source rather than derived from any rule. Notes are written pitch, so the same
+ * grips serve the rest of the saxophone family; only what sounds differs.
  *
  * Beginner note sets are deliberately not defined here - which notes a first exercise uses is a
  * question for a trainer, not for the instrument.

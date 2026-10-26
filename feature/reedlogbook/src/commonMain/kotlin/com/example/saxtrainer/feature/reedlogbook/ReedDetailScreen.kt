@@ -30,6 +30,7 @@ import com.example.saxtrainer.core.designsystem.component.PrimaryButton
 import com.example.saxtrainer.core.designsystem.component.ScreenScaffold
 import com.example.saxtrainer.core.designsystem.component.SecondaryButton
 import com.example.saxtrainer.core.designsystem.component.SectionHeader
+import com.example.saxtrainer.core.designsystem.icon.Add
 import com.example.saxtrainer.core.designsystem.icon.Delete
 import com.example.saxtrainer.core.designsystem.icon.Edit
 import com.example.saxtrainer.core.designsystem.icon.SaxTrainerIcons
@@ -53,7 +54,8 @@ import kotlinx.datetime.TimeZone
  * newest first.
  *
  * Editing and deleting the reed sit in the title bar, being about the reed as a whole; the one
- * button at the foot moves it in or out of rotation. Deleting the reed or a session is asked about
+ * button at the foot moves it in or out of rotation. A session played without the clock running is
+ * entered by hand from the + below the last one. Deleting the reed or a session is asked about
  * first - neither can be taken back. A reed coming back whose number another reed has taken in the
  * meantime asks which number it is to carry instead.
  */
@@ -67,12 +69,14 @@ fun ReedDetailScreen(
     onSetStatus: (status: ReedStatus, number: Int?) -> Unit,
     onDeleteReed: () -> Unit,
     onDeleteSession: (String) -> Unit,
+    onAddSession: (start: Instant, end: Instant) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var confirmDeleteReed by remember { mutableStateOf(false) }
     var chooseNumber by remember { mutableStateOf(false) }
     var sessionToDelete by remember { mutableStateOf<ReedSession?>(null) }
+    var addingSession by remember { mutableStateOf(false) }
     val sessions = logbook.sessionsOf(reed.id)
 
     ScreenScaffold(
@@ -127,29 +131,33 @@ fun ReedDetailScreen(
         Spacer(Modifier.height(Dimens.spaceLg))
 
         SectionHeader("Sessions")
-        if (sessions.isEmpty()) {
-            Text(
-                text = "Not played yet.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            RowsCard {
-                sessions.forEachIndexed { index, session ->
-                    // A quiet rule between sessions, so a long list reads as one row per session.
-                    if (index > 0) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = Dimens.spaceXs),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
-                    }
-                    SessionRow(
-                        session = session,
-                        now = now,
-                        zone = zone,
-                        onDelete = { sessionToDelete = session },
-                    )
-                }
+        RowsCard {
+            if (sessions.isEmpty()) {
+                Text(
+                    text = "Not played yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = Dimens.spaceXs),
+                )
+            }
+            sessions.forEachIndexed { index, session ->
+                // A quiet rule between sessions, so a long list reads as one row per session.
+                if (index > 0) SessionDivider()
+                SessionRow(
+                    session = session,
+                    now = now,
+                    zone = zone,
+                    onDelete = { sessionToDelete = session },
+                )
+            }
+            SessionDivider()
+            // Below the last session: one played without the clock running, entered by hand.
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                ActionIconButton(
+                    icon = IconSource.Vector(SaxTrainerIcons.Add),
+                    contentDescription = "Add a session on ${ReedText.titleOf(reed)} by hand",
+                    onClick = { addingSession = true },
+                )
             }
         }
         Spacer(Modifier.height(Dimens.spaceLg))
@@ -178,6 +186,19 @@ fun ReedDetailScreen(
                 onSetStatus(ReedStatus.ACTIVE, number)
             },
             onCancel = { chooseNumber = false },
+        )
+    }
+    if (addingSession) {
+        AddSessionDialog(
+            reed = reed,
+            logbook = logbook,
+            now = now,
+            zone = zone,
+            onAdd = { start, end ->
+                addingSession = false
+                onAddSession(start, end)
+            },
+            onCancel = { addingSession = false },
         )
     }
     sessionToDelete?.let { session ->
@@ -245,6 +266,14 @@ private fun Property(label: String, value: String) {
     }
 }
 
+@Composable
+private fun SessionDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(vertical = Dimens.spaceXs),
+        color = MaterialTheme.colorScheme.outlineVariant,
+    )
+}
+
 /** "Mon 5 Oct 2026 · 14:02 · 42 min", and its delete button. */
 @Composable
 private fun SessionRow(session: ReedSession, now: Instant, zone: TimeZone, onDelete: () -> Unit) {
@@ -287,6 +316,7 @@ private fun ReedDetailScreenPreview() {
             onSetStatus = { _, _ -> },
             onDeleteReed = {},
             onDeleteSession = {},
+            onAddSession = { _, _ -> },
             onBack = {},
         )
     }

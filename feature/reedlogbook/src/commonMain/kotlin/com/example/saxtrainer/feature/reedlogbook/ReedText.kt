@@ -6,6 +6,7 @@ import com.example.saxtrainer.core.reed.ReedStatus
 import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -70,10 +71,15 @@ internal object ReedText {
         "${WEEKDAYS[date.dayOfWeek.ordinal]} ${date.day} ${MONTHS[date.month.ordinal]} ${date.year}"
 
     /** "14:02". */
-    fun timeOf(instant: Instant, zone: TimeZone): String {
-        val time = instant.toLocalDateTime(zone).time
-        return "${time.hour.twoDigits()}:${time.minute.twoDigits()}"
-    }
+    fun timeOf(instant: Instant, zone: TimeZone): String = timeOf(instant.toLocalDateTime(zone).time)
+
+    fun timeOf(time: LocalTime): String = "${time.hour.twoDigits()}:${time.minute.twoDigits()}"
+
+    /** A typed length in whole minutes, "45"; null for anything else, nothing and nought included. */
+    fun parseMinutes(text: String): Int? = text.trim().toIntOrNull()?.takeIf { it in 1..MAX_SESSION_MINUTES }
+
+    /** Longer than any one sitting - a slip of the thumb, not a session. */
+    const val MAX_SESSION_MINUTES = 12 * 60
 
     /** "2026-10-05", for a file name. */
     fun isoDayOf(instant: Instant, zone: TimeZone): String = instant.toLocalDateTime(zone).date.toString()

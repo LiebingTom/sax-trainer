@@ -107,6 +107,7 @@ fun ReedDetailRoute(
         // Gone from the logbook, the reed's page leaves by itself - see the check above.
         onDeleteReed = { viewModel.deleteReed(reedId) },
         onDeleteSession = viewModel::deleteSession,
+        onAddSession = { start, end -> viewModel.addSession(reedId, start, end) },
         onBack = onBack,
         modifier = modifier,
     )

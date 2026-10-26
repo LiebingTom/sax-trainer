@@ -283,5 +283,26 @@ fun ReedLogbook.stopped(now: Instant): ReedLogbook {
     return copy(sessions = sessions.map { if (it.id == running.id) it.copy(end = end) else it })
 }
 
+/**
+ * Whether [start] to [end] is free to enter as a session played earlier: it has a length, it is
+ * over by [now], and no other session - on any reed, one being played included - shares any of it.
+ * One mouthpiece, one reed: time entered twice would be counted twice.
+ */
+fun ReedLogbook.isFreeForSession(start: Instant, end: Instant, now: Instant): Boolean =
+    start < end && end <= now && sessions.none { start < (it.end ?: now) && it.start < end }
+
+/**
+ * A session played earlier and entered by hand, on [reedId], from [start] to [end].
+ *
+ * On any reed in the logbook, one put aside too - it was played back then. Refused unless the time
+ * is free (see [isFreeForSession]). The selection is left alone: entering the past chooses nothing
+ * for the next session.
+ */
+fun ReedLogbook.plusSession(id: String, reedId: String, start: Instant, end: Instant, now: Instant): ReedLogbook {
+    if (reedOf(reedId) == null || sessions.any { it.id == id }) return this
+    if (!isFreeForSession(start, end, now)) return this
+    return copy(sessions = sessions + ReedSession(id = id, reedId = reedId, start = start, end = end))
+}
+
 /** Deletes one session for good. */
 fun ReedLogbook.minusSession(id: String): ReedLogbook = copy(sessions = sessions.filterNot { it.id == id })

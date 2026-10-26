@@ -36,6 +36,9 @@ class ReedLogbookViewModel(
 
     fun stop() = sessions.stop()
 
+    /** Enters a session played earlier, by hand. */
+    fun addSession(reedId: String, start: Instant, end: Instant) = sessions.add(reedId, start, end)
+
     /** Puts a reed aside or takes it back; [number] is what it returns under, when it was asked. */
     fun setStatus(reedId: String, status: ReedStatus, number: Int? = null) =
         update { it.withStatus(reedId, status, now(), number) }

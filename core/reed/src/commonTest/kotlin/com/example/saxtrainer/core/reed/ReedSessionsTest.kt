@@ -3,6 +3,7 @@ package com.example.saxtrainer.core.reed
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
@@ -66,5 +67,24 @@ class ReedSessionsTest {
 
         sessionsOver(reopened).stop()
         assertEquals(60.minutes, reopen().logbook.value.sessions.single().durationAt(t0 + 999.minutes))
+    }
+
+    @Test
+    fun `add enters a session played earlier under a new id`() {
+        val repository = InMemoryReedLogbookRepository(twoReeds)
+        now = t0 + 2.hours
+
+        sessionsOver(repository).add("b", t0, t0 + 45.minutes)
+
+        assertEquals(ReedSession("s0", "b", t0, t0 + 45.minutes), repository.logbook.value.sessions.single())
+    }
+
+    @Test
+    fun `add of a session not yet over changes nothing`() {
+        val repository = InMemoryReedLogbookRepository(twoReeds)
+
+        sessionsOver(repository).add("b", t0, t0 + 45.minutes)
+
+        assertEquals(twoReeds, repository.logbook.value)
     }
 }

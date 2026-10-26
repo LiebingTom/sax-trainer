@@ -55,4 +55,16 @@ class ReedTextTest {
         assertEquals(null, ReedText.parsePrice("cheap"))
         assertEquals("€4.50", ReedText.priceOf(450))
     }
+
+    @Test
+    fun `a length is read in whole minutes, from one to twelve hours`() {
+        assertEquals(45, ReedText.parseMinutes("45"))
+        assertEquals(30, ReedText.parseMinutes(" 30 "))
+        assertEquals(720, ReedText.parseMinutes("720"))
+        assertEquals(null, ReedText.parseMinutes("0"))
+        assertEquals(null, ReedText.parseMinutes("721"))
+        assertEquals(null, ReedText.parseMinutes(""))
+        assertEquals(null, ReedText.parseMinutes("abc"))
+        assertEquals(null, ReedText.parseMinutes("4.5"))
+    }
 }

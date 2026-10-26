@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
@@ -188,5 +189,61 @@ class ReedLogbookTest {
         val logbook = threeReeds.withStatus("a", ReedStatus.INACTIVE, t0 + 5.minutes)
 
         assertEquals(listOf("c", "b", "a"), logbook.reedsNewestFirst.map { it.id })
+    }
+
+    @Test
+    fun `a session played earlier can be entered by hand`() {
+        val now = t0 + 3.hours
+        val logbook = threeReeds.selected("c").plusSession("m1", "a", t0, t0 + 30.minutes, now)
+
+        assertEquals(ReedSession("m1", "a", t0, t0 + 30.minutes), logbook.sessions.single())
+        assertEquals(30.minutes, logbook.playedTime("a", now))
+        assertEquals("c", logbook.selectedReedId, "entering the past chooses nothing")
+    }
+
+    @Test
+    fun `a session entered by hand may be on a reed put aside`() {
+        val now = t0 + 3.hours
+        val aside = threeReeds.withStatus("a", ReedStatus.INACTIVE, t0)
+
+        assertEquals(1, aside.plusSession("m1", "a", t0, t0 + 30.minutes, now).sessions.size)
+    }
+
+    @Test
+    fun `a session entered by hand is refused where it shares time with another`() {
+        val now = t0 + 3.hours
+        val played = threeReeds.started("s1", "b", t0).stopped(t0 + 30.minutes)
+
+        assertSame(played, played.plusSession("m1", "a", t0 + 20.minutes, t0 + 40.minutes, now))
+        assertSame(played, played.plusSession("m1", "a", t0 - 10.minutes, t0 + 50.minutes, now))
+        assertEquals(2, played.plusSession("m1", "a", t0 + 30.minutes, t0 + 40.minutes, now).sessions.size, "touching is fine")
+    }
+
+    @Test
+    fun `a session entered by hand is refused where it shares time with the one running`() {
+        val now = t0 + 3.hours
+        val running = threeReeds.started("s1", "b", t0 + 2.hours)
+
+        assertSame(running, running.plusSession("m1", "a", t0 + 2.hours + 10.minutes, t0 + 2.hours + 20.minutes, now))
+        assertEquals(2, running.plusSession("m1", "a", t0, t0 + 30.minutes, now).sessions.size)
+    }
+
+    @Test
+    fun `a session entered by hand must have a length, be over by now and be on a known reed`() {
+        val now = t0 + 1.hours
+
+        assertSame(threeReeds, threeReeds.plusSession("m1", "a", t0, t0, now))
+        assertSame(threeReeds, threeReeds.plusSession("m1", "a", t0 + 30.minutes, t0, now))
+        assertSame(threeReeds, threeReeds.plusSession("m1", "a", t0 + 50.minutes, t0 + 70.minutes, now))
+        assertSame(threeReeds, threeReeds.plusSession("m1", "nope", t0, t0 + 30.minutes, now))
+        assertEquals(1, threeReeds.plusSession("m1", "a", t0 + 30.minutes, now, now).sessions.size, "ending now is fine")
+    }
+
+    @Test
+    fun `a session entered by hand needs an id of its own`() {
+        val now = t0 + 3.hours
+        val played = threeReeds.started("s1", "b", t0).stopped(t0 + 30.minutes)
+
+        assertSame(played, played.plusSession("s1", "a", t0 + 1.hours, t0 + 2.hours, now))
     }
 }

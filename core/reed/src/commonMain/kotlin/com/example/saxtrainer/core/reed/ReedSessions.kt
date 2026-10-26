@@ -34,6 +34,11 @@ class ReedSessions(
         update { it.stopped(now()) }
     }
 
+    /** Enters a session played earlier on [reedId], from [start] to [end]; see [plusSession]. */
+    fun add(reedId: String, start: Instant, end: Instant) {
+        update { it.plusSession(newId(), reedId, start, end, now()) }
+    }
+
     private inline fun update(change: (ReedLogbook) -> ReedLogbook) {
         val before = repository.logbook.value
         val after = change(before)

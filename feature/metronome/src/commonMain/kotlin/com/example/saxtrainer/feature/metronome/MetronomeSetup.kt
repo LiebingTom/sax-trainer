@@ -18,8 +18,9 @@ val metronomeTimeSignatures: List<TimeSignature> = listOf(
  * One exercise setup for the tempo, the time signature, the first-beat accent and the two half-beat
  * preferences, because it is kept the same way as every other tool's setup rather than as an app
  * setting: it is what this tool was last set to, not something any other tool obeys. The tempo is
- * remembered by the practice screen at Start, the rest by the settings screen as they are chosen;
- * whichever one writes writes all five, so none of them overwrites what the others chose.
+ * remembered by the practice screen at Start, the time signature also as it is switched there, the
+ * rest by the settings screen as they are chosen; whichever one writes writes all five, so none of
+ * them overwrites what the others chose.
  */
 internal fun metronomeSetup(
     bpm: Int,

@@ -25,6 +25,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -35,6 +37,7 @@ import com.example.saxtrainer.core.designsystem.theme.Dimens
 import com.example.saxtrainer.core.designsystem.theme.SaxTrainerTheme
 import com.example.saxtrainer.core.designsystem.theme.numericLarge
 import com.example.saxtrainer.core.audio.metronome.MetronomeError
+import com.example.saxtrainer.core.music.TimeSignature
 
 /** Stateless metronome UI: it renders [state] and reports intent, it never keeps time itself. */
 @Composable
@@ -46,6 +49,7 @@ fun MetronomeScreen(
     onTap: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onSelectTimeSignature: (TimeSignature) -> Unit = {},
 ) {
     ScreenScaffold(
         title = "Metronome",
@@ -89,6 +93,25 @@ fun MetronomeScreen(
             visualizeHalfBeats = state.visualizeHalfBeats,
         )
         Spacer(Modifier.height(Dimens.spaceLg))
+
+        // The same choice as the settings screen's, here too so the bar can change mid-practice.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+        ) {
+            metronomeTimeSignatures.forEach { timeSignature ->
+                val select = { onSelectTimeSignature(timeSignature) }
+                val buttonModifier = Modifier
+                    .weight(1f)
+                    .semantics { selected = timeSignature.beatsPerBar == state.beatsPerBar }
+                if (timeSignature.beatsPerBar == state.beatsPerBar) {
+                    PrimaryButton(timeSignature.toString(), select, buttonModifier)
+                } else {
+                    SecondaryButton(timeSignature.toString(), select, buttonModifier)
+                }
+            }
+        }
+        Spacer(Modifier.height(Dimens.spaceMd))
 
         Slider(
             value = state.bpm.toFloat(),

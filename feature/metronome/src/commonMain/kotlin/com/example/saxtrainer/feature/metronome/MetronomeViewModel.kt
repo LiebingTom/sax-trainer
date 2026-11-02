@@ -118,6 +118,26 @@ class MetronomeViewModel(
         tapTempo.tap(nanoTime())?.let(engine::setBpm)
     }
 
+    /**
+     * Switches the bar length mid-practice, and remembers it as the settings screen would, so the
+     * settings screen shows it and the metronome opens on it next time. The tempo stays what was
+     * last remembered - that is still Start's to write.
+     */
+    fun setTimeSignature(timeSignature: TimeSignature) {
+        engine.setTimeSignature(timeSignature)
+        val setup = exerciseSetups.setupOf(Exercise.METRONOME)
+        exerciseSetups.remember(
+            Exercise.METRONOME,
+            metronomeSetup(
+                bpm = setup.rememberedBpm(engine.state.value.bpm),
+                timeSignature = timeSignature,
+                accentFirstBeat = setup.rememberedAccentFirstBeat(),
+                visualizeHalfBeats = setup.rememberedVisualizeHalfBeats(),
+                halfBeatSound = setup.rememberedHalfBeatSound(),
+            ),
+        )
+    }
+
     override fun onCleared() {
         // Stopped and let go of before it is released, so nothing outside this screen is left
         // showing - or able to start - a click that is going away.

@@ -54,6 +54,7 @@ fun MetronomeRoute(
         onBpmChange = viewModel::setBpm,
         onNudgeBpm = viewModel::nudgeBpm,
         onTap = viewModel::tap,
+        onSelectTimeSignature = viewModel::setTimeSignature,
         // Leaving the metronome stops it at once, not when the screen has finished going.
         onBack = {
             viewModel.pause()

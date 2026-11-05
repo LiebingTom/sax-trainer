@@ -94,25 +94,6 @@ fun MetronomeScreen(
         )
         Spacer(Modifier.height(Dimens.spaceLg))
 
-        // The same choice as the settings screen's, here too so the bar can change mid-practice.
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
-        ) {
-            metronomeTimeSignatures.forEach { timeSignature ->
-                val select = { onSelectTimeSignature(timeSignature) }
-                val buttonModifier = Modifier
-                    .weight(1f)
-                    .semantics { selected = timeSignature.beatsPerBar == state.beatsPerBar }
-                if (timeSignature.beatsPerBar == state.beatsPerBar) {
-                    PrimaryButton(timeSignature.toString(), select, buttonModifier)
-                } else {
-                    SecondaryButton(timeSignature.toString(), select, buttonModifier)
-                }
-            }
-        }
-        Spacer(Modifier.height(Dimens.spaceMd))
-
         Slider(
             value = state.bpm.toFloat(),
             onValueChange = { onBpmChange(it.toInt()) },
@@ -146,6 +127,25 @@ fun MetronomeScreen(
                 onClick = { onNudgeBpm(1) },
                 modifier = Modifier.weight(1f),
             )
+        }
+        Spacer(Modifier.height(Dimens.spaceMd))
+
+        // The same choice as the settings screen's, here too so the bar can change mid-practice.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spaceSm),
+        ) {
+            metronomeTimeSignatures.forEach { timeSignature ->
+                val select = { onSelectTimeSignature(timeSignature) }
+                val buttonModifier = Modifier
+                    .weight(1f)
+                    .semantics { selected = timeSignature.beatsPerBar == state.beatsPerBar }
+                if (timeSignature.beatsPerBar == state.beatsPerBar) {
+                    PrimaryButton(timeSignature.toString(), select, buttonModifier)
+                } else {
+                    SecondaryButton(timeSignature.toString(), select, buttonModifier)
+                }
+            }
         }
 
         Spacer(Modifier.height(Dimens.spaceLg))
